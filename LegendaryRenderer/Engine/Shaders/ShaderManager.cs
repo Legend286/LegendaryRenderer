@@ -20,8 +20,8 @@ public static class ShaderManager
     {
         foreach (ShaderFile shader in LoadedShaders)
         {
-            LoadedShaders.Remove(shader);
             shader.Dispose();
+            LoadedShaders.Remove(shader);
         }
     }
 }

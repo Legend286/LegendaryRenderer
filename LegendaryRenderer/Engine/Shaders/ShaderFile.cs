@@ -1,3 +1,4 @@
+using System.Net;
 using OpenTK.Graphics.OpenGL;
 
 namespace LegendaryRenderer.Engine.Shaders;
@@ -37,7 +38,7 @@ public class ShaderFile : IDisposable
                 fragment = fragment + ".frag";
             }
         }
-        
+
         if (File.Exists(vertex) && File.Exists(fragment))
         {
             string VertexShaderSource = File.ReadAllText(vertex);
@@ -53,10 +54,12 @@ public class ShaderFile : IDisposable
             {
                 if (LinkShaders())
                 {
-                    Console.WriteLine($"Loaded and compiled vertex shader '{vertex}' and fragment shader '{fragment}' successfully.");
+                    Console.WriteLine(
+                        $"Loaded and compiled vertex shader '{vertex}' and fragment shader '{fragment}' successfully.");
                     IsCompiled = true;
                 }
             }
+
         }
         else
         {
@@ -99,6 +102,7 @@ public class ShaderFile : IDisposable
     }
     private bool CompileShader(int shader)
     {
+        Console.WriteLine($"{shader} was loaded");
         GL.CompileShader(shader);
         GL.GetShader(shader, ShaderParameter.CompileStatus, out int success);
         GL.GetShaderInfoLog(shader, out string info);
