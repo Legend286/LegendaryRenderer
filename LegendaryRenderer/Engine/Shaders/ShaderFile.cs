@@ -52,7 +52,12 @@ public class ShaderFile : IDisposable
 
             if (CompileShader(VertexShader) && CompileShader(FragmentShader))
             {
-                if (LinkShaders())
+                ShaderHandle = GL.CreateProgram();
+
+                // Attach both shaders...
+                GL.AttachShader(ShaderHandle, VertexShader);
+                GL.AttachShader(ShaderHandle, FragmentShader);
+                if (LinkProgram(ShaderHandle))
                 {
                     Console.WriteLine(
                         $"Loaded and compiled vertex shader '{vertex}' and fragment shader '{fragment}' successfully.");
@@ -68,56 +73,41 @@ public class ShaderFile : IDisposable
 
     }
 
-    private bool LinkShaders()
+    private static bool LinkProgram(int program)
     {
-        ShaderHandle = GL.CreateProgram();
+        // We link the program
+        GL.LinkProgram(program);
 
-        GL.AttachShader(ShaderHandle, VertexShader);
-        GL.AttachShader(ShaderHandle, FragmentShader);
-
-        GL.LinkProgram(ShaderHandle);
-
-        GL.GetProgram(ShaderHandle, ProgramParameter.LinkStatus, out int success);
-
-        if (success == 0)
+        // Check for linking errors
+        GL.GetProgram(program, GetProgramParameterName.LinkStatus, out var code);
+        if (code != (int)All.True)
         {
-            GL.GetProgramInfoLog(ShaderHandle, out string info);
-            Console.WriteLine(info);
-
-            
-            GL.DetachShader(ShaderHandle, VertexShader);
-            GL.DetachShader(ShaderHandle, FragmentShader);
-
-            GL.DeleteShader(VertexShader);
-            GL.DeleteShader(FragmentShader);
-            
-            return true;
-        }
-        else
-        {
-            GL.GetProgramInfoLog(ShaderHandle, out string info);
-            Console.WriteLine($"Program had errors! See log \n {info}");
+            // We can use `GL.GetProgramInfoLog(program)` to get information about the error.
+            throw new Exception($"Error occurred whilst linking Program({program})");
             return false;
         }
+
+        return true;
     }
-    private bool CompileShader(int shader)
+    
+    private static bool CompileShader(int shader)
     {
-        Console.WriteLine($"{shader} was loaded");
+        // Try to compile the shader
         GL.CompileShader(shader);
-        GL.GetShader(shader, ShaderParameter.CompileStatus, out int success);
-        GL.GetShaderInfoLog(shader, out string info);
 
-        if (success == 0)
+        // Check for compilation errors
+        GL.GetShader(shader, ShaderParameter.CompileStatus, out var code);
+        if (code != (int)All.True)
         {
-            Console.WriteLine(info);
-            return true;
+            // We can use `GL.GetShaderInfoLog(shader)` to get information about the error.
+            var infoLog = GL.GetShaderInfoLog(shader);
+            throw new Exception($"Error occurred whilst compiling Shader({shader}).\n\n{infoLog}");
+            return false;
         }
-        
-        Console.WriteLine($"Shader had errors! See log: \n {info}");
-        return false;
-        
-    }
 
+        return true;
+    }
+    
     public void UseShader()
     {
         GL.UseProgram(ShaderHandle);
