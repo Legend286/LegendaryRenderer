@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using LegendaryRenderer.Engine.Geometry;
 using LegendaryRenderer.Engine.Shaders;
 using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
@@ -15,16 +16,16 @@ public class ApplicationWindow : GameWindow
         
     }
 
+    private Mesh mesh;
     protected override void OnLoad()
     {
         base.OnLoad();
         
         GL.ClearColor(Color4.Aqua);
-        var loaded = ShaderManager.LoadShader("Engine/Shaders/glsl/basepass", out ShaderFile shaderLoaded);
-        if (!(loaded == ShaderManager.ShaderLoadStatus.SUCCESS || loaded == ShaderManager.ShaderLoadStatus.LOADED_FROM_CACHE))
-        {
-            Console.WriteLine("Couldn't Load Shader, check compile capabilities of this machine.");
-        }
+        PrintDebugLogInfo();
+        
+        mesh = Mesh.Triangle();
+        
     }
 
     protected override void OnUnload()
@@ -46,7 +47,7 @@ public class ApplicationWindow : GameWindow
         base.OnRenderFrame(args);
 
         GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit | ClearBufferMask.StencilBufferBit);
-        
+        mesh.Draw();
         SwapBuffers();
     }
 
@@ -60,5 +61,14 @@ public class ApplicationWindow : GameWindow
         }
         
         Title = $"Legendary Renderer - {(1/args.Time).ToString("0.00")} fps";
+    }
+
+    private void PrintDebugLogInfo()
+    {
+        
+        int nrAttributes = 0;
+        GL.GetInteger(GetPName.MaxVertexAttribs, out nrAttributes);
+        Console.WriteLine("Maximum number of vertex attributes supported: " + nrAttributes);
+        
     }
 }

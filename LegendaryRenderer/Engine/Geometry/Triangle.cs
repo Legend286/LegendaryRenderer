@@ -2,7 +2,7 @@ using OpenTK.Mathematics;
 
 namespace LegendaryRenderer.Engine.Geometry;
 
-public class Triangle
+public struct Triangle
 {
     private Vertex[] vertices;
 

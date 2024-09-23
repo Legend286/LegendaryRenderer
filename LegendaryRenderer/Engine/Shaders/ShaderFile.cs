@@ -34,7 +34,9 @@ public class ShaderFile : IDisposable
             + "{\n"
             + "    FragColor = vec4(1.0f, 0.0f, 1.0f, 1.0f);\n"
             + "}\n";
-        
+
+        vertex = "Engine/Shaders/glsl/" + vertex;
+        fragment = "Engine/Shaders/glsl/" + fragment;
         
         if (!vertex.Contains(".vert"))
         {
@@ -155,6 +157,11 @@ public class ShaderFile : IDisposable
     public void UseShader()
     {
         GL.UseProgram(ShaderHandle);
+    }
+
+    public uint GetAttributeLocation(string attributeName)
+    {
+        return (uint)GL.GetAttribLocation(ShaderHandle, attributeName);
     }
 
     public ShaderFile(string path): this(path, path, out ShaderManager.ShaderLoadStatus compileStatus)
