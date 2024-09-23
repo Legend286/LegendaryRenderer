@@ -13,8 +13,29 @@ public class ShaderFile : IDisposable
     /*
      * Specify the shader path either with .vert/.frag extension or without. 
      */
-    public ShaderFile(string vertex, string fragment)
+    public ShaderFile(string vertex, string fragment, out ShaderManager.ShaderLoadStatus compileStatus,
+        bool ErrorShader = false)
     {
+        string VertexShaderSource =
+            "#version 330 core\n"
+            + "layout (location = 0) in vec3 aPosition;\n\n"
+
+            + "void main()\n"
+            + "{\n"
+            + "    gl_Position = vec4(aPosition, 1.0f);\n"
+            + "}\n";
+
+        // error fragment
+        string FragmentShaderSource =
+            "#version 330 core\n" +
+            "out vec4 FragColor;\n\n" +
+
+            "void main()\n"
+            + "{\n"
+            + "    FragColor = vec4(1.0f, 0.0f, 1.0f, 1.0f);\n"
+            + "}\n";
+        
+        
         if (!vertex.Contains(".vert"))
         {
             if (vertex.Contains('.'))
@@ -39,38 +60,56 @@ public class ShaderFile : IDisposable
             }
         }
 
-        if (File.Exists(vertex) && File.Exists(fragment))
+        
+
+
+        if (File.Exists(vertex) && File.Exists(fragment) && !ErrorShader)
         {
-            string VertexShaderSource = File.ReadAllText(vertex);
-            string FragmentShaderSource = File.ReadAllText(fragment);
-
-            VertexShader = GL.CreateShader(ShaderType.VertexShader);
-            GL.ShaderSource(VertexShader, VertexShaderSource);
-
-            FragmentShader = GL.CreateShader(ShaderType.FragmentShader);
-            GL.ShaderSource(FragmentShader, FragmentShaderSource);
-
-            if (CompileShader(VertexShader) && CompileShader(FragmentShader))
-            {
-                ShaderHandle = GL.CreateProgram();
-
-                // Attach both shaders...
-                GL.AttachShader(ShaderHandle, VertexShader);
-                GL.AttachShader(ShaderHandle, FragmentShader);
-                if (LinkProgram(ShaderHandle))
-                {
-                    Console.WriteLine(
-                        $"Loaded and compiled vertex shader '{vertex}' and fragment shader '{fragment}' successfully.");
-                    IsCompiled = true;
-                }
-            }
-
+            VertexShaderSource = File.ReadAllText(vertex);
+            FragmentShaderSource = File.ReadAllText(fragment);
         }
         else
         {
-            throw new ArgumentException("One or more shader files do not exist.");
+            Console.WriteLine($"Could not load {vertex} and {fragment} files from disk, are they valid? Defaulting to Error Shader.");
+            compileStatus = ShaderManager.ShaderLoadStatus.ERROR_LOADING_FROM_DISK;
+            vertex = "ErrorVertex";
+            fragment = "ErrorFragment";
         }
 
+        VertexShader = GL.CreateShader(ShaderType.VertexShader);
+        GL.ShaderSource(VertexShader, VertexShaderSource);
+
+        FragmentShader = GL.CreateShader(ShaderType.FragmentShader);
+        GL.ShaderSource(FragmentShader, FragmentShaderSource);
+
+        if (CompileShader(VertexShader) && CompileShader(FragmentShader))
+        {
+            ShaderHandle = GL.CreateProgram();
+
+            // Attach both shaders...
+            GL.AttachShader(ShaderHandle, VertexShader);
+            GL.AttachShader(ShaderHandle, FragmentShader);
+            if (LinkProgram(ShaderHandle))
+            {
+                Console.WriteLine(
+                    $"Loaded and compiled vertex shader '{vertex}' and fragment shader '{fragment}' successfully.");
+                IsCompiled = true;
+
+                GL.DetachShader(ShaderHandle, VertexShader);
+                GL.DetachShader(ShaderHandle, FragmentShader);
+                GL.DeleteShader(VertexShader);
+                GL.DeleteShader(FragmentShader);
+                compileStatus = ShaderManager.ShaderLoadStatus.SUCCESS;
+            }
+            else
+            {
+                compileStatus = ShaderManager.ShaderLoadStatus.LINK_ERROR;
+            }
+        }
+        else
+        {
+            compileStatus = ShaderManager.ShaderLoadStatus.COMPILE_ERROR;
+        }
     }
 
     private static bool LinkProgram(int program)
@@ -79,7 +118,7 @@ public class ShaderFile : IDisposable
         GL.LinkProgram(program);
 
         // Check for linking errors
-        GL.GetProgram(program, GetProgramParameterName.LinkStatus, out var code);
+        GL.GetProgrami(program, ProgramProperty.LinkStatus, out var code);
         if (code != (int)All.True)
         {
             // We can use `GL.GetProgramInfoLog(program)` to get information about the error.
@@ -96,16 +135,21 @@ public class ShaderFile : IDisposable
         GL.CompileShader(shader);
 
         // Check for compilation errors
-        GL.GetShader(shader, ShaderParameter.CompileStatus, out var code);
+        GL.GetShaderi(shader, ShaderParameterName.CompileStatus, out var code);
         if (code != (int)All.True)
         {
             // We can use `GL.GetShaderInfoLog(shader)` to get information about the error.
-            var infoLog = GL.GetShaderInfoLog(shader);
+            GL.GetShaderInfoLog(shader, out string infoLog);
             throw new Exception($"Error occurred whilst compiling Shader({shader}).\n\n{infoLog}");
             return false;
         }
 
         return true;
+    }
+
+    public static ShaderFile GetErrorShader()
+    {
+        return new ShaderFile("", "", out ShaderManager.ShaderLoadStatus compileStatus,true);
     }
     
     public void UseShader()
@@ -113,7 +157,7 @@ public class ShaderFile : IDisposable
         GL.UseProgram(ShaderHandle);
     }
 
-    public ShaderFile(string path): this(path, path)
+    public ShaderFile(string path): this(path, path, out ShaderManager.ShaderLoadStatus compileStatus)
     {
         
     }

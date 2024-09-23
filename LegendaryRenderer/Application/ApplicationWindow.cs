@@ -20,9 +20,10 @@ public class ApplicationWindow : GameWindow
         base.OnLoad();
         
         GL.ClearColor(Color4.Aqua);
-        if (!ShaderManager.LoadShader("Engine/Shaders/glsl/basepass"))
+        var loaded = ShaderManager.LoadShader("Engine/Shaders/glsl/basepass", out ShaderFile shaderLoaded);
+        if (!(loaded == ShaderManager.ShaderLoadStatus.SUCCESS || loaded == ShaderManager.ShaderLoadStatus.LOADED_FROM_CACHE))
         {
-            Console.WriteLine("couldn't load shader...");
+            Console.WriteLine("Couldn't Load Shader, check compile capabilities of this machine.");
         }
     }
 

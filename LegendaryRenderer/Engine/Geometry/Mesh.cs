@@ -49,7 +49,7 @@ public class Mesh : IDisposable
             tris.Add(triangle.Second);
             tris.Add(triangle.Third);
         }
-        GL.BufferData(BufferTarget.ArrayBuffer, tris.Count * sizeof(float), tris.ToArray(), BufferUsageHint.StaticDraw);
+        GL.BufferData(BufferTarget.ArrayBuffer, tris.Count * sizeof(float), tris.ToArray(), BufferUsage.StaticDraw);
 
         GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
         return VertexBufferObject;
