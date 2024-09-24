@@ -1,3 +1,4 @@
+using LegendaryRenderer.Engine.EngineTypes;
 using LegendaryRenderer.Engine.Shaders;
 using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
@@ -11,6 +12,9 @@ public class Mesh : IDisposable
     private int VertexBufferObject;
     private int VertexArrayObject;
     private int ElementBufferObject;
+
+    public Transform Transform;
+    public AABB Bounds;
     
     public Mesh(string fileName)
     {
