@@ -43,10 +43,6 @@ public static class ShaderManager
             loadedShader = ShaderFile.GetErrorShader();
             return ShaderLoadStatus.COMPILE_ERROR;
         }
-
-        loadedShader = ShaderFile.GetErrorShader();
-        Console.WriteLine($"Error loading shader '{file}' - defaulting to error shader.");
-        return ShaderLoadStatus.ERROR_LOADING_FROM_DISK;
     }
     public static void Dispose()
     {

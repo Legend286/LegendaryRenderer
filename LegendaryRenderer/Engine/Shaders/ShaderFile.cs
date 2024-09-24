@@ -22,7 +22,7 @@ public class ShaderFile : IDisposable
 
             + "void main()\n"
             + "{\n"
-            + "    gl_Position = vec4(aPosition, 1.0f);\n"
+            + "   gl_Position = vec4(aPosition, 1.0f) * model * view * projection;\n"
             + "}\n";
 
         // error fragment
@@ -35,8 +35,8 @@ public class ShaderFile : IDisposable
             + "    FragColor = vec4(1.0f, 0.0f, 1.0f, 1.0f);\n"
             + "}\n";
 
-        vertex = "Engine/Shaders/glsl/" + vertex;
-        fragment = "Engine/Shaders/glsl/" + fragment;
+        vertex = "LegendaryEngine/Engine/Shaders/glsl/" + vertex;
+        fragment = "LegendaryEngine/Engine/Shaders/glsl/" + fragment;
         
         if (!vertex.Contains(".vert"))
         {
@@ -142,7 +142,7 @@ public class ShaderFile : IDisposable
         {
             // We can use `GL.GetShaderInfoLog(shader)` to get information about the error.
             GL.GetShaderInfoLog(shader, out string infoLog);
-            throw new Exception($"Error occurred whilst compiling Shader({shader}).\n\n{infoLog}");
+            Console.WriteLine($"Error occurred whilst compiling Shader({shader}).\n\n{infoLog}");
             return false;
         }
 
@@ -159,9 +159,11 @@ public class ShaderFile : IDisposable
         GL.UseProgram(ShaderHandle);
     }
 
-    public uint GetAttributeLocation(string attributeName)
+    public int GetAttributeLocation(string attributeName)
     {
-        return (uint)GL.GetAttribLocation(ShaderHandle, attributeName);
+        int location = GL.GetAttribLocation(ShaderHandle, attributeName);
+        Console.WriteLine($"Attribute location {location}.");
+        return location;
     }
 
     public ShaderFile(string path): this(path, path, out ShaderManager.ShaderLoadStatus compileStatus)

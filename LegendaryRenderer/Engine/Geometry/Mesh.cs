@@ -1,3 +1,4 @@
+using LegendaryRenderer.Application;
 using LegendaryRenderer.Engine.EngineTypes;
 using LegendaryRenderer.Engine.Shaders;
 using OpenTK.Graphics.OpenGL;
@@ -74,11 +75,55 @@ public class Mesh : IDisposable
         GL.BindVertexArray(VertexArrayObject);
 
         
-        float[] vertices = {
+       /* float[] vertices = {
             0.5f,  0.5f, 0.0f,  // top right
             0.5f, -0.5f, 0.0f,  // bottom right
             -0.5f, -0.5f, 0.0f,  // bottom left
             -0.5f,  0.5f, 0.0f   // top left
+        };
+        */
+        float[] vertices = {
+            -0.5f, -0.5f, -0.5f,  
+            0.5f, -0.5f, -0.5f,  
+            0.5f,  0.5f, -0.5f,  
+            0.5f,  0.5f, -0.5f,  
+            -0.5f,  0.5f, -0.5f, 
+            -0.5f, -0.5f, -0.5f,  
+
+            -0.5f, -0.5f,  0.5f,  
+            0.5f, -0.5f,  0.5f, 
+            0.5f,  0.5f,  0.5f,  
+            0.5f,  0.5f,  0.5f,
+            -0.5f,  0.5f,  0.5f,  
+            -0.5f, -0.5f,  0.5f,  
+
+            -0.5f,  0.5f,  0.5f, 
+            -0.5f,  0.5f, -0.5f, 
+            -0.5f, -0.5f, -0.5f,  
+            -0.5f, -0.5f, -0.5f,  
+            -0.5f, -0.5f,  0.5f, 
+            -0.5f,  0.5f,  0.5f,  
+
+            0.5f,  0.5f,  0.5f,  
+            0.5f,  0.5f, -0.5f,  
+            0.5f, -0.5f, -0.5f,  
+            0.5f, -0.5f, -0.5f, 
+            0.5f, -0.5f,  0.5f,  
+            0.5f,  0.5f,  0.5f,  
+
+            -0.5f, -0.5f, -0.5f,  
+            0.5f, -0.5f, -0.5f,  
+            0.5f, -0.5f,  0.5f,  
+            0.5f, -0.5f,  0.5f,  
+            -0.5f, -0.5f,  0.5f,
+            -0.5f, -0.5f, -0.5f,
+
+            -0.5f,  0.5f, -0.5f,  
+            0.5f,  0.5f, -0.5f,  
+            0.5f,  0.5f,  0.5f, 
+            0.5f,  0.5f,  0.5f,  
+            -0.5f,  0.5f,  0.5f,  
+            -0.5f,  0.5f, -0.5f,  
         };
 
 
@@ -95,7 +140,7 @@ public class Mesh : IDisposable
         GL.BindBuffer(BufferTarget.ElementArrayBuffer, ElementBufferObject);
         GL.BufferData(BufferTarget.ElementArrayBuffer, indices.Length * sizeof(uint), indices, BufferUsage.StaticDraw);
         
-        GL.VertexAttribPointer(shader.GetAttributeLocation("aPosition"), 3, VertexAttribPointerType.Float, false, 3 * sizeof(float), 0);
+        GL.VertexAttribPointer((uint)shader.GetAttributeLocation("aPosition"), 3, VertexAttribPointerType.Float, false, 3 * sizeof(float), 0);
         GL.EnableVertexAttribArray(0);
     }
 
@@ -107,8 +152,19 @@ public class Mesh : IDisposable
     public void Draw()
     {
         shader.UseShader();
+        
+        Matrix4 modelMatrix = this.Transform.GetWorldMatrix();
+        Matrix4 viewMatrix = Matrix4.LookAt(Vector3.One * 4, Vector3.Zero, Vector3.UnitY);
+        Matrix4.CreatePerspectiveFieldOfView(MathHelper.DegreesToRadians(90f), ((float)Application.Application.Width / (float)Application.Application.Height), 0.01f, 10.0f, out Matrix4 projectionMatrix);
+
+        GL.UniformMatrix4f(shader.GetAttributeLocation("model"), 1, false, modelMatrix);
+        GL.UniformMatrix4f(shader.GetAttributeLocation("view"), 1, false, viewMatrix);
+        GL.UniformMatrix4f(shader.GetAttributeLocation("projection"), 1, false, projectionMatrix);
+        
         BindBuffer();
-        GL.DrawElements(PrimitiveType.Triangles, 6, DrawElementsType.UnsignedInt, 0);
+
+      
+        GL.DrawArrays(PrimitiveType.Triangles, 0, 36);
     }
 
     public void Dispose()

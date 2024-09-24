@@ -3,24 +3,28 @@ using OpenTK.Windowing.Desktop;
 
 namespace LegendaryRenderer.Application;
 
-public class Application
+public static class Application
 {
-    private ApplicationWindow windowInstance;
+    private static ApplicationWindow windowInstance;
+    public static int Width;
+    public static int Height;
 
-    public Application(int width, int height, string title, int maxFPS = 120)
+    public static void Initialize(int width, int height, string title, int maxFPS = 120)
     {
+        Width = width;
+        Height = height;
         if (windowInstance == null)
         {
             windowInstance = CreateWindow(width, height, title, maxFPS);
         }
     }
 
-    public void Run()
+    public static void Run()
     {
         windowInstance.Run();
     }
 
-    private ApplicationWindow CreateWindow(int width, int height, string title, int maxFPS = 120)
+    private static ApplicationWindow CreateWindow(int width, int height, string title, int maxFPS = 120)
     {
         var gameSettings = GameWindowSettings.Default;
         gameSettings.UpdateFrequency = maxFPS;

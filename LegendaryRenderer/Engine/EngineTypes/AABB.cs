@@ -52,5 +52,25 @@ public struct AABB
         Min -= new Vector3(amount, amount, amount);
         Max += new Vector3(amount, amount, amount);
     }
+
+    public bool HasVolume()
+    {
+        return HasDepth() || HasWidth() || HasHeight();
+    }
+
+    public bool HasDepth()
+    {
+        return Extents.X > Single.Epsilon;
+    }
+
+    public bool HasWidth()
+    {
+        return Extents.Y > Single.Epsilon;
+    }
+
+    public bool HasHeight()
+    {
+        return Extents.Z > Single.Epsilon;
+    }
 }
 

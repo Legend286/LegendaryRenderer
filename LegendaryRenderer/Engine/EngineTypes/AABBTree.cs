@@ -11,7 +11,7 @@ public class AABBTree
     
     public AABBTree(List<AABBNode> nodes)
     {
-        Root = new AABBNode();
+        Root = new AABBNode(-1);
         
         foreach (var node in nodes)
         {
@@ -30,16 +30,16 @@ public class AABBTree
         int splitAxis = size.X > MathF.Max(size.Y, size.Z) ? 0 : size.Y > size.Z ? 1 : 2;
         float splitPos = parent.Bounds.Centre[splitAxis];
         
-        parent.ChildA = new AABBNode();
-        parent.ChildB = new AABBNode();
+        parent.ChildA = new AABBNode(splitAxis);
+        parent.ChildB = new AABBNode(splitAxis);
 
         foreach (Mesh mesh in parent.Meshes)
         {
             bool inA = mesh.Bounds.Centre[splitAxis] < splitPos;
 
             AABBNode child = inA ? parent.ChildA : parent.ChildB;
-           
-            child.Meshes.Add(mesh);
+
+            child.AddMesh(mesh);
             child.Bounds.Encapsulate(mesh.Bounds);
         }
 
