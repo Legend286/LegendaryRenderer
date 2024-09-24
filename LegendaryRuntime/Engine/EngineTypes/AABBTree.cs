@@ -1,8 +1,7 @@
-using LegendaryRenderer.Engine.EngineTypes;
-using LegendaryRenderer.Engine.Geometry;
+using LegendaryRenderer.Geometry;
 using OpenTK.Mathematics;
 
-namespace LegendaryRenderer.LegendaryRenderer.Engine.EngineTypes;
+namespace LegendaryRenderer.EngineTypes;
 
 public class AABBTree
 {

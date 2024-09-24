@@ -1,13 +1,22 @@
 using OpenTK.Graphics.Vulkan;
 using OpenTK.Mathematics;
 
-namespace LegendaryRenderer.Engine.Geometry;
+namespace LegendaryRenderer.Geometry;
 
 public struct Transform
 {
     public Transform()
     {
         Position = Vector3.Zero;
+        Rotation = Quaternion.Identity;
+        Scale = Vector3.One;
+        
+        UpdateTransformMatrix();
+    }
+
+    public Transform(Vector3 position)
+    {
+        Position = position;
         Rotation = Quaternion.Identity;
         Scale = Vector3.One;
         
@@ -31,49 +40,39 @@ public struct Transform
         
         UpdateTransformMatrix();
     }
+
+    public void SetPosition(Vector3 position)
+    {
+        Position = position;
+        UpdateTransformMatrix();
+    }
     
     public void SetRotationFromEulerAngles(Vector3 rotation)
     {
         Rotation = Quaternion.FromEulerAngles(rotation.X, rotation.Y, rotation.Z);
+        UpdateTransformMatrix();
+    }
+
+    public void SetScale(Vector3 scale)
+    {
+        Scale = scale;
+        UpdateTransformMatrix();
     }
     
     
     private Matrix4 ObjectToWorld;
     private Matrix4 PreviousObjectToWorld;
-    
-    public Vector3 Position
-    {
-        get => Position;
-        set
-        {
-            Position = value;
-            UpdateTransformMatrix();
-        }
-    }
-    private Quaternion Rotation
-    {
-        get => Rotation;
-        set
-        {
-            Rotation = value;
-            UpdateTransformMatrix();
-        }
-    }
-    public Vector3 Scale
-    {
-        get => Scale;
-        set
-        {
-            Scale = value;
-            UpdateTransformMatrix();
-        }
-    }
 
-    private void UpdateTransformMatrix()
+    public Vector3 Position { get; private set; }
+    public Quaternion Rotation { get; private set; }
+    public Vector3 Scale { get; private set; }
+
+    public void UpdatePreviousMatrix()
     {
         PreviousObjectToWorld = ObjectToWorld;
-        
-        Matrix4 target = Matrix4.Identity;
+    }
+    private void UpdateTransformMatrix()
+    {
         Matrix4 translation = Matrix4.Identity;
         Matrix4 rotation = Matrix4.Identity;
         Matrix4 scale = Matrix4.Identity;
@@ -82,7 +81,7 @@ public struct Transform
         Matrix4.CreateFromQuaternion(Rotation, out rotation);
         Matrix4.CreateScale(Scale, out scale);
 
-        ObjectToWorld = translation * rotation * scale;
+        ObjectToWorld = scale * rotation * translation;
     }
 
     public Matrix4 GetWorldMatrix()

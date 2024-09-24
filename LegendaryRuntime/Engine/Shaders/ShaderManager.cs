@@ -1,6 +1,6 @@
 using System.Net;
 
-namespace LegendaryRenderer.Engine.Shaders;
+namespace LegendaryRenderer.Shaders;
 
 public static class ShaderManager
 {

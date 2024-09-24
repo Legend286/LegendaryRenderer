@@ -1,6 +1,6 @@
-using LegendaryRenderer.Engine.Geometry;
+using LegendaryRenderer.Geometry;
 
-namespace LegendaryRenderer.Engine.EngineTypes;
+namespace LegendaryRenderer.EngineTypes;
 
 public class AABBNode
 {

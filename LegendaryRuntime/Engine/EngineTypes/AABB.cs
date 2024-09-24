@@ -1,8 +1,8 @@
 using System.Runtime.CompilerServices;
 using OpenTK.Mathematics;
-using static LegendaryRenderer.Engine.Maths;
+using static LegendaryRenderer.Maths;
 
-namespace LegendaryRenderer.Engine.EngineTypes;
+namespace LegendaryRenderer.EngineTypes;
 
 public struct AABB
 {

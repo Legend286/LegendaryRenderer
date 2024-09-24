@@ -1,23 +1,24 @@
-using LegendaryRenderer.Application;
-using LegendaryRenderer.Engine.EngineTypes;
-using LegendaryRenderer.Engine.Shaders;
+using LegendaryRenderer.EngineTypes;
+using LegendaryRenderer.GameObjects;
+using LegendaryRenderer.Shaders;
 using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
 
-namespace LegendaryRenderer.Engine.Geometry;
+namespace LegendaryRenderer.Geometry;
 
-public class Mesh : IDisposable
+public class Mesh : GameObject
 {
     private ShaderFile shader;
     private List<Triangle> Triangles;
     private int VertexBufferObject;
     private int VertexArrayObject;
     private int ElementBufferObject;
-
-    public Transform Transform;
-    public AABB Bounds;
     
-    public Mesh(string fileName)
+    public AABB Bounds;
+
+    public Transform MeshTransform;
+    
+    public Mesh(string fileName) : base(Vector3.Zero)
     {
         Triangles = new List<Triangle>();
         
@@ -31,7 +32,18 @@ public class Mesh : IDisposable
         Initialize();
     }
 
-    public Mesh(List<Triangle> triangles)
+    private bool previousFrame = true;
+    public override void Update(float deltaTime)
+    {
+        if (previousFrame)
+        {
+            Transform.UpdatePreviousMatrix();
+        }
+        previousFrame = !previousFrame;
+      
+    }
+
+    public Mesh(List<Triangle> triangles) : base(Vector3.Zero)
     {
         Triangles = triangles;
         Initialize();
@@ -54,7 +66,6 @@ public class Mesh : IDisposable
             tris.Add(triangle.Second);
             tris.Add(triangle.Third);
         }
-
        
         var loaded = ShaderManager.LoadShader("basepass", out ShaderFile loadedShader);
 
@@ -74,8 +85,8 @@ public class Mesh : IDisposable
         
         GL.BindVertexArray(VertexArrayObject);
 
-        
-       /* float[] vertices = {
+        /*
+        float[] vertices = {
             0.5f,  0.5f, 0.0f,  // top right
             0.5f, -0.5f, 0.0f,  // bottom right
             -0.5f, -0.5f, 0.0f,  // bottom left
@@ -136,10 +147,10 @@ public class Mesh : IDisposable
 
         GL.BindBuffer(BufferTarget.ArrayBuffer, VertexBufferObject);
         GL.BufferData(BufferTarget.ArrayBuffer, vertices.Length * sizeof(float), vertices, BufferUsage.StaticDraw);
-
+/*
         GL.BindBuffer(BufferTarget.ElementArrayBuffer, ElementBufferObject);
         GL.BufferData(BufferTarget.ElementArrayBuffer, indices.Length * sizeof(uint), indices, BufferUsage.StaticDraw);
-        
+        */  
         GL.VertexAttribPointer((uint)shader.GetAttributeLocation("aPosition"), 3, VertexAttribPointerType.Float, false, 3 * sizeof(float), 0);
         GL.EnableVertexAttribArray(0);
     }
@@ -149,21 +160,25 @@ public class Mesh : IDisposable
         GL.BindVertexArray(VertexArrayObject);
     }
 
-    public void Draw()
+    public override void Render()
     {
         shader.UseShader();
         
-        Matrix4 modelMatrix = this.Transform.GetWorldMatrix();
-        Matrix4 viewMatrix = Matrix4.LookAt(Vector3.One * 4, Vector3.Zero, Vector3.UnitY);
-        Matrix4.CreatePerspectiveFieldOfView(MathHelper.DegreesToRadians(90f), ((float)Application.Application.Width / (float)Application.Application.Height), 0.01f, 10.0f, out Matrix4 projectionMatrix);
+        int model = shader.GetUniform("model");
+        int prevModel = shader.GetUniform("prevModel");
+        
+        int viewProjection = shader.GetUniform("viewProjection");
+        int prevViewProjection = shader.GetUniform("prevViewProjection");
 
-        GL.UniformMatrix4f(shader.GetAttributeLocation("model"), 1, false, modelMatrix);
-        GL.UniformMatrix4f(shader.GetAttributeLocation("view"), 1, false, viewMatrix);
-        GL.UniformMatrix4f(shader.GetAttributeLocation("projection"), 1, false, projectionMatrix);
+        //Console.WriteLine($"Model: {model}, ViewProjection: {viewProjection}");
+
+        GL.UniformMatrix4f(model, 1, true, Transform.GetWorldMatrix());
+        GL.UniformMatrix4f(viewProjection, 1, true, Application.Engine.ActiveCamera.viewProjectionMatrix);
+        GL.UniformMatrix4f(prevModel, 1, true, Transform.GetPreviousWorldMatrix());
+        GL.UniformMatrix4f(prevViewProjection, 1, true, Application.Engine.ActiveCamera.previousViewProjectionMatrix);
         
         BindBuffer();
-
-      
+        
         GL.DrawArrays(PrimitiveType.Triangles, 0, 36);
     }
 

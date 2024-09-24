@@ -1,6 +1,6 @@
 using OpenTK.Mathematics;
 
-namespace LegendaryRenderer.Engine.Geometry;
+namespace LegendaryRenderer.Geometry;
 
 public struct Vertex
 {

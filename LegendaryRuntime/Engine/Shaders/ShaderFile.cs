@@ -1,7 +1,7 @@
 using System.Net;
 using OpenTK.Graphics.OpenGL;
 
-namespace LegendaryRenderer.Engine.Shaders;
+namespace LegendaryRenderer.Shaders;
 
 public class ShaderFile : IDisposable
 {
@@ -20,9 +20,11 @@ public class ShaderFile : IDisposable
             "#version 330 core\n"
             + "layout (location = 0) in vec3 aPosition;\n\n"
 
+            + "uniform mat4 model;\n"
+            + "uniform mat4 viewProjection;\n"
             + "void main()\n"
             + "{\n"
-            + "   gl_Position = vec4(aPosition, 1.0f) * model * view * projection;\n"
+            + "   gl_Position = vec4(aPosition, 1.0f) * model * viewProjection;\n"
             + "}\n";
 
         // error fragment
@@ -35,8 +37,8 @@ public class ShaderFile : IDisposable
             + "    FragColor = vec4(1.0f, 0.0f, 1.0f, 1.0f);\n"
             + "}\n";
 
-        vertex = "LegendaryEngine/Engine/Shaders/glsl/" + vertex;
-        fragment = "LegendaryEngine/Engine/Shaders/glsl/" + fragment;
+        vertex = "LegendaryRuntime/Engine/Shaders/glsl/" + vertex;
+        fragment = "LegendaryRuntime/Engine/Shaders/glsl/" + fragment;
         
         if (!vertex.Contains(".vert"))
         {
@@ -190,6 +192,11 @@ public class ShaderFile : IDisposable
         }
     }
 
+    public int GetUniform(string name)
+    {
+        int location = GL.GetUniformLocation(ShaderHandle, name);
+        return location;
+    }
     public void Dispose()
     {
         Dispose(true);

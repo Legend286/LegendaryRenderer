@@ -1,6 +1,6 @@
 using System.Diagnostics;
-using LegendaryRenderer.Engine.Geometry;
-using LegendaryRenderer.Engine.Shaders;
+using LegendaryRenderer.Geometry;
+using LegendaryRenderer.Shaders;
 using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
@@ -24,8 +24,25 @@ public class ApplicationWindow : GameWindow
         GL.ClearColor(Color4.Aqua);
         PrintDebugLogInfo();
         
+        Camera camera = new Camera(Vector3.One, Vector3.Zero, 45.0f, (float)Application.Width / Application.Height);
         mesh = Mesh.Triangle();
+    //    mesh.Transform.SetPosition((0, 0, 0));
+
+
+        Mesh mesh2;
+
+        for (int x = -10; x < 10; x++)
+        {
+            for (int y = -10; y < 10; y++)
+            {
+                mesh2 = Mesh.Triangle();
+                mesh2.Transform.SetScale((0.2f,0.2f,0.2f));
+                mesh2.Transform.SetPosition(new Vector3(x,0.0f,y));
+            }
+        }
         
+       
+
     }
 
     protected override void OnUnload()
@@ -35,9 +52,9 @@ public class ApplicationWindow : GameWindow
         base.OnUnload();
     }
 
-    protected override void OnResize(ResizeEventArgs e)
+    protected override void OnFramebufferResize(FramebufferResizeEventArgs e)
     {
-        base.OnResize(e);
+        base.OnFramebufferResize(e);
 
         GL.Viewport(0, 0, e.Width, e.Height);
     }
@@ -47,20 +64,32 @@ public class ApplicationWindow : GameWindow
         base.OnRenderFrame(args);
 
         GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit | ClearBufferMask.StencilBufferBit);
-        mesh.Draw();
+
+        Engine.Render();
+        
         SwapBuffers();
+        
+        Title = $"Legendary Renderer - {(1/args.Time).ToString("0.00")} fps - Game Objects: {Engine.GameObjects.Count}";
     }
 
+    private float deltaAccum = 0;
     protected override void OnUpdateFrame(FrameEventArgs args)
     {
         base.OnUpdateFrame(args);
-
+        
+        deltaAccum += (float)args.Time;
+     
+        Engine.Update((float)args.Time);
+        
         if (KeyboardState.IsKeyDown(Keys.Escape))
         {
             Close();
         }
+        Console.WriteLine($"Previous Transform {mesh.Transform.GetPreviousWorldMatrix()} \nCurrent Transform {mesh.Transform.GetWorldMatrix()}");
+
+        mesh.Transform.SetPosition((0, MathF.Sin(deltaAccum*2) * 3, 0));
+        mesh.Transform.SetRotationFromEulerAngles((0.0f, deltaAccum * 8.0f, 0.0f));
         
-        Title = $"Legendary Renderer - {(1/args.Time).ToString("0.00")} fps";
     }
 
     private void PrintDebugLogInfo()

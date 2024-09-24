@@ -1,4 +1,4 @@
-using LegendaryRenderer.Engine.EngineTypes;
+using LegendaryRenderer.EngineTypes;
 using NUnit.Framework;
 using OpenTK.Mathematics;
 
