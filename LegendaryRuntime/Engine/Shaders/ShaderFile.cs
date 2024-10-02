@@ -164,7 +164,7 @@ public class ShaderFile : IDisposable
     public int GetAttributeLocation(string attributeName)
     {
         int location = GL.GetAttribLocation(ShaderHandle, attributeName);
-        Console.WriteLine($"Attribute location {location}.");
+       // Console.WriteLine($"Attribute location {location}.");
         return location;
     }
 

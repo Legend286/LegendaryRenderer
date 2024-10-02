@@ -1,6 +1,7 @@
 using LegendaryRenderer.EngineTypes;
 using LegendaryRenderer.GameObjects;
 using LegendaryRenderer.Shaders;
+using NUnit.Framework.Constraints;
 using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
 
@@ -14,13 +15,13 @@ public class Mesh : GameObject
     private int VertexArrayObject;
     private int ElementBufferObject;
     
-    public AABB Bounds;
+    public AABBNode Node;
 
     public Transform MeshTransform;
     
     public Mesh(string fileName) : base(Vector3.Zero)
     {
-        Triangles = new List<Triangle>();
+       Triangles = new List<Triangle>();
         
         // temporary mesh is just a triangle...
 
@@ -48,14 +49,7 @@ public class Mesh : GameObject
         Triangles = triangles;
         Initialize();
     }
-
-    public static Mesh Triangle()
-    {
-        List<Triangle> tris = new List<Triangle>();
-        tris.Add(Geometry.Triangle.Single());
-        return new Mesh(tris);
-    }
-
+    
     public int Initialize()
     {
         List<Vertex> tris = new List<Vertex>();
@@ -72,8 +66,13 @@ public class Mesh : GameObject
         shader = loadedShader;
         
         CreateBufferData(tris);
-
         
+        Node = new AABBNode();
+        Node.AddMesh(this);
+        Node.Bounds.Set(Node.Position - new Vector3(-0.5f, -0.5f, -0.5f), Node.Position + new Vector3(0.5f, 0.5f, 0.5f));
+        
+        Console.WriteLine($"Bounds {Node.Bounds.Min} {Node.Bounds.Max} Position: {Node.Position}");
+
         return VertexBufferObject;
     }
 
@@ -143,7 +142,6 @@ public class Mesh : GameObject
             0, 1, 3,
             1, 2, 3,
         };
-        
 
         GL.BindBuffer(BufferTarget.ArrayBuffer, VertexBufferObject);
         GL.BufferData(BufferTarget.ArrayBuffer, vertices.Length * sizeof(float), vertices, BufferUsage.StaticDraw);
@@ -173,7 +171,7 @@ public class Mesh : GameObject
         //Console.WriteLine($"Model: {model}, ViewProjection: {viewProjection}");
 
         GL.UniformMatrix4f(model, 1, true, Transform.GetWorldMatrix());
-        GL.UniformMatrix4f(viewProjection, 1, true, Application.Engine.ActiveCamera.viewProjectionMatrix);
+        GL.UniformMatrix4f(viewProjection, 1, true, Engine.ActiveCamera.viewProjectionMatrix);
         GL.UniformMatrix4f(prevModel, 1, true, Transform.GetPreviousWorldMatrix());
         GL.UniformMatrix4f(prevViewProjection, 1, true, Application.Engine.ActiveCamera.previousViewProjectionMatrix);
         

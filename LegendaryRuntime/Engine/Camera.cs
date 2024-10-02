@@ -15,13 +15,18 @@ public class Camera : GameObject
 
     public Camera(Vector3 position, Vector3 lookAt, float fieldOfView, float aspectRatio) : base(position)
     {
-        Target = lookAt;
         viewMatrix = Matrix4.Identity;
-        viewMatrix = Matrix4.LookAt(Transform.Position, lookAt, Vector3.UnitY);
+        viewMatrix = Matrix4.LookAt(position, lookAt, Vector3.UnitY);
+        
+        
+        Target = lookAt;
+
         projectionMatrix = Matrix4.Identity;
         Matrix4.CreatePerspectiveFieldOfView(MathHelper.DegreesToRadians(45.0f),
-            ((float)Application.Application.Width / (float)Application.Application.Height), 0.1f, 100.0f,
-            out Matrix4 projection);
+                                            ((float)Application.Application.Width / (float)Application.Application.Height),
+                                            0.1f, 100.0f, out Matrix4 projection);
+        
+        
         projectionMatrix = projection;
 
         viewProjectionMatrix = viewMatrix * projectionMatrix;
@@ -47,11 +52,8 @@ public class Camera : GameObject
         projectionMatrix = projection;
 
         viewProjectionMatrix = viewMatrix * projectionMatrix;
-
-  
+        
         deltaAccum += deltaTime;
-        
-        Transform.SetPosition(new Vector3(MathF.Sin(deltaAccum*8.0f) * 3.0f, 2.0f + MathF.Sin(deltaAccum*0.1f) * 1.8f, MathF.Cos(deltaAccum*8.0f) * 3.0f));
-        
+        Transform.SetPosition(new Vector3(MathF.Sin(deltaAccum*1.5f) * 6.0f, 4.0f + MathF.Sin(deltaAccum*0.5f) * 3.8f, MathF.Cos(deltaAccum*1.5f) * 6.0f));
     }
 }

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net;
 
 namespace LegendaryRenderer.Shaders;
@@ -7,6 +8,9 @@ public static class ShaderManager
    // private static List<ShaderFile> LoadedShaders = new List<ShaderFile>();
     private static Dictionary<string, ShaderFile> LoadedShaders = new Dictionary<string, ShaderFile>();
 
+    public static int NumCachedShaders { get; private set; }
+    public static int NumLoadedShaders { get; private set; }
+    
     public enum ShaderLoadStatus
     {
         ERROR_LOADING_FROM_DISK,
@@ -24,7 +28,7 @@ public static class ShaderManager
             if (result != null)
             {
                 loadedShader = result;
-
+                NumCachedShaders++;
                 return ShaderLoadStatus.LOADED_FROM_CACHE;
             }
         }
@@ -36,6 +40,7 @@ public static class ShaderManager
             LoadedShaders.Add(file, shader);
 
             loadedShader = shader;
+            NumLoadedShaders++;
             return ShaderLoadStatus.SUCCESS;
         }
         else

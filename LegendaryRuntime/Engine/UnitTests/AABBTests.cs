@@ -18,7 +18,10 @@ public class AABBTests
         AABB testBounds = new AABB(minA, maxA);
         AABB testBounds2 = new AABB(minB, maxB);
 
-        AABB bounds = testBounds.Encapsulate(testBounds2);
+        AABB bounds = new AABB(minA, maxA);
+        
+        bounds.Encapsulate(testBounds);
+        bounds.Encapsulate(testBounds2);
 
         // Min test 
         
