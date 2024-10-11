@@ -23,9 +23,11 @@ public class ApplicationWindow : GameWindow
         
         GL.ClearColor(Color4.Aqua);
         PrintDebugLogInfo();
-        
+
+        GL.Enable(EnableCap.DepthTest);
+
         Camera camera = new Camera(Vector3.One, Vector3.Zero, 45.0f, (float)Application.Width / Application.Height);
-        mesh = Mesh.Triangle();
+        mesh = new Mesh("");
     //    mesh.Transform.SetPosition((0, 0, 0));
 
 
@@ -35,7 +37,7 @@ public class ApplicationWindow : GameWindow
         {
             for (int y = -10; y < 10; y++)
             {
-                mesh2 = Mesh.Triangle();
+                mesh2 = new Mesh("");
                 mesh2.Transform.SetScale((0.2f,0.2f,0.2f));
                 mesh2.Transform.SetPosition(new Vector3(x,0.0f,y));
             }
@@ -87,7 +89,7 @@ public class ApplicationWindow : GameWindow
         }
         Console.WriteLine($"Previous Transform {mesh.Transform.GetPreviousWorldMatrix()} \nCurrent Transform {mesh.Transform.GetWorldMatrix()}");
 
-        mesh.Transform.SetPosition((0, MathF.Sin(deltaAccum*2) * 3, 0));
+        mesh.Transform.SetPosition((0, MathF.Sin(deltaAccum*1) * 3, 0));
         mesh.Transform.SetRotationFromEulerAngles((0.0f, deltaAccum * 8.0f, 0.0f));
         
     }

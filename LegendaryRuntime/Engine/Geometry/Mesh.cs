@@ -1,7 +1,6 @@
 using LegendaryRenderer.EngineTypes;
 using LegendaryRenderer.GameObjects;
 using LegendaryRenderer.Shaders;
-using NUnit.Framework.Constraints;
 using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
 
@@ -93,47 +92,47 @@ public class Mesh : GameObject
         };
         */
         float[] vertices = {
-            -0.5f, -0.5f, -0.5f,  
-            0.5f, -0.5f, -0.5f,  
-            0.5f,  0.5f, -0.5f,  
-            0.5f,  0.5f, -0.5f,  
-            -0.5f,  0.5f, -0.5f, 
-            -0.5f, -0.5f, -0.5f,  
+           -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f, 0.0f,
+             0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f, 0.0f,
+             0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f, 1.0f,
+             0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f, 1.0f,
+            -0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f, 1.0f,
+            -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f, 0.0f,
 
-            -0.5f, -0.5f,  0.5f,  
-            0.5f, -0.5f,  0.5f, 
-            0.5f,  0.5f,  0.5f,  
-            0.5f,  0.5f,  0.5f,
-            -0.5f,  0.5f,  0.5f,  
-            -0.5f, -0.5f,  0.5f,  
+            -0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  0.0f, 0.0f,
+             0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f, 0.0f,
+             0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f, 1.0f,
+             0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f, 1.0f,
+            -0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  0.0f, 1.0f,
+            -0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  0.0f, 0.0f,
 
-            -0.5f,  0.5f,  0.5f, 
-            -0.5f,  0.5f, -0.5f, 
-            -0.5f, -0.5f, -0.5f,  
-            -0.5f, -0.5f, -0.5f,  
-            -0.5f, -0.5f,  0.5f, 
-            -0.5f,  0.5f,  0.5f,  
+            -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
+            -0.5f,  0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  1.0f, 1.0f,
+            -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
+            -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
+            -0.5f, -0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  0.0f, 0.0f,
+            -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
 
-            0.5f,  0.5f,  0.5f,  
-            0.5f,  0.5f, -0.5f,  
-            0.5f, -0.5f, -0.5f,  
-            0.5f, -0.5f, -0.5f, 
-            0.5f, -0.5f,  0.5f,  
-            0.5f,  0.5f,  0.5f,  
+             0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
+             0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  1.0f, 1.0f,
+             0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
+             0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
+             0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  0.0f, 0.0f,
+             0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
 
-            -0.5f, -0.5f, -0.5f,  
-            0.5f, -0.5f, -0.5f,  
-            0.5f, -0.5f,  0.5f,  
-            0.5f, -0.5f,  0.5f,  
-            -0.5f, -0.5f,  0.5f,
-            -0.5f, -0.5f, -0.5f,
+            -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  0.0f, 1.0f,
+             0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  1.0f, 1.0f,
+             0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  1.0f, 0.0f,
+             0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  1.0f, 0.0f,
+            -0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  0.0f, 0.0f,
+            -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  0.0f, 1.0f,
 
-            -0.5f,  0.5f, -0.5f,  
-            0.5f,  0.5f, -0.5f,  
-            0.5f,  0.5f,  0.5f, 
-            0.5f,  0.5f,  0.5f,  
-            -0.5f,  0.5f,  0.5f,  
-            -0.5f,  0.5f, -0.5f,  
+            -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  0.0f, 1.0f,
+             0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  1.0f, 1.0f,
+             0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  1.0f, 0.0f,
+             0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  1.0f, 0.0f,
+            -0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  0.0f, 0.0f,
+            -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  0.0f, 1.0f
         };
 
 
@@ -149,8 +148,14 @@ public class Mesh : GameObject
         GL.BindBuffer(BufferTarget.ElementArrayBuffer, ElementBufferObject);
         GL.BufferData(BufferTarget.ElementArrayBuffer, indices.Length * sizeof(uint), indices, BufferUsage.StaticDraw);
         */  
-        GL.VertexAttribPointer((uint)shader.GetAttributeLocation("aPosition"), 3, VertexAttribPointerType.Float, false, 3 * sizeof(float), 0);
+        GL.VertexAttribPointer((uint)shader.GetAttributeLocation("aPosition"), 3, VertexAttribPointerType.Float, false, 8 * sizeof(float), 0);
         GL.EnableVertexAttribArray(0);
+
+        GL.VertexAttribPointer((uint)shader.GetAttributeLocation("aTextureCoordinate"), 3, VertexAttribPointerType.Float, false, 8 * sizeof(float), 6 * sizeof(float));
+        GL.EnableVertexAttribArray(1);
+
+        GL.VertexAttribPointer((uint)shader.GetAttributeLocation("aNormal"), 3, VertexAttribPointerType.Float, false, 8 * sizeof(float), 3 * sizeof(float));
+        GL.EnableVertexAttribArray(2);
     }
 
     public void BindBuffer()
@@ -171,7 +176,7 @@ public class Mesh : GameObject
         //Console.WriteLine($"Model: {model}, ViewProjection: {viewProjection}");
 
         GL.UniformMatrix4f(model, 1, true, Transform.GetWorldMatrix());
-        GL.UniformMatrix4f(viewProjection, 1, true, Engine.ActiveCamera.viewProjectionMatrix);
+        GL.UniformMatrix4f(viewProjection, 1, true, Application.Engine.ActiveCamera .viewProjectionMatrix);
         GL.UniformMatrix4f(prevModel, 1, true, Transform.GetPreviousWorldMatrix());
         GL.UniformMatrix4f(prevViewProjection, 1, true, Application.Engine.ActiveCamera.previousViewProjectionMatrix);
         

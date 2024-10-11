@@ -1,4 +1,5 @@
 using System.Net;
+using System.Numerics;
 using OpenTK.Graphics.OpenGL;
 
 namespace LegendaryRenderer.Shaders;
@@ -166,6 +167,18 @@ public class ShaderFile : IDisposable
         int location = GL.GetAttribLocation(ShaderHandle, attributeName);
        // Console.WriteLine($"Attribute location {location}.");
         return location;
+    }
+
+    public void SetShaderFloat(string parameterName, float value)
+    {
+        int location = GetAttributeLocation(parameterName);
+        GL.Uniform1d(location, value);
+    }
+
+    public void SetShaderVector3(string parameterName, Vector3 value)
+    {
+        int location = GetAttributeLocation(parameterName);
+        GL.Uniform3f(location, value.X, value.Y, value.Z);
     }
 
     public ShaderFile(string path): this(path, path, out ShaderManager.ShaderLoadStatus compileStatus)
