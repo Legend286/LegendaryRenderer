@@ -1,6 +1,5 @@
 using LegendaryRenderer.Geometry;
 using OpenTK.Mathematics;
-using LegendaryRenderer.Engine;
 
 namespace LegendaryRenderer.GameObjects;
 

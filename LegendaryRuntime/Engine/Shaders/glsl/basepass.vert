@@ -26,7 +26,7 @@ void main()
 
     mat4 inv = inverse(model);
 
-    normal = (vec4(normalize(aNormal),1) * inv).xyz;
+    normal = aNormal * mat3(transpose(inverse(model)));
     texCoord = aTextureCoordinate;
     gl_Position = currentPos;
 }
