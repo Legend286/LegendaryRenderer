@@ -55,7 +55,8 @@ public class ApplicationWindow : GameWindow
     protected override void OnFramebufferResize(FramebufferResizeEventArgs e)
     {
         base.OnFramebufferResize(e);
-
+        Application.Width = e.Width;
+        Application.Height = e.Height;
         GL.Viewport(0, 0, e.Width, e.Height);
     }
 
