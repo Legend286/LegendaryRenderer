@@ -1,4 +1,5 @@
 using System.Net;
+using System.Numerics;
 using OpenTK.Graphics.OpenGL;
 
 namespace LegendaryRenderer.Shaders;
@@ -122,7 +123,7 @@ public class ShaderFile : IDisposable
         GL.LinkProgram(program);
 
         // Check for linking errors
-        GL.GetProgrami(program, ProgramProperty.LinkStatus, out var code);
+        GL.GetProgram(program, GetProgramParameterName.LinkStatus, out var code);
         if (code != (int)All.True)
         {
             // We can use `GL.GetProgramInfoLog(program)` to get information about the error.
@@ -139,7 +140,7 @@ public class ShaderFile : IDisposable
         GL.CompileShader(shader);
 
         // Check for compilation errors
-        GL.GetShaderi(shader, ShaderParameterName.CompileStatus, out var code);
+        GL.GetShader(shader, ShaderParameter.CompileStatus, out var code);
         if (code != (int)All.True)
         {
             // We can use `GL.GetShaderInfoLog(shader)` to get information about the error.
@@ -164,8 +165,20 @@ public class ShaderFile : IDisposable
     public int GetAttributeLocation(string attributeName)
     {
         int location = GL.GetAttribLocation(ShaderHandle, attributeName);
-        Console.WriteLine($"Attribute location {location}.");
+       // Console.WriteLine($"Attribute location {location}.");
         return location;
+    }
+
+    public void SetShaderFloat(string parameterName, float value)
+    {
+        int location = GetAttributeLocation(parameterName);
+        GL.Uniform1(location, value);
+    }
+
+    public void SetShaderVector3(string parameterName, Vector3 value)
+    {
+        int location = GetAttributeLocation(parameterName);
+        GL.Uniform3(location, value.X, value.Y, value.Z);
     }
 
     public ShaderFile(string path): this(path, path, out ShaderManager.ShaderLoadStatus compileStatus)

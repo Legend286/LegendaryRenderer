@@ -1,4 +1,3 @@
-using OpenTK.Graphics.Vulkan;
 using OpenTK.Mathematics;
 
 namespace LegendaryRenderer.Geometry;

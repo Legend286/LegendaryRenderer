@@ -1,9 +1,12 @@
-#version 330 core
+#version 440 core
 out vec4 FragColor;
 
 in vec2 velocity;
+in vec2 texCoord;
+in vec3 normal;
 
 void main()
 {
-    FragColor = vec4(velocity.xy, 0, 1.0f);
+    float light = dot(normalize(normal.xyz), normalize(vec3(0.5,0.2,0.1)));
+    FragColor = vec4(light,light,light, 1.0f);
 }
