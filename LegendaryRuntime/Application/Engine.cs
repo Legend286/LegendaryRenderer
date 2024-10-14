@@ -1,5 +1,6 @@
 using Geometry;
 using LegendaryRenderer.GameObjects;
+using LegendaryRenderer.Geometry;
 using LegendaryRenderer.Shaders;
 using OpenTK.Mathematics;
 
@@ -19,11 +20,16 @@ public static class Engine
     static Engine()
     {
         RootObject = new GameObject(Vector3.Zero);
-        currentShader = new ShaderFile("basepass");
+
+        ShaderManager.LoadShader("basepass", out ShaderFile loaded);
+        currentShader = loaded;
+         
     }
     
     public static void Update(float deltaTime)
     {
+        currentShader.SetShaderMatrix4x4("viewProjection", ActiveCamera.viewProjectionMatrix);
+
         foreach (GameObject go in GameObjects)
         {
             go.Update(deltaTime);

@@ -1,5 +1,6 @@
 ﻿using LegendaryRenderer.Application;
 using LegendaryRenderer.GameObjects;
+using LegendaryRenderer.Geometry;
 using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
 
@@ -10,6 +11,7 @@ namespace Geometry
 {
     public class Mesh
     {
+        public Transform localTransform { get; private set; } = new Transform();
         public string fileName { get; private set; }
 
         protected static float[] vertices;
@@ -35,13 +37,18 @@ namespace Geometry
          */
         public virtual void Init()
         {
-            // Debug
-            
             VertexBufferObject = GL.GenBuffer();
             VertexArrayObject = GL.GenVertexArray();
             ElementBufferObject = GL.GenBuffer();
 
             Console.WriteLine($"Initialised VBO, VAO, EBO to {VertexBufferObject}, {VertexArrayObject}, {ElementBufferObject}.");
+        }
+
+        public void CopyMesh(Mesh source)
+        {
+            this.VertexBufferObject = source.VertexBufferObject;
+            this.VertexArrayObject = source.VertexArrayObject;
+            this.ElementBufferObject = source.ElementBufferObject;
         }
 
         public void CreateBuffers()

@@ -20,6 +20,15 @@ namespace Geometry
                 Console.WriteLine($"Added mesh {mesh.fileName} to the Mesh Factory.");
                 return true;
             }
+
+            loadedMeshes.TryGetValue(mesh.fileName, out Mesh value);
+
+            if (value != null)
+            {
+                mesh.CopyMesh(value);
+                Console.WriteLine($"Copied mesh {mesh.fileName} to new mesh.");
+            }
+            
             Console.WriteLine($"Mesh {mesh.fileName} was already loaded.");
             return false;
         }

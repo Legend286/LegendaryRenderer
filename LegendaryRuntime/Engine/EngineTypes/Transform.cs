@@ -2,8 +2,17 @@ using OpenTK.Mathematics;
 
 namespace LegendaryRenderer.Geometry;
 
-public struct Transform
+public class Transform
 {
+
+    private Matrix4 ObjectToWorld;
+
+    private Matrix4 PreviousObjectToWorld;
+
+    public Vector3 Position { get; private set; }
+    public Quaternion Rotation { get; private set; }
+    public Vector3 Scale { get; private set; }
+
     public Transform()
     {
         Position = Vector3.Zero;
@@ -58,27 +67,15 @@ public struct Transform
         UpdateTransformMatrix();
     }
     
-    
-    private Matrix4 ObjectToWorld;
-    private Matrix4 PreviousObjectToWorld;
-
-    public Vector3 Position { get; private set; }
-    public Quaternion Rotation { get; private set; }
-    public Vector3 Scale { get; private set; }
-
     public void UpdatePreviousMatrix()
     {
         PreviousObjectToWorld = ObjectToWorld;
     }
     private void UpdateTransformMatrix()
     {
-        Matrix4 translation = Matrix4.Identity;
-        Matrix4 rotation = Matrix4.Identity;
-        Matrix4 scale = Matrix4.Identity;
-        
-        Matrix4.CreateTranslation(Position, out translation);
-        Matrix4.CreateFromQuaternion(Rotation, out rotation);
-        Matrix4.CreateScale(Scale, out scale);
+        Matrix4.CreateTranslation(Position, out Matrix4 translation);
+        Matrix4.CreateFromQuaternion(Rotation, out Matrix4 rotation);
+        Matrix4.CreateScale(Scale, out Matrix4 scale);
 
         ObjectToWorld = scale * rotation * translation;
     }

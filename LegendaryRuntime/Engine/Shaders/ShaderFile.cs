@@ -1,6 +1,5 @@
-using System.Net;
-using System.Numerics;
 using OpenTK.Graphics.OpenGL;
+using OpenTK.Mathematics;
 
 namespace LegendaryRenderer.Shaders;
 
@@ -165,20 +164,30 @@ public class ShaderFile : IDisposable
     public int GetAttributeLocation(string attributeName)
     {
         int location = GL.GetAttribLocation(ShaderHandle, attributeName);
-       // Console.WriteLine($"Attribute location {location}.");
+     //   Console.WriteLine($"Attribute location {location}.");
         return location;
     }
 
+    public int GetUniformLocation(string uniformName)
+    {
+        return GL.GetUniformLocation(ShaderHandle, uniformName);
+    }
     public void SetShaderFloat(string parameterName, float value)
     {
-        int location = GetAttributeLocation(parameterName);
+        int location = GetUniformLocation(parameterName);
         GL.Uniform1(location, value);
     }
 
     public void SetShaderVector3(string parameterName, Vector3 value)
     {
-        int location = GetAttributeLocation(parameterName);
+        int location = GetUniformLocation(parameterName);
         GL.Uniform3(location, value.X, value.Y, value.Z);
+    }
+
+    public void SetShaderMatrix4x4(string parameterName, Matrix4 value, bool transpose = true)
+    {
+        int location = GetUniformLocation(parameterName);
+        GL.UniformMatrix4(location, transpose, ref value);
     }
 
     public ShaderFile(string path): this(path, path, out ShaderManager.ShaderLoadStatus compileStatus)

@@ -4,8 +4,9 @@ layout(location = 1) in vec2 aTextureCoordinate;
 layout(location = 2) in vec3 aNormal;
 
 
-uniform mat4 model;
+
 uniform mat4 viewProjection;
+uniform mat4 model;
 uniform mat4 prevModel;
 uniform mat4 prevViewProjection;
 

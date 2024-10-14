@@ -1,78 +1,75 @@
 ﻿using LegendaryRenderer.Application;
+using LegendaryRenderer.Geometry;
 using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
 using System;
 
 namespace Geometry
 {
-    public class CubeMesh : ProceduralMesh, IEquatable<CubeMesh>
+    public class CubeMesh : ProceduralMesh
     {
-        Vector3 Size = Vector3.One;
-        Vector2 UVScale = Vector2.One;
-
-        public CubeMesh(Vector3 size, Vector2 uvScale, string file = $"CubeMeshProcedural") : base(file)
+        public CubeMesh(Vector3 size, string file = $"CubeMeshProcedural") : base(file)
         {
-            Size = size;
-            UVScale = uvScale;
-            file = $"{file}{UVScale.ToString()}{Size.ToString()}";
         }
 
         public override void Init()
         {
             base.Init();
+
+         
             SetupMeshData();
             Console.WriteLine($"Building mesh {fileName}");
             VertexCount = vertices.Length / 8;
-            Engine.TriangleCountTotal += VertexCount;
+            Engine.TriangleCountTotal += VertexCount / 3; 
         }
 
         public override void SetupMeshData()
         {
-            Console.WriteLine($"Creating Buffer objects for mesh {fileName}.");
+            Console.WriteLine($"Creating Buffer objects for mesh {fileName}");
 
             vertices = new[] {
-            /*                 position                            normal                        coord             */
-            -0.5f * Size.X, -0.5f * Size.Y, -0.5f * Size.Z,  0.0f,  0.0f, -1.0f,  0.0f * UVScale.X, 0.0f * UVScale.Y,
-             0.5f * Size.X, -0.5f * Size.Y, -0.5f * Size.Z,  0.0f,  0.0f, -1.0f,  1.0f * UVScale.X, 0.0f * UVScale.Y,
-             0.5f * Size.X,  0.5f * Size.Y, -0.5f * Size.Z,  0.0f,  0.0f, -1.0f,  1.0f * UVScale.X, 1.0f * UVScale.Y,
-             0.5f * Size.X,  0.5f * Size.Y, -0.5f * Size.Z,  0.0f,  0.0f, -1.0f,  1.0f * UVScale.X, 1.0f * UVScale.Y,
-            -0.5f * Size.X,  0.5f * Size.Y, -0.5f * Size.Z,  0.0f,  0.0f, -1.0f,  0.0f * UVScale.X, 1.0f * UVScale.Y,
-            -0.5f * Size.X, -0.5f * Size.Y, -0.5f * Size.Z,  0.0f,  0.0f, -1.0f,  0.0f * UVScale.X, 0.0f * UVScale.Y,
+            /*    position              normal           coord   */
+            -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f, 0.0f,
+             0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f, 0.0f,
+             0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f, 1.0f,
+             0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f, 1.0f,
+            -0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f, 1.0f,
+            -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f, 0.0f,
 
-            -0.5f * Size.X, -0.5f * Size.Y,  0.5f * Size.Z,  0.0f,  0.0f,  1.0f,  0.0f * UVScale.X, 0.0f * UVScale.Y,
-             0.5f * Size.X, -0.5f * Size.Y,  0.5f * Size.Z,  0.0f,  0.0f,  1.0f,  1.0f * UVScale.X, 0.0f * UVScale.Y,
-             0.5f * Size.X,  0.5f * Size.Y,  0.5f * Size.Z,  0.0f,  0.0f,  1.0f,  1.0f * UVScale.X, 1.0f * UVScale.Y,
-             0.5f * Size.X,  0.5f * Size.Y,  0.5f * Size.Z,  0.0f,  0.0f,  1.0f,  1.0f * UVScale.X, 1.0f * UVScale.Y,
-            -0.5f * Size.X,  0.5f * Size.Y,  0.5f * Size.Z,  0.0f,  0.0f,  1.0f,  0.0f * UVScale.X, 1.0f * UVScale.Y,
-            -0.5f * Size.X, -0.5f * Size.Y,  0.5f * Size.Z,  0.0f,  0.0f,  1.0f,  0.0f * UVScale.X, 0.0f * UVScale.Y,
+            -0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  0.0f, 0.0f,
+             0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f, 0.0f,
+             0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f, 1.0f,
+             0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f, 1.0f,
+            -0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  0.0f, 1.0f,
+            -0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  0.0f, 0.0f,
 
-            -0.5f * Size.X,  0.5f * Size.Y,  0.5f * Size.Z, -1.0f,  0.0f,  0.0f,  1.0f * UVScale.X, 0.0f * UVScale.Y,
-            -0.5f * Size.X,  0.5f * Size.Y, -0.5f * Size.Z, -1.0f,  0.0f,  0.0f,  1.0f * UVScale.X, 1.0f * UVScale.Y,
-            -0.5f * Size.X, -0.5f * Size.Y, -0.5f * Size.Z, -1.0f,  0.0f,  0.0f,  0.0f * UVScale.X, 1.0f * UVScale.Y,
-            -0.5f * Size.X, -0.5f * Size.Y, -0.5f * Size.Z, -1.0f,  0.0f,  0.0f,  0.0f * UVScale.X, 1.0f * UVScale.Y,
-            -0.5f * Size.X, -0.5f * Size.Y,  0.5f * Size.Z, -1.0f,  0.0f,  0.0f,  0.0f * UVScale.X, 0.0f * UVScale.Y,
-            -0.5f * Size.X,  0.5f * Size.Y,  0.5f * Size.Z, -1.0f,  0.0f,  0.0f,  1.0f * UVScale.X, 0.0f * UVScale.Y,
+            -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
+            -0.5f,  0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  1.0f, 1.0f,
+            -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
+            -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
+            -0.5f, -0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  0.0f, 0.0f               ,
+            -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
 
-             0.5f * Size.X,  0.5f * Size.Y,  0.5f * Size.Z,  1.0f,  0.0f,  0.0f,  1.0f * UVScale.X, 0.0f * UVScale.Y,
-             0.5f * Size.X,  0.5f * Size.Y, -0.5f * Size.Z,  1.0f,  0.0f,  0.0f,  1.0f * UVScale.X, 1.0f * UVScale.Y,
-             0.5f * Size.X, -0.5f * Size.Y, -0.5f * Size.Z,  1.0f,  0.0f,  0.0f,  0.0f * UVScale.X, 1.0f * UVScale.Y,
-             0.5f * Size.X, -0.5f * Size.Y, -0.5f * Size.Z,  1.0f,  0.0f,  0.0f,  0.0f * UVScale.X, 1.0f * UVScale.Y,
-             0.5f * Size.X, -0.5f * Size.Y,  0.5f * Size.Z,  1.0f,  0.0f,  0.0f,  0.0f * UVScale.X, 0.0f * UVScale.Y,
-             0.5f * Size.X,  0.5f * Size.Y,  0.5f * Size.Z,  1.0f,  0.0f,  0.0f,  1.0f * UVScale.X, 0.0f * UVScale.Y,
+             0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
+             0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  1.0f, 1.0f,
+             0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
+             0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
+             0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  0.0f, 0.0f,
+             0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
 
-            -0.5f * Size.X, -0.5f * Size.Y, -0.5f * Size.Z,  0.0f, -1.0f,  0.0f,  0.0f * UVScale.X, 1.0f * UVScale.Y,
-             0.5f * Size.X, -0.5f * Size.Y, -0.5f * Size.Z,  0.0f, -1.0f,  0.0f,  1.0f * UVScale.X, 1.0f * UVScale.Y,
-             0.5f * Size.X, -0.5f * Size.Y,  0.5f * Size.Z,  0.0f, -1.0f,  0.0f,  1.0f * UVScale.X, 0.0f * UVScale.Y,
-             0.5f * Size.X, -0.5f * Size.Y,  0.5f * Size.Z,  0.0f, -1.0f,  0.0f,  1.0f * UVScale.X, 0.0f * UVScale.Y,
-            -0.5f * Size.X, -0.5f * Size.Y,  0.5f * Size.Z,  0.0f, -1.0f,  0.0f,  0.0f * UVScale.X, 0.0f * UVScale.Y,
-            -0.5f * Size.X, -0.5f * Size.Y, -0.5f * Size.Z,  0.0f, -1.0f,  0.0f,  0.0f * UVScale.X, 1.0f * UVScale.Y,
+            -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  0.0f, 1.0f,
+             0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  1.0f, 1.0f,
+             0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  1.0f, 0.0f,
+             0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  1.0f, 0.0f,
+            -0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  0.0f, 0.0f,
+            -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  0.0f, 1.0f,
 
-            -0.5f * Size.X,  0.5f * Size.Y, -0.5f * Size.Z,  0.0f,  1.0f,  0.0f,  0.0f * UVScale.X, 1.0f * UVScale.Y,
-             0.5f * Size.X,  0.5f * Size.Y, -0.5f * Size.Z,  0.0f,  1.0f,  0.0f,  1.0f * UVScale.X, 1.0f * UVScale.Y,
-             0.5f * Size.X,  0.5f * Size.Y,  0.5f * Size.Z,  0.0f,  1.0f,  0.0f,  1.0f * UVScale.X, 0.0f * UVScale.Y,
-             0.5f * Size.X,  0.5f * Size.Y,  0.5f * Size.Z,  0.0f,  1.0f,  0.0f,  1.0f * UVScale.X, 0.0f * UVScale.Y,
-            -0.5f * Size.X,  0.5f * Size.Y,  0.5f * Size.Z,  0.0f,  1.0f,  0.0f,  0.0f * UVScale.X, 0.0f * UVScale.Y,
-            -0.5f * Size.X,  0.5f * Size.Y, -0.5f * Size.Z,  0.0f,  1.0f,  0.0f,  0.0f * UVScale.X, 1.0f * UVScale.Y,
+            -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  0.0f, 1.0f,
+             0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  1.0f, 1.0f,
+             0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  1.0f, 0.0f,
+             0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  1.0f, 0.0f,
+            -0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  0.0f, 0.0f,
+            -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  0.0f, 1.0f,
             };
 
 
@@ -97,29 +94,19 @@ namespace Geometry
                 3,2,6, 
                 6,7,3,
             };
-
-
             base.CreateBuffers();
         }
         public void Render()
         {
             Engine.currentShader.UseShader();
+
+            Engine.currentShader.SetShaderMatrix4x4("model", localTransform.GetWorldMatrix(), true);
+
+            Console.WriteLine($"LOCAL TRANSFORM: {localTransform.GetWorldMatrix().ToString()}.");
             GL.BindVertexArray(VertexArrayObject);
 
-            GL.DrawArrays(PrimitiveType.Triangles, 0, vertices.Length / 8);
+            GL.DrawArrays(PrimitiveType.Triangles, 0, (vertices.Length / 8));
 
-        }
-
-        public bool Equals(CubeMesh? other)
-        {
-            if (other.UVScale == UVScale && other.Size == Size)
-            {
-                return true;
-            }
-            else
-            {
-                return false;
-            }
         }
     }
 }

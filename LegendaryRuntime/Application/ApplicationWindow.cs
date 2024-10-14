@@ -26,13 +26,14 @@ public class ApplicationWindow : GameWindow
         GL.ClearColor(Color4.Aqua);
         PrintDebugLogInfo();
 
-       // GL.Enable(EnableCap.DepthTest);
-       // GL.Enable(EnableCap.CullFace);
-      //  GL.CullFace(CullFaceMode.Front);
+        GL.Enable(EnableCap.DepthTest);
+     //   GL.Enable(EnableCap.CullFace);
+      //  GL.CullFace(CullFaceMode.Back);
 
         Camera camera = new Camera(Vector3.One, Vector3.Zero, 45.0f, (float)Application.Width / Application.Height);
 
-        mesh = new CubeMesh(Vector3.One, Vector2.One);
+        mesh = new CubeMesh(Vector3.Zero);
+
     }
 
     protected override void OnUnload()
@@ -50,17 +51,21 @@ public class ApplicationWindow : GameWindow
         GL.Viewport(0, 0, e.Width, e.Height);
     }
 
+    float dtAccum = 0;
+
     protected override void OnRenderFrame(FrameEventArgs args)
     {
+        dtAccum += (float)args.Time;
         base.OnRenderFrame(args);
 
         GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit | ClearBufferMask.StencilBufferBit);
 
-     
-
+        mesh.localTransform.SetPosition(new Vector3(0.0f, MathF.Sin(dtAccum * 2) * 2, 0.0f));
+        mesh.localTransform.SetRotationFromEulerAngles(new Vector3(dtAccum, 45, dtAccum));
+        mesh.Render();
 
         Engine.Render();
-        mesh.Render();
+
         SwapBuffers();
         
         Title = $"Legendary Renderer - {(1/args.Time).ToString("0.00")} fps - Game Objects: {Engine.GameObjects.Count} - Total Triangles {Engine.TriangleCountTotal}";
@@ -70,17 +75,17 @@ public class ApplicationWindow : GameWindow
     protected override void OnUpdateFrame(FrameEventArgs args)
     {
         base.OnUpdateFrame(args);
-        
+
         deltaAccum += (float)args.Time;
-     
+
         Engine.Update((float)args.Time);
-        
+
         if (KeyboardState.IsKeyDown(Keys.Escape))
         {
             Close();
         }
-    
     }
+
 
     private void PrintDebugLogInfo()
     {
