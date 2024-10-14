@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using LegendaryRenderer.GameObjects;
 using OpenTK.Mathematics;
+using static LegendaryRenderer.Application.Application;
 
 namespace LegendaryRenderer;
 
@@ -23,7 +24,7 @@ public class Camera : GameObject
 
         projectionMatrix = Matrix4.Identity;
         Matrix4.CreatePerspectiveFieldOfView(MathHelper.DegreesToRadians(45.0f),
-                                            ((float)Application.Application.Width / (float)Application.Application.Height),
+                                            ((float)Width / (float)Height),
                                             0.1f, 100.0f, out Matrix4 projection);
         
         
@@ -47,7 +48,7 @@ public class Camera : GameObject
         viewMatrix = Matrix4.LookAt(Transform.Position, Target, Vector3.UnitY);
         projectionMatrix = Matrix4.Identity;
         Matrix4.CreatePerspectiveFieldOfView(MathHelper.DegreesToRadians(45.0f),
-            ((float)Application.Application.Width / (float)Application.Application.Height), 0.1f, 100.0f,
+            ((float)Width / (float)Height), 0.1f, 100.0f,
             out Matrix4 projection);
         projectionMatrix = projection;
 

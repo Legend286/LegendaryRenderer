@@ -102,7 +102,7 @@ namespace Geometry
 
             Engine.currentShader.SetShaderMatrix4x4("model", localTransform.GetWorldMatrix(), true);
 
-            Console.WriteLine($"LOCAL TRANSFORM: {localTransform.GetWorldMatrix().ToString()}.");
+         //   Console.WriteLine($"LOCAL TRANSFORM: {localTransform.GetWorldMatrix().ToString()}.");
             GL.BindVertexArray(VertexArrayObject);
 
             GL.DrawArrays(PrimitiveType.Triangles, 0, (vertices.Length / 8));

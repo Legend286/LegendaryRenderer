@@ -69,7 +69,7 @@ namespace Geometry
             GL.EnableVertexAttribArray(2);
 
             // Debug
-            Console.WriteLine($"VAO {VertexArrayObject} was bound, and buffer {VertexBufferObject} was uploaded to the GPU. Triangle Count was {vertices.Length / 8}.");
+            Console.WriteLine($"VAO {VertexArrayObject} was bound, and buffer {VertexBufferObject} was uploaded to the GPU. Triangle Count was {(vertices.Length / 8) / 3}.");
         }
 
 
