@@ -1,11 +1,6 @@
-﻿using Engine.Geometry;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using LegendaryRenderer.Application;
 
-namespace LegendaryRenderer.LegendaryRuntime.Engine.Geometry
+namespace Geometry
 {
     public static class MeshFactory
     {
@@ -17,12 +12,16 @@ namespace LegendaryRenderer.LegendaryRuntime.Engine.Geometry
             return loadedMeshes.ContainsKey(mesh.fileName);
         }
 
-        public static void AddMesh(Mesh mesh)
+        public static bool AddMesh(Mesh mesh)
         {
             if (!ContainsMesh(mesh))
             {
                 loadedMeshes.Add(mesh.fileName, mesh);
+                Console.WriteLine($"Added mesh {mesh.fileName} to the Mesh Factory.");
+                return true;
             }
+            Console.WriteLine($"Mesh {mesh.fileName} was already loaded.");
+            return false;
         }
 
         public static void RemoveMesh(Mesh mesh)

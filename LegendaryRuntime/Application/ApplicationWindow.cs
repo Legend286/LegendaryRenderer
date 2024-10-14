@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Geometry;
 using LegendaryRenderer.Geometry;
 using LegendaryRenderer.Shaders;
 using OpenTK.Graphics.OpenGL;
@@ -16,6 +17,8 @@ public class ApplicationWindow : GameWindow
         
     }
 
+    CubeMesh mesh;
+
     protected override void OnLoad()
     {
         base.OnLoad();
@@ -23,23 +26,13 @@ public class ApplicationWindow : GameWindow
         GL.ClearColor(Color4.Aqua);
         PrintDebugLogInfo();
 
-        GL.Enable(EnableCap.DepthTest);
+       // GL.Enable(EnableCap.DepthTest);
+       // GL.Enable(EnableCap.CullFace);
+      //  GL.CullFace(CullFaceMode.Front);
 
         Camera camera = new Camera(Vector3.One, Vector3.Zero, 45.0f, (float)Application.Width / Application.Height);
-       
 
-
-
-        for (int x = -1; x < 1; x++)
-        {
-            for (int y = -1; y < 1; y++)
-            {
-               //
-            }
-        }
-        
-       
-
+        mesh = new CubeMesh(Vector3.One, Vector2.One);
     }
 
     protected override void OnUnload()
@@ -63,11 +56,14 @@ public class ApplicationWindow : GameWindow
 
         GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit | ClearBufferMask.StencilBufferBit);
 
+     
+
+
         Engine.Render();
-        
+        mesh.Render();
         SwapBuffers();
         
-        Title = $"Legendary Renderer - {(1/args.Time).ToString("0.00")} fps - Game Objects: {Engine.GameObjects.Count}";
+        Title = $"Legendary Renderer - {(1/args.Time).ToString("0.00")} fps - Game Objects: {Engine.GameObjects.Count} - Total Triangles {Engine.TriangleCountTotal}";
     }
 
     private float deltaAccum = 0;

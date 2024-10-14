@@ -1,5 +1,6 @@
+using Geometry;
 using LegendaryRenderer.GameObjects;
-
+using LegendaryRenderer.Shaders;
 using OpenTK.Mathematics;
 
 namespace LegendaryRenderer.Application;
@@ -11,9 +12,14 @@ public static class Engine
     public static Camera ActiveCamera;
     public static GameObject RootObject { get; private set; }
 
+    public static ShaderFile currentShader;
+
+    public static int TriangleCountRendered, TriangleCountCulled, TriangleCountTotal = 0;
+
     static Engine()
     {
         RootObject = new GameObject(Vector3.Zero);
+        currentShader = new ShaderFile("basepass");
     }
     
     public static void Update(float deltaTime)
