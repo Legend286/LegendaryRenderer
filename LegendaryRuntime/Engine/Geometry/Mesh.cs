@@ -14,14 +14,43 @@ namespace Geometry
         public Transform localTransform { get; private set; } = new Transform();
         public string fileName { get; private set; }
 
-        protected static float[] vertices;
-        protected static uint[] indices;
+        protected float[] vertices;
+        protected uint[] indices;
 
         public int VertexCount = 0;
 
         public Mesh(string file)
         {
             fileName = file;
+            if (MeshFactory.AddMesh(this))
+            {
+                Init();
+            }
+        }
+
+        public Mesh(string fileName, Vector3[] vertices, Vector3[] normals, Vector2[] uvs, Tuple<int,int,int> indices)
+        {
+            this.fileName = fileName;
+
+            if (vertices.Length != normals.Length && vertices.Length != uvs.Length && uvs.Length != normals.Length)
+            {
+                Console.WriteLine($"Malformed vertex data in mesh '{fileName}'");
+            }
+            
+            float[] temp = new float[vertices.Length * 8];
+
+            for (int i = 0; i < vertices.Length; i++)
+            {
+                temp[i * 8]     = vertices[i].X;
+                temp[i * 8 + 1] = vertices[i].Y;
+                temp[i * 8 + 2] = vertices[i].Z;
+                temp[i * 8 + 3] = normals[i].X;
+                temp[i * 8 + 4] = normals[i].Y;
+                temp[i * 8 + 5] = normals[i].Z;
+                temp[i * 8 + 6] = uvs[i].X;
+                temp[i * 8 + 7] = uvs[i].X;
+            }
+
             if (MeshFactory.AddMesh(this))
             {
                 Init();

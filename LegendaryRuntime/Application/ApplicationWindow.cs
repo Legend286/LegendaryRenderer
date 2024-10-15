@@ -61,7 +61,7 @@ public class ApplicationWindow : GameWindow
         GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit | ClearBufferMask.StencilBufferBit);
 
         mesh.localTransform.SetPosition(new Vector3(0.0f, MathF.Sin(dtAccum * 2) * 2, 0.0f));
-        mesh.localTransform.SetRotationFromEulerAngles(new Vector3(dtAccum, 45, dtAccum));
+        mesh.localTransform.SetRotationFromEulerAngles(new Vector3(dtAccum, dtAccum*5, 0));
         mesh.Render();
 
         Engine.Render();

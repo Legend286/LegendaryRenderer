@@ -15,15 +15,11 @@
 
     <ItemGroup>
       <None Update="LegendaryRuntime\Engine\Shaders\glsl\basepass.frag">
-        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       </None>
       <None Update="LegendaryRuntime\Engine\Shaders\glsl\basepass.vert">
-        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       </None>
-    </ItemGroup>
-
-    <ItemGroup>
-      <Folder Include="LegendaryRuntime\Engine\Textures\" />
     </ItemGroup>
 
 </Project>

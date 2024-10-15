@@ -55,6 +55,6 @@ public class Camera : GameObject
         viewProjectionMatrix = viewMatrix * projectionMatrix;
         
         deltaAccum += deltaTime;
-        Transform.SetPosition(new Vector3(MathF.Sin(deltaAccum*1.5f) * 6.0f, 4.0f + MathF.Sin(deltaAccum*0.5f) * 3.8f, MathF.Cos(deltaAccum*1.5f) * 6.0f));
+        Transform.SetPosition(new Vector3(8, 4.0f + MathF.Sin(deltaAccum*0.5f) * 3.8f,8));
     }
 }
