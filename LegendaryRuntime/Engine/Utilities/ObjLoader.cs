@@ -1,38 +1,43 @@
 ﻿using Geometry;
 using OpenTK.Mathematics;
+using SixLabors.ImageSharp.PixelFormats;
+using System.IO.Enumeration;
+using System.Runtime.CompilerServices;
 
 
 namespace LegendaryRenderer.FileLoaders;
 
 public class ObjLoader
 {
-    private Vector3[] vertices;
-    private Vector3[] normals;
-    private Vector2[] textureCoordinates;
+    private static Vector3[] vertices;
+    private static Vector3[] normals;
+    private static Vector2[] textureCoordinates;
 
-    private List<Tuple<int, int, int>> faces = new List<Tuple<int, int, int>>();
+    static string file = "null";
+
+    private static List<Tuple<int, int, int>> faces = new List<Tuple<int, int, int>>();
     
-    public int VertexCount
+    public static int VertexCount
     {
         get { return vertices.Length; }
     }
 
-    public int IndexCount
+    public static int IndexCount
     {
         get { return faces.Count * 3; }
     }
 
-    public int NormalsCount
+    public static int NormalsCount
     {
         get { return normals.Length; }
     }
 
-    public Vector3[] GetVertices()
+    public static Vector3[] GetVertices()
     {
         return vertices;
     }
 
-    public int[] GetIndices(int offset = 0)
+    public static int[] GetIndices(int offset = 0)
     {
         List<int> temp = new List<int>();
 
@@ -58,6 +63,7 @@ public class ObjLoader
 
     public static bool LoadFromFile(string fileName, out Mesh loadedMesh)
     {
+        file = fileName;
         try
         {
             using (StreamReader reader = new StreamReader(new FileStream(fileName, FileMode.Open, FileAccess.Read)))
@@ -87,7 +93,7 @@ public class ObjLoader
         List<Vector3> norms = new List<Vector3>();
         List<Vector2> uvs = new List<Vector2>();
 
-        List<Tuple<int, int, int>> faces = new List<Tuple<int, int, int>>();
+        List<Tuple<int, int, int>> fsc = new List<Tuple<int, int, int>>();
 
         foreach (String line in lines)
         {
@@ -139,40 +145,78 @@ public class ObjLoader
                     else
                     {
                         face = new Tuple<int, int, int>(i1 - 1, i2 - 1, i3 - 1);
-                        faces.Add(face);
+                        fsc.Add(face);
                     }
                 }
             }
         }
 
+        faces = fsc;
+        vertices = verts.ToArray();
+
         Mesh mesh = new Mesh(fileName);
 
-        uint[] ind = new uint[faces.Count * 3];
+        uint[] ind = new uint[fsc.Count * 3];
         float[] ver = new float[verts.Count * 8];
 
-        for(int i = 0; i < faces.Count; i++)
+        for(int i = 0; i < fsc.Count; i++)
         {
-            ind[i * 3] = (uint)faces[i].Item1;
-            ind[i * 3 + 1] = (uint)faces[i].Item2;
-            ind[i * 3 + 2] = (uint)faces[i].Item3;
+            ind[i * 3] = (uint)fsc[i].Item1;
+            ind[i * 3 + 1] = (uint)fsc[i].Item2;
+            ind[i * 3 + 2] = (uint)fsc[i].Item3;
         }
+
+
+
+
+        CalculateNormals(out Vector3[] norm);
 
         for (int vertex = 0; vertex < verts.Count; vertex++)
         {
             ver[vertex * 8] = verts[vertex].X;
             ver[vertex * 8 + 1] = verts[vertex].Y;
             ver[vertex * 8 + 2] = verts[vertex].Z;
-            ver[vertex * 8 + 3] = norms[vertex].X;
-            ver[vertex * 8 + 4] = norms[vertex].Y;
-            ver[vertex * 8 + 5] = norms[vertex].Z;
+            ver[vertex * 8 + 3] = norm[vertex].X;
+            ver[vertex * 8 + 4] = norm[vertex].Y;
+            ver[vertex * 8 + 5] = norm[vertex].Z;
             ver[vertex * 8 + 6] = uvs[vertex].X;
             ver[vertex * 8 + 7] = uvs[vertex].Y;
 
         }
 
         mesh.SetVerticesAndIndices(ver, ind);
+
         return mesh;
     }
-    
-    
+
+    public static void CalculateNormals(out Vector3[] norm)
+    {
+        Vector3[] ver = GetVertices();
+        Vector3[] norms = new Vector3[VertexCount];
+        int[] inds = GetIndices();
+
+        for (int i = 0; i < IndexCount; i+=3)
+        {
+            Vector3 v1 = ver[inds[i]];
+            Vector3 v2 = ver[inds[i + 1]];
+            Vector3 v3 = ver[inds[i + 2]];
+
+            norms[inds[i]] += Vector3.Cross(v2 - v1, v3 - v1);
+            norms[inds[i + 1]] += Vector3.Cross(v2 - v1, v3 - v1);
+            norms[inds[i + 2]] += Vector3.Cross(v2 - v1, v3 - v1);
+
+        }
+
+
+        normals = norms;
+        for (int i = 0; i < NormalsCount; i++)
+        {
+            norms[i] = norms[i].Normalized();
+        }
+
+        normals = norms;
+        Console.WriteLine($"Generated {NormalsCount/3} face normals for mesh {file}.");
+
+        norm = norms;
+    }
 }

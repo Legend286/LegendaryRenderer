@@ -19,7 +19,8 @@ public class ApplicationWindow : GameWindow
     }
 
     Mesh mesh;
-    Mesh mesh2;
+
+    Mesh[] instances = new Mesh[100];
 
     protected override void OnLoad()
     {
@@ -28,21 +29,17 @@ public class ApplicationWindow : GameWindow
         GL.ClearColor(Color4.Aqua);
         PrintDebugLogInfo();
 
-        if (ObjLoader.LoadFromFile("LegendaryRuntime/Resources/teapot.model", out Mesh msh))
+        if (ObjLoader.LoadFromFile("LegendaryRuntime/Resources/test.model", out Mesh msh))
         {
             mesh = msh;
 
         }
 
-        if (ObjLoader.LoadFromFile("LegendaryRuntime/Resources/teddy.model", out Mesh msh2))
-        {
-            mesh2 = msh2;
-        }
 
-      
+
         GL.Enable(EnableCap.DepthTest);
-     //   GL.Enable(EnableCap.CullFace);
-      //  GL.CullFace(CullFaceMode.Back);
+        GL.Enable(EnableCap.CullFace);
+        GL.CullFace(CullFaceMode.Back);
 
         Camera camera = new Camera(Vector3.One, Vector3.Zero, 45.0f, (float)Application.Width / Application.Height);
 
@@ -71,19 +68,41 @@ public class ApplicationWindow : GameWindow
     {
         dtAccum += (float)args.Time;
         base.OnRenderFrame(args);
+        Engine.TriangleCountTotal = 0;
 
         GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit | ClearBufferMask.StencilBufferBit);
 
-        mesh.localTransform.SetPosition(new Vector3(0.0f, MathF.Sin(dtAccum * 2) * 2, 0.0f));
-        mesh.localTransform.SetRotationFromEulerAngles(new Vector3(dtAccum, dtAccum*5, 0));
-        mesh.localTransform.SetScale(Vector3.One * 0.5f);
+        mesh.localTransform.SetPosition(new Vector3(0.0f, -5 + MathF.Sin(dtAccum * 2) * 0.5f, 0.0f));
+        mesh.localTransform.SetRotationFromEulerAngles(new Vector3(0, dtAccum * 0.5f, 0));
+        mesh.localTransform.SetScale(Vector3.One * 30.0f);
 
-        mesh2.localTransform.SetPosition(new Vector3(2.0f, MathF.Sin(dtAccum * 2) * 2, 0.0f));
-        mesh2.localTransform.SetRotationFromEulerAngles(new Vector3(dtAccum*8, dtAccum * 2, 0));
-        mesh2.localTransform.SetScale(Vector3.One * 0.05f);
+        for(int x = 0; x < 10; x++)
+        {
+            for(int z = 0; z < 10; z++)
+            {
+                instances[x * 10 + z] = new Mesh();
+                instances[x * 10 + z].CopyMesh(mesh);
+                instances[x * 10 + z].localTransform.SetPosition(new Vector3((float)x / 2, MathF.Sin((dtAccum + ((float)x * 10 + (float)z) / 2) * 2) * 1.0f, (float)z / 2));
+                instances[x * 10 + z].localTransform.SetScale(Vector3.One * 5.0f);
+            }
+        }
+//
+       // mesh2.localTransform.SetPosition(new Vector3(2.0f, MathF.Sin(dtAccum * 2) * 2, 0.0f));
+       // mesh2.localTransform.SetRotationFromEulerAngles(new Vector3(dtAccum*8, dtAccum * 2, 0));
+       // mesh2.localTransform.SetScale(Vector3.One * 0.05f);
+
+      //  mesh3.localTransform.SetPosition(new Vector3(-6.0f, MathF.Sin(dtAccum * 2) * 2, 0.0f));
+      //  mesh3.localTransform.SetRotationFromEulerAngles(new Vector3(dtAccum * 8, dtAccum * 2, 0));
+      //  mesh3.localTransform.SetScale(Vector3.One * 0.25f);
+
 
         mesh.Render();
-        mesh2.Render();
+        foreach(Mesh m in instances)
+        {
+            m.Render();
+        }
+       // mesh2.Render();
+       // mesh3.Render();
         Engine.Render();
 
         SwapBuffers();
@@ -109,7 +128,6 @@ public class ApplicationWindow : GameWindow
 
     private void PrintDebugLogInfo()
     {
-        
         int nrAttributes = 0;
         GL.GetInteger(GetPName.MaxVertexAttribs, out nrAttributes);
         Console.WriteLine("Maximum number of vertex attributes supported: " + nrAttributes);

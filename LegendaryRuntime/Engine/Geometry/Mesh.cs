@@ -28,13 +28,17 @@ namespace Geometry
             }
         }
 
+        public Mesh()
+        {
+
+        }
+
         public void SetVerticesAndIndices(float[] vertices, uint[] indices)
         {
             this.vertices = vertices;
             this.indices = indices;
 
             CreateBuffers();
-            Engine.TriangleCountTotal += VertexCount / 3;
         }
 
 
@@ -90,6 +94,8 @@ namespace Geometry
             this.VertexBufferObject = source.VertexBufferObject;
             this.VertexArrayObject = source.VertexArrayObject;
             this.ElementBufferObject = source.ElementBufferObject;
+            this.vertices = source.vertices;
+            this.indices = source.indices;
         }
 
         public void CreateBuffers()
@@ -117,14 +123,30 @@ namespace Geometry
         }
         public void Render()
         {
+            Engine.TriangleCountTotal += VertexCount / 3;
+
+
             Engine.currentShader.UseShader();
 
             Engine.currentShader.SetShaderMatrix4x4("model", localTransform.GetWorldMatrix(), true);
 
             //   Console.WriteLine($"LOCAL TRANSFORM: {localTransform.GetWorldMatrix().ToString()}.");
-            GL.BindVertexArray(VertexArrayObject);
+            BindVAOCached(VertexArrayObject);
 
             GL.DrawElements(BeginMode.Triangles, indices.Length, DrawElementsType.UnsignedInt, 0);
+        }
+
+        static int lastBoundVAO = -1;
+
+        public static void BindVAOCached(int vao)
+        {
+            if (vao != lastBoundVAO)
+            {
+                lastBoundVAO = vao;
+                GL.BindVertexArray(vao);
+
+                Console.WriteLine($"Bound VAO {vao}.");
+            }
         }
     }
 }

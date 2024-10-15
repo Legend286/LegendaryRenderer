@@ -7,6 +7,6 @@ in vec3 normal;
 
 void main()
 {
-    float light = dot(normalize(normal.xyz), normalize(vec3(0.5,0.2,0.1)));
+    float light = dot(normalize(normal.xyz), normalize(vec3(0,0,-1)));
     FragColor = vec4(light,light,light, 1.0f);
 }

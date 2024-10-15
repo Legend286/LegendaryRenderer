@@ -155,13 +155,20 @@ public class ShaderFile : IDisposable
     {
         return new ShaderFile("", "", out ShaderManager.ShaderLoadStatus compileStatus,true);
     }
-    
+
+    private static int lastShader = -1;
+
     public void UseShader()
     {
-        GL.UseProgram(ShaderHandle);
+        if (lastShader != ShaderHandle)
+        {
+            lastShader = ShaderHandle;
+            GL.UseProgram(ShaderHandle);
+            Console.WriteLine($"Using Shader {ShaderHandle}.");
+        }
     }
 
-    public int GetAttributeLocation(string attributeName)
+        public int GetAttributeLocation(string attributeName)
     {
         int location = GL.GetAttribLocation(ShaderHandle, attributeName);
      //   Console.WriteLine($"Attribute location {location}.");
