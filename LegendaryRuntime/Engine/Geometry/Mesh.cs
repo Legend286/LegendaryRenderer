@@ -17,7 +17,7 @@ namespace Geometry
         protected float[] vertices;
         protected uint[] indices;
 
-        public int VertexCount = 0;
+        public int VertexCount => vertices.Length / 8;
 
         public Mesh(string file)
         {
@@ -27,6 +27,17 @@ namespace Geometry
                 Init();
             }
         }
+
+        public void SetVerticesAndIndices(float[] vertices, uint[] indices)
+        {
+            this.vertices = vertices;
+            this.indices = indices;
+
+            CreateBuffers();
+            Engine.TriangleCountTotal += VertexCount / 3;
+        }
+
+
 
         public Mesh(string fileName, Vector3[] vertices, Vector3[] normals, Vector2[] uvs, Tuple<int,int,int> indices)
         {
@@ -71,6 +82,7 @@ namespace Geometry
             ElementBufferObject = GL.GenBuffer();
 
             Console.WriteLine($"Initialised VBO, VAO, EBO to {VertexBufferObject}, {VertexArrayObject}, {ElementBufferObject}.");
+
         }
 
         public void CopyMesh(Mesh source)
@@ -83,6 +95,9 @@ namespace Geometry
         public void CreateBuffers()
         {
             GL.BindVertexArray(VertexArrayObject);
+
+            GL.BindBuffer(BufferTarget.ElementArrayBuffer, ElementBufferObject);
+            GL.BufferData(BufferTarget.ElementArrayBuffer, indices.Length * sizeof(uint), indices, BufferUsageHint.StaticDraw);
 
             GL.BindBuffer(BufferTarget.ArrayBuffer, VertexBufferObject);
 
@@ -100,7 +115,16 @@ namespace Geometry
             // Debug
             Console.WriteLine($"VAO {VertexArrayObject} was bound, and buffer {VertexBufferObject} was uploaded to the GPU. Triangle Count was {(vertices.Length / 8) / 3}.");
         }
+        public void Render()
+        {
+            Engine.currentShader.UseShader();
 
+            Engine.currentShader.SetShaderMatrix4x4("model", localTransform.GetWorldMatrix(), true);
 
+            //   Console.WriteLine($"LOCAL TRANSFORM: {localTransform.GetWorldMatrix().ToString()}.");
+            GL.BindVertexArray(VertexArrayObject);
+
+            GL.DrawElements(BeginMode.Triangles, indices.Length, DrawElementsType.UnsignedInt, 0);
+        }
     }
 }

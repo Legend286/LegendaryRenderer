@@ -1,6 +1,6 @@
 ﻿using Geometry;
 using OpenTK.Mathematics;
-using SixLabors.ImageSharp.PixelFormats;
+
 
 namespace LegendaryRenderer.FileLoaders;
 
@@ -72,7 +72,7 @@ public class ObjLoader
         }
         catch (Exception e)
         {
-            Console.WriteLine($"MeshLoader Error: Error Opening file '{fileName}'.");
+            Console.WriteLine($"MeshLoader Error: Error Opening file '{fileName}'. \n {e.Message}");
         }
 
         loadedMesh = null;
@@ -145,7 +145,33 @@ public class ObjLoader
             }
         }
 
-        return new Mesh("");
+        Mesh mesh = new Mesh(fileName);
+
+        uint[] ind = new uint[faces.Count * 3];
+        float[] ver = new float[verts.Count * 8];
+
+        for(int i = 0; i < faces.Count; i++)
+        {
+            ind[i * 3] = (uint)faces[i].Item1;
+            ind[i * 3 + 1] = (uint)faces[i].Item2;
+            ind[i * 3 + 2] = (uint)faces[i].Item3;
+        }
+
+        for (int vertex = 0; vertex < verts.Count; vertex++)
+        {
+            ver[vertex * 8] = verts[vertex].X;
+            ver[vertex * 8 + 1] = verts[vertex].Y;
+            ver[vertex * 8 + 2] = verts[vertex].Z;
+            ver[vertex * 8 + 3] = norms[vertex].X;
+            ver[vertex * 8 + 4] = norms[vertex].Y;
+            ver[vertex * 8 + 5] = norms[vertex].Z;
+            ver[vertex * 8 + 6] = uvs[vertex].X;
+            ver[vertex * 8 + 7] = uvs[vertex].Y;
+
+        }
+
+        mesh.SetVerticesAndIndices(ver, ind);
+        return mesh;
     }
     
     

@@ -19,8 +19,6 @@ namespace Geometry
          
             SetupMeshData();
             Console.WriteLine($"Building mesh {fileName}");
-            VertexCount = vertices.Length / 8;
-            Engine.TriangleCountTotal += VertexCount / 3; 
         }
 
         public override void SetupMeshData()
@@ -105,7 +103,7 @@ namespace Geometry
          //   Console.WriteLine($"LOCAL TRANSFORM: {localTransform.GetWorldMatrix().ToString()}.");
             GL.BindVertexArray(VertexArrayObject);
 
-            GL.DrawArrays(PrimitiveType.Triangles, 0, (vertices.Length / 8));
+            GL.DrawElements(BeginMode.Triangles, indices.Length, DrawElementsType.UnsignedInt, 0);
 
         }
     }

@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Geometry;
+using LegendaryRenderer.FileLoaders;
 using LegendaryRenderer.Geometry;
 using LegendaryRenderer.Shaders;
 using OpenTK.Graphics.OpenGL;
@@ -17,7 +18,8 @@ public class ApplicationWindow : GameWindow
         
     }
 
-    CubeMesh mesh;
+    Mesh mesh;
+    Mesh mesh2;
 
     protected override void OnLoad()
     {
@@ -26,13 +28,25 @@ public class ApplicationWindow : GameWindow
         GL.ClearColor(Color4.Aqua);
         PrintDebugLogInfo();
 
+        if (ObjLoader.LoadFromFile("LegendaryRuntime/Resources/teapot.model", out Mesh msh))
+        {
+            mesh = msh;
+
+        }
+
+        if (ObjLoader.LoadFromFile("LegendaryRuntime/Resources/teddy.model", out Mesh msh2))
+        {
+            mesh2 = msh2;
+        }
+
+      
         GL.Enable(EnableCap.DepthTest);
      //   GL.Enable(EnableCap.CullFace);
       //  GL.CullFace(CullFaceMode.Back);
 
         Camera camera = new Camera(Vector3.One, Vector3.Zero, 45.0f, (float)Application.Width / Application.Height);
 
-        mesh = new CubeMesh(Vector3.Zero);
+        //mesh = new CubeMesh(Vector3.Zero);
 
     }
 
@@ -62,8 +76,14 @@ public class ApplicationWindow : GameWindow
 
         mesh.localTransform.SetPosition(new Vector3(0.0f, MathF.Sin(dtAccum * 2) * 2, 0.0f));
         mesh.localTransform.SetRotationFromEulerAngles(new Vector3(dtAccum, dtAccum*5, 0));
-        mesh.Render();
+        mesh.localTransform.SetScale(Vector3.One * 0.5f);
 
+        mesh2.localTransform.SetPosition(new Vector3(2.0f, MathF.Sin(dtAccum * 2) * 2, 0.0f));
+        mesh2.localTransform.SetRotationFromEulerAngles(new Vector3(dtAccum*8, dtAccum * 2, 0));
+        mesh2.localTransform.SetScale(Vector3.One * 0.05f);
+
+        mesh.Render();
+        mesh2.Render();
         Engine.Render();
 
         SwapBuffers();

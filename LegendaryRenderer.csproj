@@ -20,6 +20,12 @@
       <None Update="LegendaryRuntime\Engine\Shaders\glsl\basepass.vert">
         <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       </None>
+      <None Update="LegendaryRuntime\Resources\teddy.model">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="LegendaryRuntime\Resources\teapot.model">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
     </ItemGroup>
 
 </Project>
