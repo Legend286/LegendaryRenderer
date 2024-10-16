@@ -20,10 +20,7 @@ public class ApplicationWindow : GameWindow
 
     Mesh mesh;
 
-    private const int numX = 50;
-    private const int numZ = 50;
-
-    private Mesh[] instances;
+    Mesh[] instances = new Mesh[100];
 
     protected override void OnLoad()
     {
@@ -32,21 +29,10 @@ public class ApplicationWindow : GameWindow
         GL.ClearColor(Color4.Aqua);
         PrintDebugLogInfo();
 
-        if (ObjLoader.LoadFromFile("LegendaryRuntime/Resources/test.model", out Mesh msh))
+        if (ObjLoader.LoadFromFile("LegendaryRuntime/Resources/dpwv.model", out Mesh msh))
         {
             mesh = msh;
 
-        }
-        
-        instances = new Mesh[numX * numZ];
-
-        for (int x = 0; x < numX; x++)
-        {
-            for (int z = 0; z < numZ; z++)
-            {
-                instances[x * numX + z] = new Mesh();
-                instances[x * numX + z].CopyMesh(mesh);
-            }
         }
 
         GL.Enable(EnableCap.DepthTest);
@@ -84,35 +70,18 @@ public class ApplicationWindow : GameWindow
 
         GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit | ClearBufferMask.StencilBufferBit);
 
-        mesh.localTransform.SetPosition(new Vector3(0.0f, -5 + MathF.Sin(dtAccum * 2) * 0.5f, 0.0f));
-        mesh.localTransform.SetRotationFromEulerAngles(new Vector3(0, dtAccum * 0.5f, 0));
-        mesh.localTransform.SetScale(Vector3.One * 30.0f);
+        // mesh2.localTransform.SetPosition(new Vector3(2.0f, MathF.Sin(dtAccum * 2) * 2, 0.0f));
+        // mesh2.localTransform.SetRotationFromEulerAngles(new Vector3(dtAccum*8, dtAccum * 2, 0));
+        // mesh2.localTransform.SetScale(Vector3.One * 0.05f);
 
-        for(int x = 0; x < numX; x++)
-        {
-            for(int z = 0; z < numZ; z++)
-            {
-                instances[x * numX + z].localTransform.SetPosition(new Vector3((float)x / 1.5f, MathF.Sin((dtAccum + ((float)x * 10 + (float)z) / 2) * 2) * 1.0f, (float)z / 1.5f));
-                instances[x * numX + z].localTransform.SetScale(Vector3.One * 8.0f);
-            }
-        }
-//
-       // mesh2.localTransform.SetPosition(new Vector3(2.0f, MathF.Sin(dtAccum * 2) * 2, 0.0f));
-       // mesh2.localTransform.SetRotationFromEulerAngles(new Vector3(dtAccum*8, dtAccum * 2, 0));
-       // mesh2.localTransform.SetScale(Vector3.One * 0.05f);
+        //  mesh3.localTransform.SetPosition(new Vector3(-6.0f, MathF.Sin(dtAccum * 2) * 2, 0.0f));
+        //  mesh3.localTransform.SetRotationFromEulerAngles(new Vector3(dtAccum * 8, dtAccum * 2, 0));
+        //  mesh3.localTransform.SetScale(Vector3.One * 0.25f);
 
-      //  mesh3.localTransform.SetPosition(new Vector3(-6.0f, MathF.Sin(dtAccum * 2) * 2, 0.0f));
-      //  mesh3.localTransform.SetRotationFromEulerAngles(new Vector3(dtAccum * 8, dtAccum * 2, 0));
-      //  mesh3.localTransform.SetScale(Vector3.One * 0.25f);
-
+    //    GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line);
 
         mesh.Render();
-        foreach(Mesh m in instances)
-        {
-            m.Render();
-        }
-       // mesh2.Render();
-       // mesh3.Render();
+
         Engine.Render();
 
         SwapBuffers();
@@ -128,6 +97,10 @@ public class ApplicationWindow : GameWindow
         deltaAccum += (float)args.Time;
 
         Engine.Update((float)args.Time);
+
+        mesh.localTransform.SetPosition(new Vector3(0.0f, -4+ MathF.Sin(dtAccum * 2) * 0.5f, 0.0f));
+        mesh.localTransform.SetRotationFromEulerAngles(new Vector3(0, dtAccum * 0.5f, 0));
+        mesh.localTransform.SetScale(Vector3.One * 0.2f);
 
         if (KeyboardState.IsKeyDown(Keys.Escape))
         {
