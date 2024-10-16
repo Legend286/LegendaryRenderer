@@ -322,11 +322,11 @@ public class ObjLoader
         uint[] ind = new uint[faces.Count * 3];
         float[] ver = new float[faces.Count * 24];
 
-        for(int i = 0; i < faces.Count; i++)
+        for(int i = 0; i < tempFaces.Count; i++)
         {
             ind[i * 3] = (uint)tempFaces[i].Item1.Position;
-            ind[i * 3 + 1] = (uint)tempFaces[i].Item3.Position;
-            ind[i * 3 + 2] = (uint)tempFaces[i].Item2.Position;
+            ind[i * 3 + 1] = (uint)tempFaces[i].Item2.Position;
+            ind[i * 3 + 2] = (uint)tempFaces[i].Item3.Position;
         }
 
         int faceIndex = 0;
