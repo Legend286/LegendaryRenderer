@@ -20,7 +20,10 @@ public class ApplicationWindow : GameWindow
 
     Mesh mesh;
 
-    Mesh[] instances = new Mesh[100];
+    private const int numX = 50;
+    private const int numZ = 50;
+
+    private Mesh[] instances;
 
     protected override void OnLoad()
     {
@@ -34,8 +37,17 @@ public class ApplicationWindow : GameWindow
             mesh = msh;
 
         }
+        
+        instances = new Mesh[numX * numZ];
 
-
+        for (int x = 0; x < numX; x++)
+        {
+            for (int z = 0; z < numZ; z++)
+            {
+                instances[x * numX + z] = new Mesh();
+                instances[x * numX + z].CopyMesh(mesh);
+            }
+        }
 
         GL.Enable(EnableCap.DepthTest);
         GL.Enable(EnableCap.CullFace);
@@ -76,14 +88,12 @@ public class ApplicationWindow : GameWindow
         mesh.localTransform.SetRotationFromEulerAngles(new Vector3(0, dtAccum * 0.5f, 0));
         mesh.localTransform.SetScale(Vector3.One * 30.0f);
 
-        for(int x = 0; x < 10; x++)
+        for(int x = 0; x < numX; x++)
         {
-            for(int z = 0; z < 10; z++)
+            for(int z = 0; z < numZ; z++)
             {
-                instances[x * 10 + z] = new Mesh();
-                instances[x * 10 + z].CopyMesh(mesh);
-                instances[x * 10 + z].localTransform.SetPosition(new Vector3((float)x / 2, MathF.Sin((dtAccum + ((float)x * 10 + (float)z) / 2) * 2) * 1.0f, (float)z / 2));
-                instances[x * 10 + z].localTransform.SetScale(Vector3.One * 5.0f);
+                instances[x * numX + z].localTransform.SetPosition(new Vector3((float)x / 1.5f, MathF.Sin((dtAccum + ((float)x * 10 + (float)z) / 2) * 2) * 1.0f, (float)z / 1.5f));
+                instances[x * numX + z].localTransform.SetScale(Vector3.One * 8.0f);
             }
         }
 //
