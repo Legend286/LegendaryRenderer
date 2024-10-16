@@ -29,7 +29,7 @@ public class ApplicationWindow : GameWindow
         GL.ClearColor(Color4.Aqua);
         PrintDebugLogInfo();
 
-        if (ObjLoader.LoadFromFile("LegendaryRuntime/Resources/dpwv.model", out Mesh msh))
+        if (ObjLoader.LoadFromFile("LegendaryRuntime/Resources/teapot.model", out Mesh msh))
         {
             mesh = msh;
 
@@ -100,7 +100,7 @@ public class ApplicationWindow : GameWindow
 
         mesh.localTransform.SetPosition(new Vector3(0.0f, -1+ MathF.Sin(dtAccum * 2) * 0.5f, 0.0f));
         mesh.localTransform.SetRotationFromEulerAngles(new Vector3(0, dtAccum * 0.5f, 0));
-        mesh.localTransform.SetScale(Vector3.One * 0.03f);
+        mesh.localTransform.SetScale(Vector3.One * 0.3f);
 
         if (KeyboardState.IsKeyDown(Keys.Escape))
         {
