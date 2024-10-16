@@ -134,6 +134,7 @@ namespace Geometry
             BindVAOCached(VertexArrayObject);
 
             GL.DrawElements(BeginMode.Triangles, indices.Length, DrawElementsType.UnsignedInt, 0);
+            //GL.DrawArrays(PrimitiveType.Triangles, 0, vertices.Length);
         }
 
         static int lastBoundVAO = -1;

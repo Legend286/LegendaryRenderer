@@ -33,7 +33,8 @@ public class ObjLoader
     static string file = "null";
 
     private static List<Tuple<FaceVertex, FaceVertex, FaceVertex>> faces = new List<Tuple<FaceVertex, FaceVertex, FaceVertex>>();
-    
+    private static bool bIncompleteNormals = false;
+
     public static int VertexCount
     {
         get { return vertices.Length; }
@@ -280,6 +281,7 @@ public class ObjLoader
                             n1 = 0;
                             n2 = 0;
                             n3 = 0;
+                            bIncompleteNormals = true;
                         }
                     }
 
@@ -320,47 +322,73 @@ public class ObjLoader
         uint[] ind = new uint[faces.Count * 3];
         float[] ver = new float[faces.Count * 24];
 
-        for(int i = 0; i < vertices.Length; i++)
+        for(int i = 0; i < faces.Count; i++)
         {
             ind[i * 3] = (uint)tempFaces[i].Item1.Position;
-            ind[i * 3 + 1] = (uint)tempFaces[i].Item2.Position;
-            ind[i * 3 + 2] = (uint)tempFaces[i].Item3.Position;
+            ind[i * 3 + 1] = (uint)tempFaces[i].Item3.Position;
+            ind[i * 3 + 2] = (uint)tempFaces[i].Item2.Position;
         }
 
         int faceIndex = 0;
-        for (int vertex = 0; vertex < vertices.Length; vertex++)
+        Tuple<FaceVertex, FaceVertex, FaceVertex>[] nvs = new Tuple<FaceVertex, FaceVertex, FaceVertex>[faces.Count];
+        if (bIncompleteNormals)
+        {
+            CalculateNormals(out nvs);
+        }
+
+        for (int faceID = 0; faceID < faces.Count; faceID++)
         {
             // First Vertex of a face
-            ver[vertex * 24] = faces[faceIndex].Item1.Position.X;
-            ver[vertex * 24 + 1] = faces[faceIndex].Item1.Position.Y;
-            ver[vertex * 24 + 2] = faces[faceIndex].Item1.Position.Z;
-            ver[vertex * 24 + 3] = faces[faceIndex].Item1.Normal.X;
-            ver[vertex * 24 + 4] = faces[faceIndex].Item1.Normal.Y;
-            ver[vertex * 24 + 5] = faces[faceIndex].Item1.Normal.Z;
-            ver[vertex * 24 + 6] = faces[faceIndex].Item1.TextureCoordinate.X;
-            ver[vertex * 24 + 7] = faces[faceIndex].Item1.TextureCoordinate.Y;
+            ver[faceID * 24] = faces[faceIndex].Item1.Position.X;
+            ver[faceID * 24 + 1] = faces[faceIndex].Item1.Position.Y;
+            ver[faceID * 24 + 2] = faces[faceIndex].Item1.Position.Z;
+            ver[faceID * 24 + 3] = faces[faceIndex].Item1.Normal.X;
+            ver[faceID * 24 + 4] = faces[faceIndex].Item1.Normal.Y;
+            ver[faceID * 24 + 5] = faces[faceIndex].Item1.Normal.Z;
+            if(bIncompleteNormals)
+            {
+                ver[faceID * 24 + 3] = nvs[faceIndex].Item1.Normal.X;
+                ver[faceID * 24 + 4] = nvs[faceIndex].Item1.Normal.Y;
+                ver[faceID * 24 + 5] = nvs[faceIndex].Item1.Normal.Z;
+            }
+            ver[faceID * 24 + 6] = faces[faceIndex].Item1.TextureCoordinate.X;
+            ver[faceID * 24 + 7] = faces[faceIndex].Item1.TextureCoordinate.Y;
 
             // Second vertex of a face
-            ver[vertex * 24 + 8] = faces[faceIndex].Item2.Position.X;
-            ver[vertex * 24 + 9] = faces[faceIndex].Item2.Position.Y;
-            ver[vertex * 24 + 10] = faces[faceIndex].Item2.Position.Z;
-            ver[vertex * 24 + 11] = faces[faceIndex].Item2.Normal.X;
-            ver[vertex * 24 + 12] = faces[faceIndex].Item2.Normal.Y;
-            ver[vertex * 24 + 13] = faces[faceIndex].Item2.Normal.Z;
-            ver[vertex * 24 + 14] = faces[faceIndex].Item2.TextureCoordinate.X;
-            ver[vertex * 24 + 15] = faces[faceIndex].Item2.TextureCoordinate.Y;
+            ver[faceID * 24 + 8] = faces[faceIndex].Item2.Position.X;
+            ver[faceID * 24 + 9] = faces[faceIndex].Item2.Position.Y;
+            ver[faceID * 24 + 10] = faces[faceIndex].Item2.Position.Z;
+            ver[faceID * 24 + 11] = faces[faceIndex].Item2.Normal.X;
+            ver[faceID * 24 + 12] = faces[faceIndex].Item2.Normal.Y;
+            ver[faceID * 24 + 13] = faces[faceIndex].Item2.Normal.Z;
+            if (bIncompleteNormals)
+            {
+                ver[faceID * 24 + 11] = nvs[faceIndex].Item2.Normal.X;
+                ver[faceID * 24 + 12] = nvs[faceIndex].Item2.Normal.Y;
+                ver[faceID * 24 + 13] = nvs[faceIndex].Item2.Normal.Z;
+            }
+            ver[faceID * 24 + 14] = faces[faceIndex].Item2.TextureCoordinate.X;
+            ver[faceID * 24 + 15] = faces[faceIndex].Item2.TextureCoordinate.Y;
 
             // Third vertex of a face
-            ver[vertex * 24 + 16] = faces[faceIndex].Item3.Position.X;
-            ver[vertex * 24 + 17] = faces[faceIndex].Item3.Position.Y;
-            ver[vertex * 24 + 18] = faces[faceIndex].Item3.Position.Z;
-            ver[vertex * 24 + 19] = faces[faceIndex].Item3.Normal.X;
-            ver[vertex * 24 + 20] = faces[faceIndex].Item3.Normal.Y;
-            ver[vertex * 24 + 21] = faces[faceIndex].Item3.Normal.Z;
-            ver[vertex * 24 + 22] = faces[faceIndex].Item3.TextureCoordinate.X;
-            ver[vertex * 24 + 23] = faces[faceIndex].Item3.TextureCoordinate.Y;
+            ver[faceID * 24 + 16] = faces[faceIndex].Item3.Position.X;
+            ver[faceID * 24 + 17] = faces[faceIndex].Item3.Position.Y;
+            ver[faceID * 24 + 18] = faces[faceIndex].Item3.Position.Z;
+            ver[faceID * 24 + 19] = faces[faceIndex].Item3.Normal.X;
+            ver[faceID * 24 + 20] = faces[faceIndex].Item3.Normal.Y;
+            ver[faceID * 24 + 21] = faces[faceIndex].Item3.Normal.Z;
+            if (bIncompleteNormals)
+            {
+                ver[faceID * 24 + 19] = nvs[faceIndex].Item3.Normal.X;
+                ver[faceID * 24 + 20] = nvs[faceIndex].Item3.Normal.Y;
+                ver[faceID * 24 + 21] = nvs[faceIndex].Item3.Normal.Z;
+            }
+            ver[faceID * 24 + 22] = faces[faceIndex].Item3.TextureCoordinate.X;
+            ver[faceID * 24 + 23] = faces[faceIndex].Item3.TextureCoordinate.Y;
 
             faceIndex++;
+
+        //    Console.WriteLine($"Faces {faces.Count} tempFaces {tempFaces.Count} face index {faceIndex}");
         }
 
         mesh.SetVerticesAndIndices(ver, ind);
@@ -368,10 +396,10 @@ public class ObjLoader
         return mesh;
     }
 
-    public static void CalculateNormals(out Vector3[] norm)
+    public static void CalculateNormals(out Tuple<FaceVertex, FaceVertex, FaceVertex>[] normals)
     {
         Vector3[] ver = GetVertices();
-        Vector3[] norms = new Vector3[VertexCount];
+        List<Tuple<FaceVertex, FaceVertex, FaceVertex>> norms = new List<Tuple<FaceVertex, FaceVertex, FaceVertex>>();
         int[] inds = GetIndices();
 
         for (int i = 0; i < IndexCount; i+=3)
@@ -380,22 +408,15 @@ public class ObjLoader
             Vector3 v2 = ver[inds[i + 1]];
             Vector3 v3 = ver[inds[i + 2]];
 
-            norms[inds[i]] += Vector3.Cross(v2 - v1, v3 - v1);
-            norms[inds[i + 1]] += Vector3.Cross(v2 - v1, v3 - v1);
-            norms[inds[i + 2]] += Vector3.Cross(v2 - v1, v3 - v1);
+            Vector3 nv = Vector3.Cross(v2 - v1, v3 - v1);
+            nv = nv.Normalized();
+            FaceVertex n = new FaceVertex(Vector3.Zero, nv, Vector2.Zero);
+
+            norms.Add(new Tuple<FaceVertex,FaceVertex,FaceVertex>(n,n,n));
 
         }
+       // Console.WriteLine($"Generated {NormalsCount/3} face normals for mesh {file}.");
 
-
-        normals = norms;
-        for (int i = 0; i < NormalsCount; i++)
-        {
-            norms[i] = norms[i].Normalized();
-        }
-
-        normals = norms;
-        Console.WriteLine($"Generated {NormalsCount/3} face normals for mesh {file}.");
-
-        norm = norms;
+        normals = norms.ToArray();
     }
 }

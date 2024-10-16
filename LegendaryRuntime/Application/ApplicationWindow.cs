@@ -78,7 +78,7 @@ public class ApplicationWindow : GameWindow
         //  mesh3.localTransform.SetRotationFromEulerAngles(new Vector3(dtAccum * 8, dtAccum * 2, 0));
         //  mesh3.localTransform.SetScale(Vector3.One * 0.25f);
 
-        GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line);
+    //    GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line);
 
         mesh.Render();
 
@@ -100,7 +100,7 @@ public class ApplicationWindow : GameWindow
 
         mesh.localTransform.SetPosition(new Vector3(0.0f, -1+ MathF.Sin(dtAccum * 2) * 0.5f, 0.0f));
         mesh.localTransform.SetRotationFromEulerAngles(new Vector3(0, dtAccum * 0.5f, 0));
-        mesh.localTransform.SetScale(Vector3.One * 0.3f);
+        mesh.localTransform.SetScale(Vector3.One * 0.5f);
 
         if (KeyboardState.IsKeyDown(Keys.Escape))
         {
