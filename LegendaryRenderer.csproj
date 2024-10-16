@@ -23,6 +23,12 @@
       <None Update="LegendaryRuntime\Resources\cow.model">
         <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       </None>
+      <None Update="LegendaryRuntime\Resources\dpwv.model">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="LegendaryRuntime\Resources\mech.model">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
       <None Update="LegendaryRuntime\Resources\test.model">
         <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       </None>

@@ -1,4 +1,6 @@
 ﻿using Geometry;
+using OpenTK.Graphics.ES11;
+using OpenTK.Graphics.GL;
 using OpenTK.Mathematics;
 using SixLabors.ImageSharp.PixelFormats;
 using System.IO.Enumeration;
@@ -6,6 +8,21 @@ using System.Runtime.CompilerServices;
 
 
 namespace LegendaryRenderer.FileLoaders;
+
+
+public struct FaceVertex
+{
+    public Vector3 Position;
+    public Vector3 Normal;
+    public Vector2 TextureCoordinate;
+
+    public FaceVertex(Vector3 position, Vector3 normal, Vector2 texCoord)
+    {
+        Position = position;
+        Normal = normal;
+        TextureCoordinate = texCoord;
+    }
+}
 
 public class ObjLoader
 {
@@ -15,7 +32,7 @@ public class ObjLoader
 
     static string file = "null";
 
-    private static List<Tuple<int, int, int>> faces = new List<Tuple<int, int, int>>();
+    private static List<Tuple<FaceVertex, FaceVertex, FaceVertex>> faces = new List<Tuple<FaceVertex, FaceVertex, FaceVertex>>();
     
     public static int VertexCount
     {
@@ -34,31 +51,49 @@ public class ObjLoader
 
     public static Vector3[] GetVertices()
     {
-        return vertices;
+        List<Vector3> verts = new List<Vector3>();
+
+        foreach(var face in faces)
+        {
+            verts.Add(face.Item1.Position);
+            verts.Add(face.Item2.Position);
+            verts.Add(face.Item3.Position);
+        }
+
+        return verts.ToArray();
     }
 
     public static int[] GetIndices(int offset = 0)
     {
-        List<int> temp = new List<int>();
-
-        foreach (var face in faces)
-        {
-            temp.Add(face.Item1 + offset);
-            temp.Add(face.Item2 + offset);
-            temp.Add(face.Item3 + offset);
-        }
-
-        return temp.ToArray();
+        return Enumerable.Range(offset, IndexCount).ToArray();
     }
 
     public Vector3[] GetNormals()
     {
-        return normals;
+        List<Vector3> normals = new List<Vector3>();
+
+        foreach(var face in faces)
+        {
+            normals.Add(face.Item1.Normal);
+            normals.Add(face.Item2.Normal);
+            normals.Add(face.Item3.Normal);
+        }
+
+        return normals.ToArray();
     }
 
     public Vector2[] GetTextureCoordinates()
     {
-        return textureCoordinates;
+        List<Vector2> coords = new List<Vector2>();
+
+        foreach(var face in faces)
+        {
+            coords.Add(face.Item1.TextureCoordinate);
+            coords.Add(face.Item2.TextureCoordinate);
+            coords.Add(face.Item3.TextureCoordinate);
+        }
+
+        return coords.ToArray();
     }
 
     public static bool LoadFromFile(string fileName, out Mesh loadedMesh)
@@ -85,6 +120,19 @@ public class ObjLoader
         return false;
     }
 
+    struct TempVertex
+    {
+        public int Position;
+        public int Normal;
+        public int TextureCoordinate;
+
+        public TempVertex(int pos, int nor, int uv)
+        {
+            Position = pos;
+            Normal = nor;
+            TextureCoordinate = uv;
+        }
+    }
     public static Mesh LoadFromString(string meshData, string fileName)
     {
         List<String> lines = new List<string>(meshData.Split('\n'));
@@ -93,7 +141,13 @@ public class ObjLoader
         List<Vector3> norms = new List<Vector3>();
         List<Vector2> uvs = new List<Vector2>();
 
-        List<Tuple<int, int, int>> fsc = new List<Tuple<int, int, int>>();
+        List<Tuple<TempVertex, TempVertex, TempVertex>> tempFaces = new List<Tuple<TempVertex, TempVertex, TempVertex>>();
+
+        verts.Add(new Vector3());
+        uvs.Add(new Vector2());
+        norms.Add(new Vector3());
+
+        int currentIndice = 0;
 
         foreach (String line in lines)
         {
@@ -103,85 +157,210 @@ public class ObjLoader
 
                 Vector3 vec = new Vector3();
 
-                if (temp.Count((char c) => c == ' ') == 2)
+                if (temp.Trim().Count((char c) => c == ' ') == 2)
                 {
-                    String[] vertParts = temp.Split(' ');
+                    String[] vertParts = temp.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
 
                     bool success = float.TryParse(vertParts[0], out vec.X);
-                    success &= float.TryParse(vertParts[1], out vec.Y);
-                    success &= float.TryParse(vertParts[2], out vec.Z);
-
-                    norms.Add(new Vector3((float)Math.Sin(vec.Z), (float)Math.Sin(vec.Z), (float)Math.Sin(vec.Z)));
-                    uvs.Add(new Vector2((float)Math.Sin(vec.Z), (float)Math.Sin(vec.Z)));
+                    success |= float.TryParse(vertParts[1], out vec.Y);
+                    success |= float.TryParse(vertParts[2], out vec.Z);
 
                     if (!success)
                     {
                         Console.WriteLine($"Error parsing vertex: {line}");
                     }
-
-                    verts.Add(vec);
                 }
+                else
+                {
+                    Console.WriteLine($"Error parsing vertex: {line}");
+                }
+                verts.Add(vec);
+            }
+            else if(line.StartsWith("vt "))
+            {
+                string temp = line.Substring(2);
+
+                Vector2 vec = new Vector2();
+
+                if(temp.Trim().Count((char c) => c == ' ') > 0)
+                {
+                    String[] texCoordParts = temp.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+
+                    bool success = float.TryParse(texCoordParts[0], out vec.X);
+                    success |= float.TryParse(texCoordParts[1], out vec.Y);
+
+                    if(!success)
+                    {
+                        Console.WriteLine($"Error parsing vertex texture coordinates: {line}.");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine($"Error parsing vertex texture coordinates: {line}.");
+                }
+
+                uvs.Add(vec);
+            }
+            else if (line.StartsWith("vn "))
+            {
+                String temp = line.Substring(2);
+
+                Vector3 vec = new Vector3();
+
+                if(temp.Trim().Count((char c) => c == ' ') == 2)
+                {
+                    String[] normalParts = temp.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+
+                    bool success = float.TryParse(normalParts[0], out vec.X);
+                    success |= float.TryParse(normalParts[1],out vec.Y);
+                    success |= float.TryParse(normalParts[2], out vec.Z);
+
+                    if(!success)
+                    {
+                        Console.WriteLine($"Error parsing vertex normal: {line}");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine($"Error parsing vertex normal: {line}");
+                }
+
+                norms.Add(vec);
             }
             else if (line.StartsWith("f "))
             {
                 String temp = line.Substring(2);
 
-                Tuple<int, int, int> face = new Tuple<int, int, int>(0, 0, 0);
-                
-                if(temp.Count((char c) => c == ' ') == 2)
+                Tuple<TempVertex, TempVertex, TempVertex> face = new Tuple<TempVertex, TempVertex, TempVertex>(new TempVertex(), new TempVertex(), new TempVertex());
+
+                if (temp.Count((char c) => c == ' ') == 2)
                 {
-                    String[] faceParts = temp.Split(' ');
+                    String[] faceParts = temp.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
 
-                    int i1, i2, i3;
+                    int v1, v2, v3;
+                    int t1, t2, t3;
+                    int n1, n2, n3;
 
-                    bool success = int.TryParse(faceParts[0], out i1);
-                    success &= int.TryParse(faceParts[1], out i2);
-                    success &= int.TryParse(faceParts[2], out i3);
+                    bool success = int.TryParse(faceParts[0].Split('/')[0], out v1);
+                    success |= int.TryParse(faceParts[1].Split('/')[0], out v2);
+                    success |= int.TryParse(faceParts[2].Split('/')[0], out v3);
 
-                    if (!success)
+                    if (faceParts[0].Count((char c) => c == '/') >= 2)
                     {
-                        Console.WriteLine($"Error parsing face {line}).");
+                        success |= int.TryParse(faceParts[0].Split('/')[1], out t1);
+                        success |= int.TryParse(faceParts[1].Split('/')[1], out t2);
+                        success |= int.TryParse(faceParts[2].Split('/')[1], out t3);
+                        success |= int.TryParse(faceParts[0].Split('/')[2], out n1);
+                        success |= int.TryParse(faceParts[1].Split('/')[2], out n2);
+                        success |= int.TryParse(faceParts[2].Split('/')[2], out n3);
                     }
                     else
                     {
-                        face = new Tuple<int, int, int>(i1 - 1, i2 - 1, i3 - 1);
-                        fsc.Add(face);
+                        if(uvs.Count > v1 && uvs.Count > v2 && uvs.Count > v3)
+                        {
+                            t1 = v1;
+                            t2 = v2;
+                            t3 = v3;
+                        }
+                        else
+                        {
+                            t1 = 0;
+                            t2 = 0;
+                            t3 = 0;
+                        }
+
+                        if(norms.Count > v1 && norms.Count > v2 && norms.Count > v3)
+                        {
+                            n1 = v1;
+                            n2 = v2;
+                            n3 = v3;
+                        }
+                        else
+                        {
+                            n1 = 0;
+                            n2 = 0;
+                            n3 = 0;
+                        }
                     }
+
+                    if(!success)
+                    {
+                        Console.WriteLine($"Error parsing face {line}.");
+                    }
+                    else
+                    {
+                        TempVertex ov1 = new TempVertex(v1, n1, t1);
+                        TempVertex ov2 = new TempVertex(v2, n2, t2);
+                        TempVertex ov3 = new TempVertex(v3, n3, t3);
+                        face = new Tuple<TempVertex, TempVertex, TempVertex>(ov1, ov2, ov3);
+
+                        tempFaces.Add(face);
+                    }
+                }
+                else
+                {
+                    Console.WriteLine($"Error parsing face: {line}");
                 }
             }
         }
 
-        faces = fsc;
+        foreach(var face in tempFaces)
+        {
+            FaceVertex v1 = new FaceVertex(verts[face.Item1.Position], norms[face.Item1.Normal], uvs[face.Item1.TextureCoordinate]);
+            FaceVertex v2 = new FaceVertex(verts[face.Item2.Position], norms[face.Item2.Normal], uvs[face.Item2.TextureCoordinate]);
+            FaceVertex v3 = new FaceVertex(verts[face.Item3.Position], norms[face.Item3.Normal], uvs[face.Item3.TextureCoordinate]);
+
+            faces.Add(new Tuple<FaceVertex, FaceVertex, FaceVertex>(v1, v2, v3));
+        }
+
         vertices = verts.ToArray();
 
         Mesh mesh = new Mesh(fileName);
 
-        uint[] ind = new uint[fsc.Count * 3];
-        float[] ver = new float[verts.Count * 8];
+        uint[] ind = new uint[faces.Count * 3];
+        float[] ver = new float[faces.Count * 24];
 
-        for(int i = 0; i < fsc.Count; i++)
+        for(int i = 0; i < vertices.Length; i++)
         {
-            ind[i * 3] = (uint)fsc[i].Item1;
-            ind[i * 3 + 1] = (uint)fsc[i].Item2;
-            ind[i * 3 + 2] = (uint)fsc[i].Item3;
+            ind[i * 3] = (uint)tempFaces[i].Item1.Position;
+            ind[i * 3 + 1] = (uint)tempFaces[i].Item2.Position;
+            ind[i * 3 + 2] = (uint)tempFaces[i].Item3.Position;
         }
 
-
-
-
-        CalculateNormals(out Vector3[] norm);
-
-        for (int vertex = 0; vertex < verts.Count; vertex++)
+        int faceIndex = 0;
+        for (int vertex = 0; vertex < vertices.Length; vertex++)
         {
-            ver[vertex * 8] = verts[vertex].X;
-            ver[vertex * 8 + 1] = verts[vertex].Y;
-            ver[vertex * 8 + 2] = verts[vertex].Z;
-            ver[vertex * 8 + 3] = norm[vertex].X;
-            ver[vertex * 8 + 4] = norm[vertex].Y;
-            ver[vertex * 8 + 5] = norm[vertex].Z;
-            ver[vertex * 8 + 6] = uvs[vertex].X;
-            ver[vertex * 8 + 7] = uvs[vertex].Y;
+            // First Vertex of a face
+            ver[vertex * 24] = faces[faceIndex].Item1.Position.X;
+            ver[vertex * 24 + 1] = faces[faceIndex].Item1.Position.Y;
+            ver[vertex * 24 + 2] = faces[faceIndex].Item1.Position.Z;
+            ver[vertex * 24 + 3] = faces[faceIndex].Item1.Normal.X;
+            ver[vertex * 24 + 4] = faces[faceIndex].Item1.Normal.Y;
+            ver[vertex * 24 + 5] = faces[faceIndex].Item1.Normal.Z;
+            ver[vertex * 24 + 6] = faces[faceIndex].Item1.TextureCoordinate.X;
+            ver[vertex * 24 + 7] = faces[faceIndex].Item1.TextureCoordinate.Y;
 
+            // Second vertex of a face
+            ver[vertex * 24 + 8] = faces[faceIndex].Item2.Position.X;
+            ver[vertex * 24 + 9] = faces[faceIndex].Item2.Position.Y;
+            ver[vertex * 24 + 10] = faces[faceIndex].Item2.Position.Z;
+            ver[vertex * 24 + 11] = faces[faceIndex].Item2.Normal.X;
+            ver[vertex * 24 + 12] = faces[faceIndex].Item2.Normal.Y;
+            ver[vertex * 24 + 13] = faces[faceIndex].Item2.Normal.Z;
+            ver[vertex * 24 + 14] = faces[faceIndex].Item2.TextureCoordinate.X;
+            ver[vertex * 24 + 15] = faces[faceIndex].Item2.TextureCoordinate.Y;
+
+            // Third vertex of a face
+            ver[vertex * 24 + 16] = faces[faceIndex].Item3.Position.X;
+            ver[vertex * 24 + 17] = faces[faceIndex].Item3.Position.Y;
+            ver[vertex * 24 + 18] = faces[faceIndex].Item3.Position.Z;
+            ver[vertex * 24 + 19] = faces[faceIndex].Item3.Normal.X;
+            ver[vertex * 24 + 20] = faces[faceIndex].Item3.Normal.Y;
+            ver[vertex * 24 + 21] = faces[faceIndex].Item3.Normal.Z;
+            ver[vertex * 24 + 22] = faces[faceIndex].Item3.TextureCoordinate.X;
+            ver[vertex * 24 + 23] = faces[faceIndex].Item3.TextureCoordinate.Y;
+
+            faceIndex++;
         }
 
         mesh.SetVerticesAndIndices(ver, ind);
