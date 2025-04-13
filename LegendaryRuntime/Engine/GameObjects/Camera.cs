@@ -102,11 +102,11 @@ public class Camera : GameObject
 
         if (ApplicationWindow.keyboardState.IsKeyDown(Keys.W) && MovingCamera)
         {
-            Transform.Position += Transform.Forward * 20 * deltaTime;
+            Transform.Position += Transform.Forward * 5 * deltaTime;
         }
         if (ApplicationWindow.keyboardState.IsKeyDown(Keys.S) && MovingCamera)
         {
-            Transform.Position += -Transform.Forward * 20 * deltaTime;
+            Transform.Position += -Transform.Forward * 5 * deltaTime;
         }
         if (ApplicationWindow.keyboardState.IsKeyDown(Keys.A) && MovingCamera)
         {
@@ -118,11 +118,11 @@ public class Camera : GameObject
         }
         if (ApplicationWindow.keyboardState.IsKeyDown(Keys.Q) && MovingCamera)
         {
-            Transform.Position += -Vector3.UnitY * 20 * deltaTime;
+            Transform.Position += -Vector3.UnitY * 5 * deltaTime;
         }
         if (ApplicationWindow.keyboardState.IsKeyDown(Keys.E) && MovingCamera)
         {
-            Transform.Position += Vector3.UnitY * 20 * deltaTime;
+            Transform.Position += Vector3.UnitY * 5 * deltaTime;
         }
 
         if (ApplicationWindow.keyboardState.IsKeyReleased(Keys.P))
