@@ -1,3 +1,4 @@
+using LegendaryRenderer.Components;
 using LegendaryRenderer.Geometry;
 using OpenTK.Mathematics;
 
@@ -7,33 +8,111 @@ public class GameObject
 {
     public Transform Transform;
 
+    public static int NumGameObjects = -1;
+
     public Guid GUID;
+
+    public string Name;
+
+    public bool IsVisible = true;
+
+    public GameObject GetRoot()
+    {
+        return Parent != null ? Parent.GetRoot() : this;
+    }
     
-    public GameObject Parent;
+    public GameObject? Parent
+    {
+        get
+        {
+            if (parent != null)
+            {
+                return parent;
+            }
+            else
+            {
+                return null;
+            }
+        }
+        set
+        {
+            parent = value;
+        }
+    }
+
+    private GameObject? parent;
+
+    public List<Component?> Components;
     
     public List<GameObject> Children;
 
-    public GameObject(Vector3 position)
+    public GameObject(Vector3 position, string name = "")
     {
-        GUID = new Guid();
+        GUID = Guid.NewGuid();
 
-        Parent = Application.Engine.RootObject;
+        if (name == "")
+        {
+            Name = $"Game Object (Entity ID: {++NumGameObjects})";
+        }
+        else
+        {
+            Name = name;
+        }
+
+//        Parent = Application.Engine.RootObject;
         
         Children = new List<GameObject>();
         
-        Transform = new Transform(position);
+        Transform = new Transform(position, this);
+        Transform.LocalPosition = position;
         
         Application.Engine.AddGameObject(this);
     }
 
-    public virtual void Update(float deltaTime)
+    public Component? AddComponent<T>() where T : Component
     {
-        // do update for game object here.
+        var comp = (T)Activator.CreateInstance(typeof(T), new object[] { this, "" })!; 
+        Components.Add(comp);
+
+        return comp;
     }
 
-    public virtual void Render()
+    public Component? GetOrAddComponent<T>(T component) where T : Component
     {
-        // Do Render logic here
+        if (Components.Find(comp => comp?.GetType() == typeof(Component)) == null)
+        {
+            AddComponent<T>();
+        }
+        
+        return Components.Find(comp => comp?.GetType() == typeof(T));
+    }
+
+    public Component? GetComponent<T>() where T : Component
+    {
+        return Components.Find(comp => comp?.GetType() == typeof(T));
+    }
+    
+    
+    public virtual void Update(float deltaTime)
+    {
+        Transform.Update();
+        
+        foreach (var child in Children)
+        {
+            child.Transform.Update();
+        }
+    }
+
+    public enum RenderMode
+    {
+        GBuffer,
+        SelectionMask,
+        Wireframe,
+        Default,
+        ShadowPass,
+    }
+    public virtual void Render(RenderMode mode = RenderMode.Default)
+    {
     }
 
     public virtual void Delete()
@@ -45,12 +124,23 @@ public class GameObject
     {
         if (child.Parent == this)
         {
-            Console.WriteLine("Cannot add GameObject as a child of itself.");
+            Console.WriteLine("Cannot add GameObject as a child of a child of itself.");
             return;
         }
         
         Children.Add(child);
         
+        child.Transform.Parent = Transform;
+        child.Transform.HasChanged = true;
         child.Parent = this;
+        
+        Console.WriteLine($"Added child {child.Name} to parent {child.Parent?.Name}.");
+    }
+
+    public void RemoveChild(GameObject child)
+    {
+        child.Parent = null;
+        child.Transform.Parent = null;
+        Children.Remove(child);
     }
 }

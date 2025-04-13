@@ -9,7 +9,7 @@ public static class Application
     public static int Width;
     public static int Height;
 
-    public static void Initialize(int width, int height, string title, int maxFPS = 120)
+    public static void Initialize(int width, int height, string title, int maxFPS = 300)
     {
         Width = width;
         Height = height;
@@ -17,6 +17,17 @@ public static class Application
         {
             windowInstance = CreateWindow(width, height, title, maxFPS);
         }
+        
+    }
+
+    public static void SetCursorVisible(bool visible)
+    {
+        windowInstance.IsMouseVisible = visible;
+    }
+
+    public static bool IsCursorVisible()
+    {
+        return windowInstance.IsMouseVisible;
     }
 
     public static void Run()
@@ -29,6 +40,6 @@ public static class Application
         var gameSettings = GameWindowSettings.Default;
         gameSettings.UpdateFrequency = maxFPS;
         return new ApplicationWindow(gameSettings,
-            new NativeWindowSettings() { Size = (width, height), Title = title });
+            new NativeWindowSettings() { Size = (width, height), Title = title, RedBits = 16, GreenBits = 16, BlueBits = 16, AlphaBits = 16});
     }
 }

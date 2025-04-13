@@ -5,9 +5,12 @@
         <TargetFramework>net8.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     </PropertyGroup>
 
     <ItemGroup>
+      <PackageReference Include="AssimpNet" Version="5.0.0-beta1" />
+      <PackageReference Include="ImGui.NET" Version="1.91.6.1" />
       <PackageReference Include="OpenTK" Version="4.8.2" />
       <PackageReference Include="SixLabors.ImageSharp" Version="3.1.5" />
       <PackageReference Include="System.Drawing.Common" Version="8.0.10" />
@@ -36,6 +39,111 @@
         <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       </None>
       <None Update="LegendaryRuntime\Resources\teapot.model">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="LegendaryRuntime\Resources\HDRMap.tif">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="LegendaryRuntime\Resources\HDRMap2.tif">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="LegendaryRuntime\Resources\normalMap.png">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="LegendaryRuntime\Resources\selectionpattern.png">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="LegendaryRuntime\Resources\ssao_noise.png">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="LegendaryRuntime\Resources\Models\diorama.fbx">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="LegendaryRuntime\Resources\Models\dragon.fbx">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="LegendaryRuntime\Resources\Models\ecko.fbx">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="LegendaryRuntime\Resources\Models\house.fbx">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="LegendaryRuntime\Resources\Models\instance_test.fbx">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="LegendaryRuntime\Resources\Models\monkeyscene.fbx">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="LegendaryRuntime\Resources\Models\pagani.fbx">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="LegendaryRuntime\Resources\Models\test2.fbx">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="LegendaryRuntime\Resources\Models\testmodel.fbx">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="LegendaryRuntime\Resources\Models\ztest.fbx">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="LegendaryRuntime\Resources\IES Profiles\fancyprofile.ies">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="LegendaryRuntime\Engine\Shaders\glsl\AtmosphericSky.frag">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="LegendaryRuntime\Engine\Shaders\glsl\AtmosphericSky.vert">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="LegendaryRuntime\Engine\Shaders\glsl\AutoExposureCompute.comp">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="LegendaryRuntime\Engine\Shaders\glsl\Blit.frag">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="LegendaryRuntime\Engine\Shaders\glsl\Blit.vert">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="LegendaryRuntime\Engine\Shaders\glsl\debug.frag">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="LegendaryRuntime\Engine\Shaders\glsl\debug.vert">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="LegendaryRuntime\Engine\Shaders\glsl\DeferredLight.frag">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="LegendaryRuntime\Engine\Shaders\glsl\DeferredLight.vert">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="LegendaryRuntime\Engine\Shaders\glsl\FullscreenQuad.frag">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="LegendaryRuntime\Engine\Shaders\glsl\FullscreenQuad.vert">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="LegendaryRuntime\Engine\Shaders\glsl\MotionBlur.frag">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="LegendaryRuntime\Engine\Shaders\glsl\MotionBlur.vert">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="LegendaryRuntime\Engine\Shaders\glsl\SelectionBits.frag">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="LegendaryRuntime\Engine\Shaders\glsl\SelectionBits.vert">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="LegendaryRuntime\Engine\Shaders\glsl\SelectionVisualiser.frag">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="LegendaryRuntime\Engine\Shaders\glsl\SelectionVisualiser.vert">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="LegendaryRuntime\Engine\Shaders\glsl\shadowgen.frag">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="LegendaryRuntime\Engine\Shaders\glsl\shadowgen.vert">
         <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       </None>
     </ItemGroup>

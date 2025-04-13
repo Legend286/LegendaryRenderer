@@ -49,6 +49,7 @@ public static class ShaderManager
             return ShaderLoadStatus.COMPILE_ERROR;
         }
     }
+    
     public static void Dispose()
     {
         foreach(KeyValuePair<string, ShaderFile> shaderKV in LoadedShaders)

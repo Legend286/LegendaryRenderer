@@ -1,3 +1,4 @@
+using LegendaryRenderer.Application;
 using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
 
@@ -126,7 +127,9 @@ public class ShaderFile : IDisposable
         if (code != (int)All.True)
         {
             // We can use `GL.GetProgramInfoLog(program)` to get information about the error.
-            throw new Exception($"Error occurred whilst linking Program({program})");
+            string error = GL.GetProgramInfoLog(program);
+            
+            Console.WriteLine($"Shader {program} link failed: \n {error}");
             return false;
         }
 
@@ -160,15 +163,19 @@ public class ShaderFile : IDisposable
 
     public void UseShader()
     {
-        if (lastShader != ShaderHandle)
-        {
-            lastShader = ShaderHandle;
-            GL.UseProgram(ShaderHandle);
-            Console.WriteLine($"Using Shader {ShaderHandle}.");
-        }
+        lastShader = ShaderHandle;
+        Application.Engine.currentShader = this;
+        GL.UseProgram(ShaderHandle);
+        //  Console.WriteLine($"Using Shader {ShaderHandle}.");
+
+        SetShaderMatrix4x4("view", Application.Engine.ActiveCamera.ViewMatrix);
+        SetShaderMatrix4x4("proj", Application.Engine.ActiveCamera.ProjectionMatrix);
+        SetShaderMatrix4x4("viewProjection", Application.Engine.ActiveCamera.ViewProjectionMatrix);
+        SetShaderMatrix4x4("prevViewProjection", Application.Engine.ActiveCamera.PreviousViewProjectionMatrix);
+        SetShaderVector3("cameraPosWS", Application.Engine.ActiveCamera.Transform.Position);
     }
 
-        public int GetAttributeLocation(string attributeName)
+    public int GetAttributeLocation(string attributeName)
     {
         int location = GL.GetAttribLocation(ShaderHandle, attributeName);
      //   Console.WriteLine($"Attribute location {location}.");
@@ -185,10 +192,28 @@ public class ShaderFile : IDisposable
         GL.Uniform1(location, value);
     }
 
+    public void SetShaderInt(string parameterName, int value)
+    {
+        int location = GetUniformLocation(parameterName);
+        GL.Uniform1(location, value);
+    }
+
+    public void SetShaderUint(string parameterName, uint value)
+    {
+        int location = GetUniformLocation(parameterName);
+        GL.Uniform1(location, value);
+    }
+
     public void SetShaderVector3(string parameterName, Vector3 value)
     {
         int location = GetUniformLocation(parameterName);
         GL.Uniform3(location, value.X, value.Y, value.Z);
+    }
+
+    public void SetShaderVector4(string parameterName, Vector4 value)
+    {
+        int location = GetUniformLocation(parameterName);
+        GL.Uniform4(location, value.X, value.Y, value.Z, value.W);
     }
 
     public void SetShaderMatrix4x4(string parameterName, Matrix4 value, bool transpose = true)

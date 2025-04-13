@@ -1,0 +1,53 @@
+﻿#version 430
+
+layout (local_size_x = 16, local_size_y = 16) in;
+
+layout (binding = 0, rgba32f) readonly uniform image2D inputImage;
+layout (binding = 1, rgba32f) writeonly uniform image2D outputImage;
+
+uniform ivec2 inputSize;
+
+shared float sharedLuminance[256];
+
+float computeLuminance(vec3 color) {
+    return dot(color, vec3(0.2126, 0.7152, 0.0722));
+}
+
+void main() {    
+    ivec2 localID = ivec2(gl_LocalInvocationID.xy);
+    uint index = gl_LocalInvocationIndex;
+    sharedLuminance[index] = 0.0;
+    barrier();
+    ivec2 blockOrigin = ivec2(gl_WorkGroupID.xy) * ivec2(16, 16);
+    ivec2 pixelCoord = blockOrigin + localID;
+
+    float lum = 0.0;
+
+    if (pixelCoord.x < inputSize.x && pixelCoord.y < inputSize.y)
+    {
+        vec4 pixel = imageLoad(inputImage, pixelCoord);
+        float tempLum = computeLuminance(pixel.rgb);
+        
+        if (isnan(tempLum)) {
+            tempLum = 0.0;
+        }
+        lum = tempLum;
+    }
+    
+    sharedLuminance[index] = lum;
+    barrier();
+    
+    for (uint stride = 256u / 2u; stride > 0u; stride /= 2u) 
+    {
+        if (index < stride) 
+        {
+            sharedLuminance[index] += sharedLuminance[index + stride];
+        }
+        barrier();
+    }
+    
+    if (index == 0) 
+    {
+        imageStore(outputImage, ivec2(gl_WorkGroupID.xy), vec4(sharedLuminance[0], 0.0, 0.0, 1.0));
+    }
+}

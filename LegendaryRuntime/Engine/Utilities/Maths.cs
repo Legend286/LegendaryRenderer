@@ -12,4 +12,25 @@ public static class Maths
     {
         return new Vector3(MathF.Max(a.X, b.X), MathF.Max(a.Y, b.Y), MathF.Max(a.Z, b.Z));
     }
+
+    public static float Fractional(float x)
+    {
+        return x - (float)MathF.Floor(x);
+    }
+    
+    public static Vector3 ProjectVectorOntoPlane(Vector3 vector, Vector3 planeNormal)
+    {
+        Vector3 normalizedNormal = planeNormal.Normalized();
+        
+        float dotProduct = Vector3.Dot(vector, normalizedNormal);
+        
+        Vector3 projection = vector - dotProduct * normalizedNormal;
+        
+        return projection;
+    }
+
+    public static Quaternion Rotation(float pitch, float yaw, float roll)
+    {
+        return Quaternion.FromEulerAngles(MathHelper.DegreesToRadians(pitch), MathHelper.DegreesToRadians(yaw), MathHelper.DegreesToRadians(roll)).Normalized();
+    }
 }
