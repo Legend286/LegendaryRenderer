@@ -19,8 +19,12 @@ public class IESProfile
 
     public static IESProfile Load(string filePath)
     {
-        string path = "LegendaryRuntime/Resources/IES Profiles/";
-                      var lines = File.ReadAllLines($"{path}{filePath}");
+        // Get the absolute base directory of the executable.
+        string basePath = AppContext.BaseDirectory;
+       
+        string path = Path.Combine(basePath, Path.Combine(Path.Combine("LegendaryRuntime"), "Resources"), "IES Profiles");
+
+        var lines = File.ReadAllLines(Path.Combine(path, filePath));
         int dataIndex = 0;
 
         // Skip headers until we reach photometric data

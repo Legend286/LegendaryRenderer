@@ -18,6 +18,7 @@ using TextureHandle = TheLabs.LegendaryRuntime.Engine.Utilities.GLHelpers.Textur
 using External.ImguiController;
 using ImGuiNET;
 using LegendaryRenderer.Geometry;
+using LegendaryRenderer.LegendaryRuntime.Engine.Renderer.MaterialSystem;
 using Microsoft.VisualBasic;
 using Vector2 = System.Numerics.Vector2;
 
@@ -132,15 +133,15 @@ public class ApplicationWindow : GameWindow
                     {
                         if (targetIndex == 0)
                         {
-                            mesh.Material.DiffuseTexture = RenderableMesh.LoadTexture(fileName);
+                            mesh.Material.DiffuseTexture = TextureLoader.LoadTexture(fileName, false);
                         }
                         if (targetIndex == 1)
                         {
-                            mesh.Material.NormalTexture = RenderableMesh.LoadTexture(fileName);
+                            mesh.Material.NormalTexture = TextureLoader.LoadTexture(fileName, false);
                         }
                         if (targetIndex == 2)
                         {
-                            mesh.Material.RoughnessTexture = RenderableMesh.LoadTexture(fileName);
+                            mesh.Material.RoughnessTexture = TextureLoader.LoadTexture(fileName, false);
                         }
                     }
                     else

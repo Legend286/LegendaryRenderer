@@ -3,6 +3,7 @@ using Assimp;
 using Geometry;
 using LegendaryRenderer.Application;
 using LegendaryRenderer.GameObjects;
+using LegendaryRenderer.LegendaryRuntime.Engine.Renderer.MaterialSystem;
 using OpenTK.Audio.OpenAL;
 using OpenTK.Mathematics;
 using TheLabs.LegendaryRuntime.Engine.Renderer;
@@ -23,11 +24,14 @@ public static class ModelLoader
         using (new ScopedProfiler($"Load Model '{fileName}' ({Loaded++})."))
         {
             AssimpContext importer = new AssimpContext();
-
+            // Get the absolute base directory of the executable.
+            string basePath = AppContext.BaseDirectory;
+            // Build your shader folder path using Path.Combine for proper platform independence.
+          
             string fullFile;
             if (!purePath)
             {
-                fullFile = "LegendaryRuntime/Resources/" + fileName;
+                fullFile = Path.Combine(Path.Combine(Path.Combine(basePath, "LegendaryRuntime"),"Resources"), fileName);
             }
             else
             {
@@ -122,7 +126,7 @@ public static class ModelLoader
                 {
                     if (scene.Materials[mesh.MaterialIndex].GetMaterialTexture(TextureType.BaseColor, 0, out TextureSlot diff))
                     {
-                        int diffuseTex = RenderableMesh.LoadTexture(diff.FilePath, fileName);
+                        int diffuseTex = TextureLoader.LoadTexture(diff.FilePath, false, fileName, true);
                         msh.Material.DiffuseTexture = diffuseTex;
                     }
                     else
@@ -134,16 +138,15 @@ public static class ModelLoader
                 {
                     if (scene.Materials[mesh.MaterialIndex].GetMaterialTexture(TextureType.Diffuse, 0, out TextureSlot diff))
                     {
-                        int diffuseTex = RenderableMesh.LoadTexture(diff.FilePath, fileName);
+                        int diffuseTex = TextureLoader.LoadTexture(diff.FilePath, false, fileName, true);
+                        Console.WriteLine(diff.FilePath);
                         msh.Material.DiffuseTexture = diffuseTex;
                     }
                     else
                     {
                         if (scene.Materials[mesh.MaterialIndex].HasTextureDiffuse)
                         {
-                            int diffuseTex =
-                                RenderableMesh.LoadTexture(scene.Materials[mesh.MaterialIndex].TextureDiffuse.FilePath,
-                                    fileName);
+                            int diffuseTex = TextureLoader.LoadTexture(scene.Materials[mesh.MaterialIndex].TextureDiffuse.FilePath, false, fileName, true);
                             msh.Material.DiffuseTexture = diffuseTex;
                         }
                         else
@@ -154,14 +157,14 @@ public static class ModelLoader
                 }
                 if (scene.Materials[mesh.MaterialIndex].GetMaterialTexture(TextureType.NormalCamera, 0, out TextureSlot norm))
                 {
-                    int normalTex = RenderableMesh.LoadTexture(norm.FilePath, fileName);
+                    int normalTex = TextureLoader.LoadTexture(norm.FilePath, false, fileName, true);
                     msh.Material.NormalTexture = normalTex;
                 }
                 else
                 { 
                     if (scene.Materials[mesh.MaterialIndex].HasTextureNormal)
                     {
-                        int normalTex = RenderableMesh.LoadTexture(scene.Materials[mesh.MaterialIndex].TextureNormal.FilePath, fileName);
+                        int normalTex = TextureLoader.LoadTexture(scene.Materials[mesh.MaterialIndex].TextureNormal.FilePath, false, fileName, true);
                         msh.Material.NormalTexture = normalTex;
                     }
                     else
@@ -173,14 +176,14 @@ public static class ModelLoader
                 if (scene.Materials[mesh.MaterialIndex]
                     .GetMaterialTexture(TextureType.Roughness, 0, out TextureSlot rough))
                 {
-                    int roughnessTex = RenderableMesh.LoadTexture(rough.FilePath, fileName);
+                    int roughnessTex = TextureLoader.LoadTexture(rough.FilePath, false, fileName, true);
                     msh.Material.RoughnessTexture = roughnessTex;
                 }
                 else
                 {
                     if (scene.Materials[mesh.MaterialIndex].HasTextureSpecular)
                     {
-                        int roughnessTex = RenderableMesh.LoadTexture(scene.Materials[mesh.MaterialIndex].TextureSpecular.FilePath, fileName);
+                        int roughnessTex = TextureLoader.LoadTexture(scene.Materials[mesh.MaterialIndex].TextureSpecular.FilePath, false, fileName, true);
                         msh.Material.RoughnessTexture = roughnessTex;
                     }
                     else

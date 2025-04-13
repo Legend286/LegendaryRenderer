@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Drawing;
 using External.ImguiController;
@@ -88,8 +89,42 @@ public static class Engine
 
 
     }
+    
+    // Thread-safe queue for actions to run on the main thread.
+    private static readonly ConcurrentQueue<Action> mainThreadQueue = new ConcurrentQueue<Action>();
+
+    /// <summary>
+    /// Enqueues an action to be executed on the main thread.
+    /// </summary>
+    public static void QueueOnMainThread(Action action)
+    {
+        if (action == null)
+            throw new ArgumentNullException(nameof(action));
+
+        mainThreadQueue.Enqueue(action);
+    }
+
+    /// <summary>
+    /// Processes all queued actions. Call this method in your main update/render loop.
+    /// </summary>
+    public static void ProcessMainThreadQueue()
+    {
+        while (mainThreadQueue.TryDequeue(out var action))
+        {
+            try
+            {
+                action();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Exception while executing queued action: {ex.Message}");
+            }
+        }
+    }
     public static void Update(float deltaTime)
     {
+        ProcessMainThreadQueue();
+        
         foreach (GameObject go in GameObjects)
         {
             go.Update(deltaTime);
@@ -191,7 +226,7 @@ public static class Engine
         d = rbInst.GetTextureHandle(TextureHandle.PRIMARY_DEPTH);
         if (pattern == -1)
         {
-            pattern = RenderableMesh.LoadTexture("LegendaryRuntime/Resources/selectionpattern.png", "");
+            pattern = RenderableMesh.LoadTexture("LegendaryRuntime/Resources/selectionpattern.png", false);
         }
         RenderBufferHelpers.Instance?.BindMainOutputBuffer();
         FullscreenQuad.RenderQuad("SelectionVisualiser", new[] { a, b, c, d, pattern }, new[] { "selectionMask", "selectionDepth", "sceneColour", "sceneDepth", "selectionTexture" });

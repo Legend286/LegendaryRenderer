@@ -8,6 +8,6 @@ public static class Environment
 
     static Environment()
     {
-        EnvmapID = RenderableMesh.LoadTexture("LegendaryRuntime/Resources/HDRMap.tif", "", true);
+        EnvmapID = RenderableMesh.LoadTexture("LegendaryRuntime/Resources/HDRMap.tif", true);
     }
 }
