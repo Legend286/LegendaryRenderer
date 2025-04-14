@@ -10,11 +10,11 @@ LegendaryRenderer is a high-performance C# real-time rendering engine built from
 
 - 🌫️ Shadow Mapping (Per-light shadow passes)
 
-- 💎 Physically Based Rendering with Brute Force Specular
+- 💎 Physically Based Rendering with Brute Force Reflection Specular (WIP)
 
 - 🎥 Camera System
 
-- 🖱️ IMGUI-based Editor UI
+- 🖱️ IMGUI-based Editor UI (WIP)
 
 - 🎞️ Per-pixel Object and Camera Motion Blur
 
