@@ -52,6 +52,7 @@ LegendaryRenderer is currently in active development. Expect frequent changes an
 
 🗂 Project Structure
 
+```
 📁 LegendaryRenderer/
  ┣━ Program.cs              # Entry point
  ┣━ LegendaryRuntime/
@@ -64,7 +65,7 @@ LegendaryRenderer is currently in active development. Expect frequent changes an
  ┃  ┃  ┣━ Shaders/          # Shader Sources and Systems to Handle Them
  ┃  ┃  ┣━ Utilities/        # Utility classes like GL and Math helper classes
  ┗━ Resources/              # Models, textures, etc.
-
+```
 🎮 Goals
 
 Real-time photorealistic rendering
