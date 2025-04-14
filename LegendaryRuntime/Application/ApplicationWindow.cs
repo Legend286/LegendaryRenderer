@@ -352,7 +352,14 @@ public class ApplicationWindow : GameWindow
 
 
         ImGui.SetNextWindowSize(new System.Numerics.Vector2((float)Application.Width / 3, (float)Application.Height / 2));
+        
         ImGui.Begin("Settings", ImGuiWindowFlags.NoResize);
+
+        if (ImGui.Button("Reload all shaders"))
+        {
+            ShaderManager.ReloadAllShaders();
+        }
+        
         ImGui.DragFloat("SSAO - Radius", ref Engine.SSAOSettings.Radius, 0.01f, 0.05f, 10.0f);
         ImGui.DragInt("SSAO - Number of Samples", ref Engine.SSAOSettings.NumberOfSamples, 1, 1, 32);
         ImGui.Spacing();

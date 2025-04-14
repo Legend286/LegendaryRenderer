@@ -14,9 +14,14 @@ public static class TextureLoader
         string root = Path.GetDirectoryName(modelRoot);
         if (useModelRoot)
         {
-            path = Path.Combine(Path.Combine(root, "textures"), path);
+            path = Path.Combine(root, path);
             Console.WriteLine($"Looking for Textures in {path}.");
         }
+        else
+        {
+            path = Path.Combine(AppContext.BaseDirectory, Path.Combine("LegendaryRuntime", Path.Combine("Resources", path)));
+        }
+        
         string uniqueKey = Path.GetFullPath(path);
 
         Console.WriteLine($"Attempting to Load Texture {uniqueKey}...");

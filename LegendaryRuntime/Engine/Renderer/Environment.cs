@@ -1,4 +1,5 @@
 using Geometry;
+using LegendaryRenderer.LegendaryRuntime.Engine.Renderer.MaterialSystem;
 
 namespace TheLabs.LegendaryRuntime.Engine.Renderer;
 
@@ -8,6 +9,6 @@ public static class Environment
 
     static Environment()
     {
-        EnvmapID = RenderableMesh.LoadTexture("LegendaryRuntime/Resources/HDRMap.tif", true);
+        EnvmapID = TextureLoader.LoadTexture("HDRMap.tif", true);
     }
 }

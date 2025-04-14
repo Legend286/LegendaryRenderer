@@ -2,6 +2,7 @@ using Geometry;
 using Geometry.MaterialSystem.IESProfiles;
 using LegendaryRenderer.Engine.EngineTypes;
 using LegendaryRenderer.GameObjects;
+using LegendaryRenderer.LegendaryRuntime.Engine.Renderer.MaterialSystem;
 using OpenTK.Mathematics;
 using static LegendaryRenderer.Application.Engine;
 using Environment = TheLabs.LegendaryRuntime.Engine.Renderer.Environment;
@@ -177,7 +178,7 @@ public class Light : GameObject
 
         if (noiseTex == -1)
         {
-            noiseTex = RenderableMesh.LoadTexture("LegendaryRuntime/Resources/ssao_noise.png", false);
+            noiseTex = TextureLoader.LoadTexture("ssao_noise.png", false);
         }
         
         RenderBufferHelpers.Instance.GetTextureIDs(out int[] textures);

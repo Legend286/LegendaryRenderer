@@ -19,6 +19,14 @@ public static class ShaderManager
         LOADED_FROM_CACHE,
         SUCCESS,
     }
+
+    public static void ReloadAllShaders()
+    {
+        foreach (ShaderFile shader in LoadedShaders.Values)
+        {
+            Application.Engine.QueueOnMainThread(() => shader.ReloadShader());
+        }
+    }
     public static ShaderLoadStatus LoadShader(string file, out ShaderFile loadedShader)
     {
         if (LoadedShaders.ContainsKey(file))

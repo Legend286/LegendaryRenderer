@@ -226,7 +226,7 @@ public static class Engine
         d = rbInst.GetTextureHandle(TextureHandle.PRIMARY_DEPTH);
         if (pattern == -1)
         {
-            pattern = RenderableMesh.LoadTexture("LegendaryRuntime/Resources/selectionpattern.png", false);
+            pattern = RenderableMesh.LoadTexture("selectionpattern.png", false);
         }
         RenderBufferHelpers.Instance?.BindMainOutputBuffer();
         FullscreenQuad.RenderQuad("SelectionVisualiser", new[] { a, b, c, d, pattern }, new[] { "selectionMask", "selectionDepth", "sceneColour", "sceneDepth", "selectionTexture" });

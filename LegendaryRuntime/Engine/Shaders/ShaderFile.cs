@@ -16,10 +16,10 @@ public class ShaderFile : IDisposable
     // New fields for hot reloading
     private string vertexShaderPath;
     private string fragmentShaderPath;
-    private FileSystemWatcher vertexWatcher;
-    private FileSystemWatcher fragmentWatcher;
+    private FileSystemWatcher? vertexWatcher;
+    private FileSystemWatcher? fragmentWatcher;
     private DateTime lastReloadTime = DateTime.MinValue;
-    private readonly TimeSpan reloadDelay = TimeSpan.FromMilliseconds(50);
+    private readonly TimeSpan reloadDelay = TimeSpan.FromMilliseconds(1000);
 
     /*
      * Specify the shader path either with .vert/.frag extension or without. 
@@ -151,6 +151,7 @@ public class ShaderFile : IDisposable
                 };
                 vertexWatcher.Changed += OnShaderFileChanged;
                 vertexWatcher.Created += OnShaderFileChanged;
+                vertexWatcher.Renamed += OnShaderFileChanged;
                 vertexWatcher.EnableRaisingEvents = true;
                 Console.WriteLine($"FileSystemWatcher created for {vertexShaderPath}.");
             }
@@ -171,8 +172,13 @@ public class ShaderFile : IDisposable
                 };
                 fragmentWatcher.Changed += OnShaderFileChanged;
                 fragmentWatcher.Created += OnShaderFileChanged;
+                fragmentWatcher.Renamed += OnShaderFileChanged;
                 fragmentWatcher.EnableRaisingEvents = true;
                 Console.WriteLine($"FileSystemWatcher created for {fragmentShaderPath}.");
+            }
+            else
+            {
+                throw new Exception("Fragment Shader Path Invalid.");
             }
         }
     }
@@ -273,6 +279,7 @@ public class ShaderFile : IDisposable
         DateTime now = DateTime.Now;
         if (now - lastReloadTime < reloadDelay)
         {
+            Console.WriteLine("Event ignored due to debounce."); ;
             return;
         }
         lastReloadTime = now;
@@ -299,7 +306,7 @@ public class ShaderFile : IDisposable
         throw new IOException($"Unable to read file: {path}");
     }
 
-    private void ReloadShader()
+    public void ReloadShader()
     {
         try
         {
@@ -359,8 +366,8 @@ public class ShaderFile : IDisposable
         if (!IsDisposed)
         {
             GL.DeleteProgram(ShaderHandle);
-            vertexWatcher?.Dispose();
-            fragmentWatcher?.Dispose();
+           // vertexWatcher?.Dispose();
+          //  fragmentWatcher?.Dispose();
             IsDisposed = true;
         }
     }
