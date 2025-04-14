@@ -64,7 +64,7 @@ LegendaryRenderer is currently in active development. Expect frequent changes an
  ┃  ┃  ┣━ Renderer/         # Rendering Systems
  ┃  ┃  ┣━ Shaders/          # Shader Sources and Systems to Handle Them
  ┃  ┃  ┣━ Utilities/        # Utility classes like GL and Math helper classes
- ┗━ Resources/              # Models, textures, etc.
+ ┃  ┣━ Resources/           # Models, textures, etc.
 ```
 🎮 Goals
 
