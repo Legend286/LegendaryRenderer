@@ -178,7 +178,7 @@ public class Light : GameObject
 
         if (noiseTex == -1)
         {
-            noiseTex = TextureLoader.LoadTexture("ssao_noise.png", false);
+            noiseTex = TextureLoader.LoadTexture("ssao_noise.png", false).Reference().GetGLTexture();
         }
         
         RenderBufferHelpers.Instance.GetTextureIDs(out int[] textures);

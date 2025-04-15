@@ -279,7 +279,7 @@ vec3 PBR(vec3 N, vec3 V, vec3 L, vec3 albedo, float metallic, float roughness, v
 
     vec3 specular = (D * G * F) / (4.0 * NdotV * NdotL + 0.001);
     
-    specular += refl * F;
+  //  specular += refl * F;
 
 
     // Diffuse calculations
@@ -456,7 +456,7 @@ float GetShadowAttenuation(mat4 shadowViewProj, sampler2D shadowMapTex, vec3 pos
         float normalBiasFactor = 1 - clamp(dot(normal, lightDir), 0.0, 1.0);
         float bias = 1 * normalBiasFactor; // Lower the bias multiplier
         
-        bias = clamp(bias, 0.0, 0.0);
+        bias = clamp(bias, 0.0, 0.0000001f);
 
         // Loop over Poisson disk samples
         for (int i = 0; i < pcfSamples; i++) {
@@ -549,7 +549,7 @@ void main()
     vec2 reflectionUV = EquirectangularUVFromReflectionVector(ReflectionVector);
     vec3 refl = texture(cubemap, reflectionUV).rgb;
     
-    FragColor = vec4(((light * (1-(shadowFactor)))) + 0.05f * ((dot(normal, lightDir)*0.5+0.5)*lightColour),1.0f);
+    FragColor = vec4(((light * (1-(shadowFactor)))) + 0.05f * ((dot(normal, lightDir)*0.5+0.5)*lightColour*albedo),1.0f);
     
     if(texture(screenDepth, texCoord).r >= 0.9999999f)
     {

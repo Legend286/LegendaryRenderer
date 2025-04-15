@@ -7,9 +7,9 @@ namespace LegendaryRenderer.LegendaryRuntime.Engine.Renderer.MaterialSystem;
 
 public static class TextureLoader
 {
-    private static Dictionary<string, int> LoadedTextures = new Dictionary<string, int>();
+    private static Dictionary<string, Texture> LoadedTextures = new Dictionary<string, Texture>();
 
-    public static int LoadTexture(string path, bool HDR, string modelRoot = "", bool useModelRoot = false)
+    public static Texture LoadTexture(string path, bool HDR, string modelRoot = "", bool useModelRoot = false)
     {
         string root = Path.GetDirectoryName(modelRoot);
         if (useModelRoot)
@@ -41,18 +41,21 @@ public static class TextureLoader
 
                 // Generate and bind a new OpenGL texture
                 int textureId = GL.GenTexture();
+
                 GL.BindTexture(TextureTarget.Texture2D, textureId);
 
                 var PT = PixelType.UnsignedByte;
+                var PF = PixelFormat.Rgba;
+                var PFI = PixelInternalFormat.Rgba;
 
                 // Upload the texture data to the GPU
                 GL.TexImage2D(TextureTarget.Texture2D,
                     0,
-                    PixelInternalFormat.Rgba,
+                    PFI,
                     image.Width,
                     image.Height,
                     0,
-                    PixelFormat.Rgba,
+                    PF,
                     PT,
                     pixelData);
 
@@ -64,9 +67,10 @@ public static class TextureLoader
 
                 GL.BindTexture(TextureTarget.Texture2D, 0);
 
+                Texture tex = new Texture(image.Width, image.Height, textureId, PF, PFI, PT);
                 Console.WriteLine($"Loaded Texture: {uniqueKey}");
-                LoadedTextures.Add(uniqueKey, textureId);
-                return textureId;
+                LoadedTextures.Add(uniqueKey, tex);
+                return tex;
             }
             else
             {
@@ -85,15 +89,19 @@ public static class TextureLoader
                 GL.BindTexture(TextureTarget.Texture2D, textureId);
 
                 var PT = PixelType.HalfFloat;
+                var PFI = PixelInternalFormat.Rgb;
+                var PF = PixelFormat.Rgb;
+
+
 
                 // Upload the texture data to the GPU
                 GL.TexImage2D(TextureTarget.Texture2D,
                     0,
-                    PixelInternalFormat.Rgb,
+                    PFI,
                     image.Width,
                     image.Height,
                     0,
-                    PixelFormat.Rgb,
+                    PF,
                     PT,
                     pixelData);
 
@@ -105,16 +113,21 @@ public static class TextureLoader
 
                 GL.BindTexture(TextureTarget.Texture2D, 0);
 
+                Texture tex = new Texture(image.Width, image.Height, textureId, PF, PFI, PT);
                 Console.WriteLine($"Loaded Texture: {uniqueKey}");
-                LoadedTextures.Add(uniqueKey, textureId);
-                return textureId;
+                LoadedTextures.Add(uniqueKey, tex);
+                return tex;
             }
-        }
+        } 
         if (LoadedTextures.ContainsKey(uniqueKey))
         {
             Console.WriteLine($"Returning loaded Texture: {uniqueKey}");
-            return LoadedTextures[uniqueKey];
+            return LoadedTextures[uniqueKey].Reference();
         }
-        return -1;
+        else
+        {
+            Console.WriteLine($"Returning NULL texture");
+            return Texture.NullTexture().Reference();
+        }
     }
 }

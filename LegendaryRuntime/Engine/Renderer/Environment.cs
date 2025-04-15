@@ -9,6 +9,6 @@ public static class Environment
 
     static Environment()
     {
-        EnvmapID = TextureLoader.LoadTexture("HDRMap.tif", true);
+        EnvmapID = TextureLoader.LoadTexture("HDRMap.tif", true).Reference().GetGLTexture();
     }
 }

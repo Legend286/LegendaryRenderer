@@ -133,15 +133,15 @@ public class ApplicationWindow : GameWindow
                     {
                         if (targetIndex == 0)
                         {
-                            mesh.Material.DiffuseTexture = TextureLoader.LoadTexture(fileName, false);
+                            mesh.Material.DiffuseTexture = TextureLoader.LoadTexture(fileName, false).Reference().GetGLTexture();
                         }
                         if (targetIndex == 1)
                         {
-                            mesh.Material.NormalTexture = TextureLoader.LoadTexture(fileName, false);
+                            mesh.Material.NormalTexture = TextureLoader.LoadTexture(fileName, false).Reference().GetGLTexture();
                         }
                         if (targetIndex == 2)
                         {
-                            mesh.Material.RoughnessTexture = TextureLoader.LoadTexture(fileName, false);
+                            mesh.Material.RoughnessTexture = TextureLoader.LoadTexture(fileName, false).Reference().GetGLTexture();
                         }
                     }
                     else
@@ -156,10 +156,18 @@ public class ApplicationWindow : GameWindow
             }
         }
     }
+    private Light l1;
     protected override void OnLoad()
     {
         var loading = new ScopedProfiler("Loading Phase");
 
+        Light l3 = new Light(Vector3.Zero, "Light Test");
+        l3.Type = Light.LightType.Spot;
+        l3.EnableShadows = false;
+        l3.InnerCone = 50.0f;
+        l3.OuterCone = 65.0f;
+        l3.Range = 50;
+        lights.Add(l3);
         loading.StartTimingCPU();
 
         base.OnLoad();
@@ -172,11 +180,11 @@ public class ApplicationWindow : GameWindow
         GL.Disable(EnableCap.FramebufferSrgb);
         GL.DepthFunc(DepthFunction.Lequal);
 
-      //  model2 = ModelLoader.LoadModel("Models/dragon.fbx", new Vector3(0, 0.1f, 8), Rotation(0, 0, 0), Vector3.One / 5);
+        model2 = ModelLoader.LoadModel("Models/dragon.fbx", new Vector3(0, 0.1f, 0), Rotation(0, 0, 0), Vector3.One);
         
-      //  RenderableMesh? mdl = model2.Children[0] as RenderableMesh;
-      //  mdl.Material.Roughness = 0.9f;
-      //  mdl.Material.Colour = Color4.Red;
+        RenderableMesh? mdl = model2.Children[0] as RenderableMesh;
+        mdl.Material.Roughness = 0.9f;
+        mdl.Material.Colour = Color4.Red;
         //model3 = ModelLoader.LoadModel("Models/diorama.fbx", new Vector3(0, 0, 6), Rotation(90, 0, 0), Vector3.One);
 
         GL.Enable(EnableCap.DepthTest);
@@ -215,7 +223,7 @@ public class ApplicationWindow : GameWindow
             lights.Add(light);
         }
 
-        Light l1 = new Light(new Vector3(0, 0, 0), "Camera Light");
+        l1 = new Light(new Vector3(0, 0, 0), "Camera Light");
 
         l1.Colour = Color4.White;
         l1.Intensity = 10.0f;
@@ -226,7 +234,7 @@ public class ApplicationWindow : GameWindow
         l1.Type = Light.LightType.Projector;
         l1.LightIESProfile = profile;
         l1.Transform.Rotation = Rotation(-40, 20, 0);
-        //camera2.AddChild(l1);
+       
         // light2.Colour = Color.Green;
         // light3.Colour = Color.Blue;
         //   light3.Transform.Rotation = Quaternion.FromEulerAngles(MathHelper.DegreesToRadians(-35), 0, 0);
@@ -304,31 +312,29 @@ public class ApplicationWindow : GameWindow
     private void ShowMaterialSelectionPopup()
     {
         string name = droppedFile.Split("/").Last();
-
-       
+        
         if (initial)
         {
             initial = false;
             mouseInitialPos = ImGui.GetMousePos();
         }
         
-        
         ImGui.Begin($"Select Material Channel for '{name}'");
         ImGui.SetWindowSize(new Vector2(200, 200));
         ImGui.SetWindowPos(mouseInitialPos);
         if (ImGui.Button("Diffuse"))
         {
-            droppedMesh.Material.DiffuseTexture = RenderableMesh.LoadTexture(droppedFile);
+            droppedMesh.Material.DiffuseTexture = TextureLoader.LoadTexture(droppedFile, false).Reference().GetGLTexture();
             shouldShowPopup = false;
         }
         if (ImGui.Button("Normal"))
         {
-            droppedMesh.Material.NormalTexture = RenderableMesh.LoadTexture(droppedFile);
+            droppedMesh.Material.NormalTexture = TextureLoader.LoadTexture(droppedFile, false).Reference().GetGLTexture();
             shouldShowPopup = false;
         }
         if (ImGui.Button("Roughness / Metallic"))
         {
-            droppedMesh.Material.RoughnessTexture = RenderableMesh.LoadTexture(droppedFile);
+            droppedMesh.Material.RoughnessTexture = TextureLoader.LoadTexture(droppedFile, false).Reference().GetGLTexture();
             shouldShowPopup = false;
         }
         
@@ -337,19 +343,36 @@ public class ApplicationWindow : GameWindow
     private void DrawTexture(string name, int textureID)
     {
         ImGui.Text(name);
-        ImGui.Image((IntPtr)textureID, new Vector2(128,128), new Vector2(0,1), new Vector2(1,0));
+        ImGui.Image(textureID, new Vector2(128,128), new Vector2(0,1), new Vector2(1,0));
     }
     private bool first = true;
     System.Numerics.Vector3 rot = new System.Numerics.Vector3(0, 0, 0);
     System.Numerics.Vector3 newRotation = new();
     private float snapSize = 1.5f;
+
+    private void DrawLightHierarchy()
+    {
+        if (ImGui.TreeNode("Lights"))
+        {
+            foreach (Light light in lights)
+            {
+                if (ImGui.Button(light.Name))
+                {
+                    Engine.SelectedRenderableObjects.Clear();
+                    Engine.SelectedRenderableObjects.Add(light);
+                }
+            }
+            ImGui.TreePop();
+        }
+    }
+    
     private void DoImGui()
     {
         if (shouldShowPopup)
         {
             ShowMaterialSelectionPopup();
         }
-
+        
 
         ImGui.SetNextWindowSize(new System.Numerics.Vector2((float)Application.Width / 3, (float)Application.Height / 2));
         
@@ -364,77 +387,84 @@ public class ApplicationWindow : GameWindow
         ImGui.DragInt("SSAO - Number of Samples", ref Engine.SSAOSettings.NumberOfSamples, 1, 1, 32);
         ImGui.Spacing();
         DrawTexture("Spotlight Last ShadowMap", Engine.SpotShadowMapTexture);
-
+        
+        DrawLightHierarchy();
+   
+        
         if (Engine.SelectedRenderableObjects.Count == 1)
         {
-            RenderableMesh? target = (Engine.SelectedRenderableObjects[0] as RenderableMesh);
-
-            if (target != null)
+            Light? light = Engine.SelectedRenderableObjects[0] as Light;
+            if (light != null)
             {
+                
+            }
 
-                if (ImGui.Button($"Spinning ({target.Spinning})"))
+            GameObject target = Engine.SelectedRenderableObjects[0];
+            
+            Vector3 pos = target.GetRoot().Transform.LocalPosition;
+            Vector3 scale = target.GetRoot().Transform.Scale;
+            Vector3 rotation = Vector3.Zero;
+            target.Transform.Rotation.ToEulerAngles(out rotation);
+            System.Numerics.Vector3 newPosition = new System.Numerics.Vector3(pos.X, pos.Y, pos.Z);
+            System.Numerics.Vector3 newScale = new System.Numerics.Vector3(scale.X, scale.Y, scale.Z);
+
+            ImGui.Text("Snap Size");
+
+            ImGui.Text($"Selected Object: {target.GetRoot().Name.Split(':').Last()}");
+            ImGui.Text("Transform Settings");
+
+            if (first)
+            {
+                rot = new System.Numerics.Vector3(MathHelper.RadiansToDegrees(rotation.X), MathHelper.RadiansToDegrees(rotation.Y), MathHelper.RadiansToDegrees(rotation.Z));
+                first = false;
+            }
+            if (ImGui.DragFloat3($"Position Object", ref newPosition))
+            {
+                target.GetRoot().Transform.Position = new Vector3(newPosition.X, newPosition.Y, newPosition.Z);
+            }
+
+            if (ImGui.DragFloat3($"Rotate Object", ref rot, snapSize))
+            {
+                newRotation = new System.Numerics.Vector3((rot.X), (rot.Y), (rot.Z));
+                target.GetRoot().Transform.Rotation = Rotation(newRotation.X, newRotation.Y, newRotation.Z);
+            }
+
+            if (ImGui.DragFloat3($"Scale Object", ref newScale))
+            {
+                target.GetRoot().Transform.Scale = new Vector3(newScale.X, newScale.Y, newScale.Z);
+            }
+            
+            RenderableMesh? targetRenderable = (Engine.SelectedRenderableObjects[0] as RenderableMesh);
+            
+            if (targetRenderable != null)
+            {
+                if (ImGui.Button($"Spinning ({targetRenderable.Spinning})"))
                 {
-                    target.Spinning = !target.Spinning;
+                    targetRenderable.Spinning = !targetRenderable.Spinning;
                 }
 
-
-                ImGui.Text($"Materials for {target.Name.Split(':').Last()}:");
+                ImGui.Text($"Materials for {targetRenderable.Name.Split(':').Last()}:");
                 ImGui.BeginChild("Materials", new System.Numerics.Vector2(128 * 3 + 24, 165));
                 //ImGui.Text("Materials");
                 ImGui.Columns(3, "tables");
-                if (target.Material.DiffuseTexture != -1)
+                if (targetRenderable.Material.DiffuseTexture != -1)
                 {
                     ImGui.SetColumnWidth(0, 128 + 4);
-                    DrawTexture("Diffuse", target.Material.DiffuseTexture);
+                    DrawTexture("Diffuse", targetRenderable.Material.DiffuseTexture);
                     ImGui.NextColumn();
                 }
-                if (target.Material.NormalTexture != -1)
+                if (targetRenderable.Material.NormalTexture != -1)
                 {
                     ImGui.SetColumnWidth(1, 128 + 4);
-                    DrawTexture("Normal", target.Material.NormalTexture);
+                    DrawTexture("Normal", targetRenderable.Material.NormalTexture);
                     ImGui.NextColumn();
                 }
-                if (target.Material.RoughnessTexture != -1)
+                if (targetRenderable.Material.RoughnessTexture != -1)
                 {
                     ImGui.SetColumnWidth(2, 128 + 4);
-                    DrawTexture("Mask", target.Material.RoughnessTexture);
+                    DrawTexture("Mask", targetRenderable.Material.RoughnessTexture);
                 }
                 ImGui.EndChild();
-
-
-                Vector3 pos = target.GetRoot().Transform.LocalPosition;
-                Vector3 scale = target.GetRoot().Transform.Scale;
-                Vector3 rotation = Vector3.Zero;
-                target.Transform.Rotation.ToEulerAngles(out rotation);
-                System.Numerics.Vector3 newPosition = new System.Numerics.Vector3(pos.X, pos.Y, pos.Z);
-                System.Numerics.Vector3 newScale = new System.Numerics.Vector3(scale.X, scale.Y, scale.Z);
-
-                ImGui.Text("Snap Size");
-
-                ImGui.Text($"Selected Object: {target.GetRoot().Name.Split(':').Last()}");
-                ImGui.Text("Transform Settings");
-
-                if (first)
-                {
-                    rot = new System.Numerics.Vector3(MathHelper.RadiansToDegrees(rotation.X), MathHelper.RadiansToDegrees(rotation.Y), MathHelper.RadiansToDegrees(rotation.Z));
-                    first = false;
-                }
-
-                if (ImGui.DragFloat3($"Position Object", ref newPosition))
-                {
-                    target.GetRoot().Transform.Position = new Vector3(newPosition.X, newPosition.Y, newPosition.Z);
-                }
-
-                if (ImGui.DragFloat3($"Rotate Object", ref rot, snapSize))
-                {
-                    newRotation = new System.Numerics.Vector3((rot.X), (rot.Y), (rot.Z));
-                    target.GetRoot().Transform.Rotation = Rotation(newRotation.X, newRotation.Y, newRotation.Z);
-                }
-
-                if (ImGui.DragFloat3($"Scale Object", ref newScale))
-                {
-                    target.GetRoot().Transform.Scale = new Vector3(newScale.X, newScale.Y, newScale.Z);
-                }
             }
             else if (Engine.SelectedRenderableObjects.Count == 0)
             {
@@ -507,7 +537,7 @@ public class ApplicationWindow : GameWindow
         {
             Engine.ShouldDoSelectionNextFrame = false;
         }
-        
+        l1.Transform.Position = Engine.ActiveCamera.Transform.Position;
         //model2.Transform.Rotation *= Quaternion.FromEulerAngles(0, MathHelper.DegreesToRadians(900 * (float)args.Time), 0);
 
         for (int i = 0; i < numLights; i++)

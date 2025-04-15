@@ -7,6 +7,7 @@ using Geometry.MaterialSystem;
 using ImGuiNET;
 using LegendaryRenderer.Engine.EngineTypes;
 using LegendaryRenderer.GameObjects;
+using LegendaryRenderer.LegendaryRuntime.Engine.Renderer.MaterialSystem;
 using LegendaryRenderer.Shaders;
 using OpenTK.Graphics.ES11;
 using OpenTK.Graphics.OpenGL;
@@ -226,7 +227,7 @@ public static class Engine
         d = rbInst.GetTextureHandle(TextureHandle.PRIMARY_DEPTH);
         if (pattern == -1)
         {
-            pattern = RenderableMesh.LoadTexture("selectionpattern.png", false);
+            pattern = TextureLoader.LoadTexture("selectionpattern.png", false).GetGLTexture();
         }
         RenderBufferHelpers.Instance?.BindMainOutputBuffer();
         FullscreenQuad.RenderQuad("SelectionVisualiser", new[] { a, b, c, d, pattern }, new[] { "selectionMask", "selectionDepth", "sceneColour", "sceneDepth", "selectionTexture" });
@@ -859,7 +860,7 @@ public static class Engine
                 }
                 if (light.EnableShadows)
                 {
-                    GL.CullFace(OpenTK.Graphics.OpenGL.CullFaceMode.Front);
+                 //   GL.CullFace(OpenTK.Graphics.OpenGL.CullFaceMode.Front);
                     
                     if (light.Type == Light.LightType.Spot || light.Type == Light.LightType.Projector)
                     {
@@ -870,7 +871,7 @@ public static class Engine
                         RenderPointShadowMaps(light, shouldRender);
                     }
                     
-                    GL.CullFace(OpenTK.Graphics.OpenGL.CullFaceMode.Back);
+                  //  GL.CullFace(OpenTK.Graphics.OpenGL.CullFaceMode.Back);
                 }
 
                 using (new ScopedProfiler($"{light.Name} Render"))
@@ -893,7 +894,13 @@ public static class Engine
         if (GameObjectToGUIDMap.TryGetValue(guid, out GameObject? value))
         {
             gameObject = value;
-            Console.WriteLine($"Selected {gameObject.Name}.");
+            var rend = gameObject as RenderableMesh;
+            Material mat = new Material();
+            if (rend != null)
+            {
+                mat = rend.Material;
+            }
+            Console.WriteLine($"Selected {gameObject.Name}. Materials {mat.DiffuseTexture}, {mat.NormalTexture}, {mat.RoughnessTexture}.");
         } 
         else
         {

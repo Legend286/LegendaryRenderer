@@ -117,7 +117,7 @@ namespace Geometry
 
             if (Spinning)
             {
-                Transform.LocalRotation *= Quaternion.FromEulerAngles(0.0f, 3.5f * deltaTime, 0.0f);
+                GetRoot().Transform.LocalRotation *= Quaternion.FromEulerAngles(0.0f, 3.5f * deltaTime, 0.0f);
             }
         }
 
@@ -200,13 +200,6 @@ namespace Geometry
             }
         }
         
-        public static int LoadTexture(string path, bool HDR = false, string modelRoot = "", bool loadRoot = false)
-        {
-            return TextureLoader.LoadTexture(path, HDR, modelRoot, loadRoot);
-        }
-
-
-
         static int lastBoundVAO = -1;
 
         public static bool invalidated = false;
