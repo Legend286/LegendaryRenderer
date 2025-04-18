@@ -71,8 +71,8 @@ public class Frustum
 
         viewProjMat = viewProjectionMatrix;
     }
-    
-    Vector3[] ExtractFrustumCorners()
+
+    public Vector3[] ExtractFrustumCorners()
     {
         // Invert the view-projection matrix
         Matrix4 inverseVP = Matrix4.Invert(viewProjMat);
@@ -123,7 +123,8 @@ public class Frustum
     }
     public void DrawFrustum(FrustumDrawMode mode)
     {
-        using(new ScopedProfiler($"Render {ParentCamera.Name} View Frustum {Count++}"))
+        string name = ParentCamera != null ? ParentCamera.Name : "Default";
+        using(new ScopedProfiler($"Render {name} View Frustum {Count++}"))
         {
             GL.Disable(EnableCap.DepthTest);
             
@@ -236,18 +237,21 @@ public class Frustum
     // Frustum-Sphere intersection test
     public bool ContainsSphere(Vector3 center, float radius)
     {
+        bool allInside = true;
         for (int i = 0; i < 6; i++)
         {
             // Calculate the signed distance from the sphere center to the plane
             float distance = Vector3.Dot(planes[i].Xyz, center) + planes[i].W;
 
             // If the distance is less than the negative radius, the sphere is outside
-            if (distance < -(radius * 2))
+            
+            if (distance < -radius/2)
             {
-                return false;
+                allInside = false;
             }
+            
         }
-        return true; // The sphere is either intersecting or inside the frustum
+        return allInside; // The sphere is either intersecting or inside the frustum
     }
     
     public bool ContainsFrustum(Frustum other)

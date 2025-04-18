@@ -78,17 +78,7 @@ public class Transform
             localRotation = value;
         }
     }
-
-    public Vector3 LocalScale
-    {
-        get { return localScale; }
-        set
-        {
-            HasChanged = true;
-            localScale = value;
-        }
-    }
-
+    
     public Vector3 Position
     {
         get
@@ -148,7 +138,7 @@ public class Transform
         {
             if (parent != null)
             {
-                return localScale;
+                return scale * parent.Scale;
             }
             else
             {

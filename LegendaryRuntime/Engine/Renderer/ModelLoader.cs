@@ -57,7 +57,7 @@ public static class ModelLoader
 
     static int mshID = 0;
 
-    static SphereBounds ComputeMeshBounds(Mesh mesh)
+    static SphereBounds ComputeMeshBounds(Mesh mesh, Matrix4x4 transform)
     {
         Vector3 min = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue);
         Vector3 max = new Vector3(float.MinValue, float.MinValue, float.MinValue);
@@ -75,7 +75,7 @@ public static class ModelLoader
         }
 
         Vector3 centre = (min + max) / 2;
-        SphereBounds output = new SphereBounds(centre, MathF.Sqrt((max - centre).Length * (max - centre).Length));
+        SphereBounds output = new SphereBounds(centre, DeriveScale(Matrix3FromMatrix4(transform, false)).Length * MathF.Sqrt(((max - centre).Length * (max - centre).Length)));
 
         return output;
     }
@@ -103,7 +103,7 @@ public static class ModelLoader
             }
 
             Console.WriteLine($"Computing Bounds for {msh.Name}...");
-            SphereBounds b = ComputeMeshBounds(mesh);
+            SphereBounds b = ComputeMeshBounds(mesh, node.Transform);
             Console.WriteLine($"Bounds for {msh.Name}: {b.Centre} {b.Radius}.");
             // Set mesh data (VAO info, index count, etc.)
             msh.SetMeshData(gpuMesh.ShadowMesh.Vao, gpuMesh.RenderMesh.Vao, true, mesh.GetIndices().Length, mesh.VertexCount, b);
@@ -113,9 +113,9 @@ public static class ModelLoader
             
             // Use the combined transform for this mesh.
             // The combined transform is the world transform from the hierarchy.
-            msh.Transform.LocalRotation = Quaternion.FromMatrix(Matrix3FromMatrix4(currentTransform));
-            msh.Transform.LocalPosition = (new Vector4(0,0,0,1) * FromMatrix(currentTransform)).Xyz;
-            msh.Transform.LocalScale = Vector3.One;//DeriveScale(Matrix3FromMatrix4(currentTransform, false));
+            msh.Transform.Rotation = Quaternion.FromMatrix(Matrix3FromMatrix4(currentTransform));
+            msh.Transform.Position = (new Vector4(0,0,0,1) * FromMatrix(currentTransform)).Xyz;
+            msh.Transform.Scale = DeriveScale(Matrix3FromMatrix4(currentTransform, false));
 
             if (scene.HasMaterials)
             {

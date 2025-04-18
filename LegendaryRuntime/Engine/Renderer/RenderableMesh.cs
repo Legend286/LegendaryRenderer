@@ -70,6 +70,7 @@ namespace Geometry
                 Console.WriteLine($"Already Loaded: {Name}. Mesh Cache has saved {ReusedCounter} duplicate GPU buffers.");
                 this.VertexArrayObject = loaded.VertexArrayObject;
                 this.LocalBounds = loaded.LocalBounds;
+                this.Bounds = loaded.Bounds;
                 this.fileName = file;
                 this.Material = loaded.Material;
                 this.VertexCount = loaded.VertexCount;
@@ -113,7 +114,7 @@ namespace Geometry
         public override void Update(float deltaTime)
         {
             Vector4 origin = new Vector4(LocalBounds.Centre, 1.0f) * Transform.GetWorldMatrix();
-            Bounds = new SphereBounds(origin.Xyz, LocalBounds.Radius * MathF.Max(MathF.Max(Transform.Scale.X, Transform.Scale.Y), Transform.Scale.Z));
+            Bounds = new SphereBounds(origin.Xyz, LocalBounds.Radius);
 
             if (Spinning)
             {

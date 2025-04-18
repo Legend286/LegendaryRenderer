@@ -36,7 +36,7 @@ public class Camera : GameObject
 
     public bool PauseCameraFrustum = false;
     
-    public Camera(Vector3 position, Vector3 lookAt, float fieldOfView = 90.0f, float zNear = 0.1f, float zFar = 2000.0f) : base(position, $"Camera {++CameraID}")
+    public Camera(Vector3 position, Vector3 lookAt, float fieldOfView = 90.0f, float zNear = 0.1f, float zFar = 4000.0f) : base(position, $"Camera {++CameraID}")
     {
         ZNear = zNear;
         ZFar = zFar;

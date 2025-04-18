@@ -17,6 +17,11 @@ public static class Maths
     {
         return x - (float)MathF.Floor(x);
     }
+
+    public static Vector3 FloorVector(Vector3 vector)
+    {
+        return new Vector3(MathF.Floor(vector.X), MathF.Floor(vector.Y), MathF.Floor(vector.Z));
+    }
     
     public static Vector3 ProjectVectorOntoPlane(Vector3 vector, Vector3 planeNormal)
     {

@@ -61,7 +61,7 @@ public static class Engine
 
     public static RenderBufferHelpers RenderBuffers;
 
-    public static int ShadowResolution = 8192;
+    public static int ShadowResolution = 4096;
     
     public static bool ShouldDoSelectionNextFrame = false;
 
@@ -174,7 +174,7 @@ public static class Engine
                 }
                 TriangleCountTotal += objectToCull.TriangleCount / 3;
 
-                if (Frst.ContainsSphere(objectToCull.Bounds.Centre, objectToCull.Bounds.Radius) && shouldRender)
+                if (Frst.ContainsSphere(objectToCull.Bounds.Centre, objectToCull.Bounds.Radius * MathF.Max(objectToCull.Transform.Scale.X, MathF.Max(objectToCull.Transform.Scale.Y, objectToCull.Transform.Scale.Z))) && shouldRender)
                 {
                     Renderables.Add(objectToCull);
                     TriangleCountRendered += objectToCull.TriangleCount / 3;
@@ -592,6 +592,12 @@ public static class Engine
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, spotLightShadowmapFBO);
     }
 
+    // NOTE: THIS CURRENTLY USES THE SAME SHADOWMAPS AS THE POINT LIGHTS :)
+    public static void BindCascadedShadowMap(int cascadeIndex)
+    {
+        GL.BindFramebuffer(FramebufferTarget.Framebuffer, pointShadowMapTextures[cascadeIndex]);
+    }
+
     public static void BindPointShadowMap(int face)
     {
         if (face is < 0 or > 5)
@@ -636,6 +642,45 @@ public static class Engine
         }
     }
 
+    public static Matrix4[] CSMMatrices = new Matrix4[6];
+    public static void RenderCascadedShadowMaps(Light light, bool shouldRender)
+    {
+        CSMMatrices = Light.GenerateCascadedShadowMatrices(ActiveCamera, light, ShadowResolution);
+        
+        for (int i = 0; i < light.CascadeCount; i++)
+        {
+            using (new ScopedProfiler($"{light.Name} Cascade: {i} Shadowmap Rendering"))
+            {
+                BindPointShadowMap(i);
+                GL.Viewport(0, 0, ShadowResolution, ShadowResolution);
+                GL.Clear(ClearBufferMask.DepthBufferBit);
+                ShaderManager.LoadShader("shadowgen", out ShaderFile shader);
+                shader.UseShader();
+                
+                if (shouldRender)
+                {
+                    ShadowViewCount++;
+                }
+                foreach (GameObject go in CullRenderables(CSMMatrices[i], shouldRender))
+                {
+                    if (shouldRender)
+                    {
+                        if (go is not Camera && go is not Light)
+                        {
+                            NumShadowCasters++;
+                            shader.SetShaderMatrix4x4("shadowViewProjection", CSMMatrices[i], true);
+                            shader.SetShaderMatrix4x4("model", go.Transform.GetWorldMatrix());
+                            go.Render(GameObject.RenderMode.ShadowPass);
+                        }
+                    }
+
+                }
+
+                GL.BindFramebuffer(FramebufferTarget.Framebuffer, RenderBufferHelpers.HandleLightingBuffer);
+                GL.Viewport(0, 0, Application.Width, Application.Height);
+            }
+        }
+    }
     public static List<RenderableMesh> CullSceneByPointLight(Light light)
     {
         List<RenderableMesh> renderables = RenderableMeshes;
@@ -858,6 +903,11 @@ public static class Engine
                 {
                     shouldRender = ActiveCamera.Frustum.ContainsFrustum(new Frustum(light.ViewProjectionMatrix));
                 }
+                else if (light.Type == Light.LightType.Directional)
+                {
+                    shouldRender = light.IsVisible;
+                }
+                
                 if (light.EnableShadows)
                 {
                  //   GL.CullFace(OpenTK.Graphics.OpenGL.CullFaceMode.Front);
@@ -869,6 +919,10 @@ public static class Engine
                     else if (light.Type == Light.LightType.Point)
                     {
                         RenderPointShadowMaps(light, shouldRender);
+                    }
+                    else if (light.Type == Light.LightType.Directional)
+                    {
+                        RenderCascadedShadowMaps(light, shouldRender);
                     }
                     
                   //  GL.CullFace(OpenTK.Graphics.OpenGL.CullFaceMode.Back);

@@ -22,6 +22,8 @@ uniform sampler2D shadowMap4;
 uniform sampler2D shadowMap5;
 
 
+uniform int cascadeCount;
+
 uniform mat4 view;
 uniform mat4 projection;
 uniform mat4 shadowViewProjection;
@@ -45,7 +47,8 @@ uniform vec3 spotLightCones; // x and y are min max derivitives, z is unused
 uniform vec3 lightColour; // light colour
 uniform int lightType; // int for light type, 0 = spot, 1 = point, 2 = directional
 uniform int lightShadowsEnabled; // enable shadows or not for this light
-uniform int enableIESProfile;
+uniform float lightShadowBias; // shadow bias for this light
+uniform int enableIESProfile; // enable IES profile 
 uniform sampler2D IESProfileTexture;  // IES texture sampler
 
 uniform vec3 cameraPosWS;
@@ -453,10 +456,8 @@ float GetShadowAttenuation(mat4 shadowViewProj, sampler2D shadowMapTex, vec3 pos
         biasAdjustment *= MAX_BIAS_DISTANCE_MUL;
 
         // Adaptive bias based on normal and light direction
-        float normalBiasFactor = 1 - clamp(dot(normal, lightDir), 0.0, 1.0);
-        float bias = 1 * normalBiasFactor; // Lower the bias multiplier
-        
-        bias = clamp(bias, 0.0, 0.0000001f);
+        float normalBiasFactor = clamp(dot(normal, lightDir), 0.0, 1.0);
+        float bias = lightShadowBias * normalBiasFactor; // Lower the bias multiplier
 
         // Loop over Poisson disk samples
         for (int i = 0; i < pcfSamples; i++) {
@@ -466,7 +467,7 @@ float GetShadowAttenuation(mat4 shadowViewProj, sampler2D shadowMapTex, vec3 pos
             
             float sampleDepth = texture(shadowMapTex, samplePos).r;
             
-            if ((sampleDepth < shadowPos.z))
+            if ((sampleDepth < shadowPos.z - bias))
             { 
                 shadowFactor += 0.0; // Lit
             }
@@ -491,7 +492,56 @@ float GetShadowAttenuation(mat4 shadowViewProj, sampler2D shadowMapTex, vec3 pos
     }
 }
 
+float CalculateAttenuationFactor(mat4 shadowViewProj, vec3 pos)
+{
+    vec4 shadowPos0 = vec4(pos, 1.0f) * shadowViewProj;
+    shadowPos0.xyz /= shadowPos0.w;
 
+    shadowPos0.xyz = shadowPos0.xyz * 0.5f + 0.5f;
+
+    return smoothstep(0.95, 1.0f, clamp(distance(vec2(0.5f), shadowPos0.xy)*2, 0.0f, 1.0f));
+}
+
+float GetShadowAttenuationCSM(vec3 pos, vec3 normal, vec3 lightDir)
+{
+    float shadowFactor = 0.0f;
+
+    if(cascadeCount > 5)
+    {
+        float mixCascade = CalculateAttenuationFactor(shadowViewProjection5, pos);
+        shadowFactor = mix(shadowFactor, GetShadowAttenuation(shadowViewProjection5, shadowMap5, pos, normal, -lightDir), 1-mixCascade);
+    }
+
+    if(cascadeCount > 4)
+    {
+        float mixCascade = CalculateAttenuationFactor(shadowViewProjection4, pos);
+        shadowFactor = mix(shadowFactor, GetShadowAttenuation(shadowViewProjection4, shadowMap4, pos, normal, -lightDir), 1-mixCascade);
+    }
+    if(cascadeCount > 3)
+    {
+        float mixCascade = CalculateAttenuationFactor(shadowViewProjection3, pos);
+        shadowFactor = mix(shadowFactor, GetShadowAttenuation(shadowViewProjection3, shadowMap3, pos, normal, -lightDir), 1-mixCascade);
+    }
+    if(cascadeCount > 2)
+    {
+        float mixCascade = CalculateAttenuationFactor(shadowViewProjection2, pos);
+        shadowFactor = mix(shadowFactor, GetShadowAttenuation(shadowViewProjection2, shadowMap2, pos, normal, -lightDir), 1-mixCascade);
+    }
+    if(cascadeCount > 1)
+    {
+        float mixCascade = CalculateAttenuationFactor(shadowViewProjection1, pos);
+        shadowFactor = mix(shadowFactor, GetShadowAttenuation(shadowViewProjection1, shadowMap1, pos, normal, -lightDir), 1-mixCascade);
+    }
+
+    if (cascadeCount > 0)
+    {
+        float mixCascade = CalculateAttenuationFactor(shadowViewProjection0, pos);
+
+        shadowFactor = mix(shadowFactor, GetShadowAttenuation(shadowViewProjection0, shadowMap0, pos, normal, -lightDir), 1-mixCascade);
+    }
+
+    return shadowFactor;
+}
 
 void main()
 {
@@ -505,6 +555,7 @@ void main()
     {
         attenuation = CalculateAttenuation(spotLightDir, lightDir, lightPosition, pos, spotLightCones.xy);
     }
+    
     vec4 albMat = texture(screenTexture, texCoord).rgba;
     
     vec3 albedo = albMat.rgb;
@@ -519,20 +570,28 @@ void main()
     if (lightType == 0 || lightType == 4)
     {
         shadowFactor = GetShadowAttenuation(shadowViewProjection, shadowMap, pos, normal, lightDir);
-        if(lightType == 4)
+        if (lightType == 4)
         {
             lightDir = -spotLightDir;
         }
     }
     else if (lightType == 1)
     {
-        // this sucks. gl should allow me to build an array of samplers and do this in a loop but yeah
         shadowFactor = shadowFactor * GetShadowAttenuation(shadowViewProjection0, shadowMap0, pos, normal, lightDir);
         shadowFactor = shadowFactor * GetShadowAttenuation(shadowViewProjection1, shadowMap1, pos, normal, lightDir);
         shadowFactor = shadowFactor * GetShadowAttenuation(shadowViewProjection2, shadowMap2, pos, normal, lightDir);
         shadowFactor = shadowFactor * GetShadowAttenuation(shadowViewProjection3, shadowMap3, pos, normal, lightDir);
         shadowFactor = shadowFactor * GetShadowAttenuation(shadowViewProjection4, shadowMap4, pos, normal, lightDir);
         shadowFactor = shadowFactor * GetShadowAttenuation(shadowViewProjection5, shadowMap5, pos, normal, lightDir);
+    }
+    else if (lightType == 2)
+    {
+        lightDir = spotLightDir;
+    
+        if (cascadeCount > 0)
+        {
+            shadowFactor = GetShadowAttenuationCSM(pos, normal, -lightDir);
+        }
     }
   
 
@@ -549,7 +608,7 @@ void main()
     vec2 reflectionUV = EquirectangularUVFromReflectionVector(ReflectionVector);
     vec3 refl = texture(cubemap, reflectionUV).rgb;
     
-    FragColor = vec4(((light * (1-(shadowFactor)))) + 0.05f * ((dot(normal, lightDir)*0.5+0.5)*lightColour*albedo),1.0f);
+    FragColor = vec4(((light * (1-(shadowFactor)))) + 0.015f * ((dot(normal, lightDir)*0.5+0.5)*((lightColour*albedo)* max(lightIntensity, 0.0f))),1.0f);
     
     if(texture(screenDepth, texCoord).r >= 0.9999999f)
     {

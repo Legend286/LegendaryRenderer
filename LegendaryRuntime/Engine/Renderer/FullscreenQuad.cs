@@ -108,10 +108,10 @@ public static class FullscreenQuad
                 Engine.currentShader.SetShaderVector3("spotLightCones", new Vector3(angleRangeInv, -outerCos * angleRangeInv, 0));
                 Engine.currentShader.SetShaderVector3("lightColour", new Vector3(light.Colour.R, light.Colour.G, light.Colour.B));
                 Engine.currentShader.SetShaderInt("lightType", (int)light.Type);
-                Engine.currentShader.SetShaderFloat("lightShadowBias", light.Bias);
                 Engine.currentShader.SetShaderFloat("lightShadowBiasNormal", light.NormalBias);
                 Engine.currentShader.SetShaderFloat("lightRadius", 1.0f / MathF.Max(light.Range * light.Range, 0.0000001f));
                 Engine.currentShader.SetShaderFloat("lightIntensity", light.Intensity);
+                Engine.currentShader.SetShaderFloat("lightShadowBias", light.Bias);
                 Engine.currentShader.SetShaderInt("lightShadowsEnabled", light.EnableShadows ? 1 : 0);
                 
                 Engine.currentShader.SetShaderInt("enableIESProfile", light.UseIESProfile ? 1 : 0);
@@ -134,6 +134,16 @@ public static class FullscreenQuad
                     {
                         Engine.currentShader.SetShaderMatrix4x4($"shadowViewProjection{i}", light.PointLightViewProjections[i]);
                     }
+                }
+                else if (light.Type == Light.LightType.Directional)
+                {
+                    Matrix4[] cascadeViewProjections = Light.GenerateCascadedShadowMatrices(Engine.ActiveCamera, light, Engine.ShadowResolution);
+                    
+                    for (int i = 0; i < light.CascadeCount; i++)
+                    {
+                        Engine.currentShader.SetShaderMatrix4x4($"shadowViewProjection{i}", cascadeViewProjections[i]);
+                    }
+                    Engine.currentShader.SetShaderInt("cascadeCount", light.CascadeCount);
                 }
             }
         }

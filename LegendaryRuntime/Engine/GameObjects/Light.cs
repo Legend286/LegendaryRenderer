@@ -1,5 +1,7 @@
 using Geometry;
 using Geometry.MaterialSystem.IESProfiles;
+using LegendaryRenderer;
+using LegendaryRenderer.Application;
 using LegendaryRenderer.Engine.EngineTypes;
 using LegendaryRenderer.GameObjects;
 using LegendaryRenderer.LegendaryRuntime.Engine.Renderer.MaterialSystem;
@@ -18,13 +20,28 @@ public class Light : GameObject
 
     public bool EnableShadows { get; set; } = false;
 
+    private int cascadeCount = 1;
+    public int CascadeCount
+    {
+        get
+        {
+            return cascadeCount;
+        }
+        set
+        {
+            if (value is > 0 and <= 6)
+            {
+                cascadeCount = value;
+            }
+        }
+    }
     public float InnerCone { get; set; } = 75.0f;
 
     public float OuterCone { get; set; } = 90.0f;
 
     public float NearPlane { get; set; } = 0.05f;
 
-    public float Bias { get; set; } = 0.000001f;
+    public float Bias { get; set; } = 0.000125f;
     public float NormalBias { get; set; } = 1.0f;
     public float Intensity { get; set; } = 3.0f;
 
@@ -139,7 +156,7 @@ public class Light : GameObject
             return Matrix4.Identity;
         }
     }
-
+    
     private Matrix4[] GetPointLightViewProjections()
     {
         Vector3[] Ups = new Vector3[]
@@ -169,12 +186,31 @@ public class Light : GameObject
     }
 
     private int noiseTex = -1;
+
+    private Frustum[]? frustums = new Frustum[6];
+
+    private bool first = true;
     public override void Render(RenderMode mode = RenderMode.Default)
     {
         if (!IsVisible)
         {
             return;
         }
+
+        var cam = ActiveCamera;
+        
+        for (int i = 0; i < cascadeCount; i++)
+        {
+            if (first)
+            { 
+                Frustum fr = new Frustum(CSMMatrices[i]);
+                frustums[i] = fr;
+            }
+            frustums[i].first = true;
+            frustums[i].UpdateFrustum(CSMMatrices[i]);
+            frustums[i].DrawFrustum(Frustum.FrustumDrawMode.Debug);
+        }
+        first = false;
 
         if (noiseTex == -1)
         {
@@ -195,7 +231,7 @@ public class Light : GameObject
         {
             FullscreenQuad.RenderQuad("DeferredLight", tex, new[] { "screenTexture", "screenDepth", "screenNormal", "shadowMap", "ssaoNoise", "cubemap" }, Transform, this);
         }
-        else if (Type == LightType.Point)
+        else if (Type == LightType.Point || Type == LightType.Directional)
         {
             int[] texs = new int[10];
             texs[0] = textures[0];
@@ -211,5 +247,139 @@ public class Light : GameObject
             FullscreenQuad.RenderQuad("DeferredLight", texs, new[] { "screenTexture", "screenDepth", "screenNormal", "shadowMap0", "shadowMap1", "shadowMap2", "shadowMap3", "shadowMap4", "shadowMap5", "cubemap" }, Transform, this);
 
         }
+    }
+
+    public static float lambda = 0.992f;
+    public static float[] GetCascadeSplits(int cascadeCount, float nearPlane, float farPlane)
+    {
+        float[] splits = new float[cascadeCount + 1];
+        splits[0] = nearPlane;
+        for (int i = 1; i <= cascadeCount; i++)
+        {
+            float p = i / (float)cascadeCount;
+            float log = nearPlane * MathF.Pow(farPlane / nearPlane, p);
+            float uniform = nearPlane + (farPlane - nearPlane) * p;
+            splits[i] = MathHelper.Lerp(uniform, log, lambda);
+        }
+        return splits;
+    }
+
+    /// <summary>
+    /// Projects a point along the view-space Z axis and returns its clip-space Z (NDC).
+    /// </summary>
+    private static float ProjectedZ(Matrix4 proj, float viewDepth)
+    {
+        var p = new Vector4(0, 0, -viewDepth, 1);
+        var clip = p * proj;
+        clip.Xyz /= clip.W;
+        return clip.Z;
+    }
+
+    /// <summary>
+    /// Calculates world-space frustum corners for a given cascade slice.
+    /// </summary>
+    private static Vector3[] GetFrustumCornersWorld(Matrix4 invViewProj, Matrix4 proj, float near, float far)
+    {
+        float zNearNdc = ProjectedZ(proj, near);
+        float zFarNdc  = ProjectedZ(proj, far);
+
+        Vector3[] corners = new Vector3[8];
+        int idx = 0;
+        for (int x = -1; x <= 1; x += 2)
+        for (int y = -1; y <= 1; y += 2)
+        for (int z = 0; z <= 1; z++)
+        {
+            float ndcZ = (z == 0) ? zNearNdc : zFarNdc;
+            var clip = new Vector4(x, y, ndcZ, 1);
+            var worldH = clip * invViewProj;
+            worldH.Xyz /= worldH.W;
+            corners[idx++] = worldH.Xyz;
+        }
+        return corners;
+    }
+
+    /// <summary>
+/// Builds a light‑space matrix by enclosing the cascade’s frustum corners
+/// in a bounding sphere, snapping to the texel grid to stabilize shimmering.
+/// </summary>
+private static Matrix4 GetLightViewProjection(
+    Vector3[] frustumCorners,
+    Vector3 lightDir,
+    int shadowMapResolution,
+    float zPaddingNear = 2000f,
+    float zPaddingFar  = 2000f)
+{
+    // 1) Compute center & radius of bounding sphere in world space
+    Vector3 centerWS = Vector3.Zero;
+    foreach (var v in frustumCorners) centerWS += v;
+    centerWS /= frustumCorners.Length;
+
+    float radius = 0f;
+    foreach (var v in frustumCorners)
+    {
+        float d = (v - centerWS).Length;
+        if (d > radius) radius = d;
+    }
+
+    // 2) Build light‑view matrix (row‑vector convention)
+    Matrix4 lightView = Matrix4.LookAt(
+        centerWS - lightDir * 100f,
+        centerWS,
+        Vector3.UnitY);
+
+    // 3) Transform sphere center into light space
+    var centerLS4 = new Vector4(centerWS, 1f) * lightView;
+    Vector3 centerLS = centerLS4.Xyz / centerLS4.W;
+
+    // 4) Optionally pad radius in Z to capture objects beyond the sphere's bounds
+    float nearZ = centerLS.Z - radius - zPaddingNear;
+    float farZ  = centerLS.Z + radius + zPaddingFar;
+
+    // 5) Snap the X/Y center to the texel grid in light‑space
+    //    (we use the sphere’s diameter as the ortho width/height)
+    float worldUnitsPerTexel = (radius * 2.0f) / shadowMapResolution;
+    centerLS.X = MathF.Floor(centerLS.X / worldUnitsPerTexel) * worldUnitsPerTexel;
+    centerLS.Y = MathF.Floor(centerLS.Y / worldUnitsPerTexel) * worldUnitsPerTexel;
+
+    // 6) Reconstruct a symmetric ortho box around the snapped center
+    float left   = centerLS.X - radius;
+    float right  = centerLS.X + radius;
+    float bottom = centerLS.Y - radius;
+    float top    = centerLS.Y + radius;
+
+    // 7) Create the orthographic projection
+    Matrix4 lightProj = Matrix4.CreateOrthographicOffCenter(
+        left,   right,
+        bottom, top,
+        nearZ,  farZ
+    );
+
+    // 8) Return the combined light‑space matrix
+    //    (still row‑vector: v * (lightView * lightProj))
+    return lightView * lightProj;
+}
+
+    /// <summary>
+    /// Generates the cascaded shadow map view-projection matrices.
+    /// </summary>
+    public static Matrix4[] GenerateCascadedShadowMatrices(Camera camera, Light light, int shadowMapResolution)
+    {
+        var splits = GetCascadeSplits(light.CascadeCount, camera.ZNear, camera.ZFar);
+        Matrix4 proj = camera.ProjectionMatrix;
+        Matrix4 invViewProj = camera.ViewProjectionMatrix.Inverted(); 
+
+        Matrix4[] cascades = new Matrix4[light.CascadeCount];
+        Vector3 lightDir = -light.Transform.Forward.Normalized();
+
+        for (int i = 1; i <= light.CascadeCount; i++)
+        {
+            float splitNear = splits[i-1];
+            float splitFar  = splits[i];
+
+            var frustumCorners = GetFrustumCornersWorld(invViewProj, proj, splitNear, splitFar);
+            cascades[i-1] = GetLightViewProjection(frustumCorners, lightDir, shadowMapResolution);
+        }
+
+        return cascades;
     }
 }

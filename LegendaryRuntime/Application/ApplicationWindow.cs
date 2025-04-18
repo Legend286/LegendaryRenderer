@@ -56,7 +56,7 @@ public class ApplicationWindow : GameWindow
     private GameObject model;
     private GameObject model2;
     private GameObject model3;
-    private List<Light> lights = new List<Light>();
+    public static List<Light> lights = new List<Light>();
     private int numLights = 0;
 
     string[] modelExtensions = new string[] { ".fbx", ".gltf", ".glb", ".obj", ".objc", ".objd" };
@@ -162,11 +162,14 @@ public class ApplicationWindow : GameWindow
         var loading = new ScopedProfiler("Loading Phase");
 
         Light l3 = new Light(Vector3.Zero, "Light Test");
-        l3.Type = Light.LightType.Spot;
-        l3.EnableShadows = false;
+        l3.Type = Light.LightType.Directional;
+        l3.EnableShadows = true;
+        l3.Colour = Color4.Yellow;
+        l3.Intensity = 3.14f;
+        l3.Range = 100.0f;
         l3.InnerCone = 50.0f;
         l3.OuterCone = 65.0f;
-        l3.Range = 50;
+        l3.CascadeCount = 6;
         lights.Add(l3);
         loading.StartTimingCPU();
 
@@ -184,7 +187,7 @@ public class ApplicationWindow : GameWindow
         
         RenderableMesh? mdl = model2.Children[0] as RenderableMesh;
         mdl.Material.Roughness = 0.9f;
-        mdl.Material.Colour = Color4.Red;
+        mdl.Material.Colour = Color4.Cornsilk;
         //model3 = ModelLoader.LoadModel("Models/diorama.fbx", new Vector3(0, 0, 6), Rotation(90, 0, 0), Vector3.One);
 
         GL.Enable(EnableCap.DepthTest);
@@ -226,11 +229,11 @@ public class ApplicationWindow : GameWindow
         l1 = new Light(new Vector3(0, 0, 0), "Camera Light");
 
         l1.Colour = Color4.White;
-        l1.Intensity = 10.0f;
+        l1.Intensity = 0.0f;
         l1.Range = 1000.0f;
         l1.OuterCone = 120;
         l1.InnerCone = 90;
-        l1.EnableShadows = true;
+        l1.EnableShadows = false;
         l1.Type = Light.LightType.Projector;
         l1.LightIESProfile = profile;
         l1.Transform.Rotation = Rotation(-40, 20, 0);
@@ -365,19 +368,33 @@ public class ApplicationWindow : GameWindow
             ImGui.TreePop();
         }
     }
-    
+    private float lambda = 0.971f;
     private void DoImGui()
     {
         if (shouldShowPopup)
         {
             ShowMaterialSelectionPopup();
         }
-        
 
         ImGui.SetNextWindowSize(new System.Numerics.Vector2((float)Application.Width / 3, (float)Application.Height / 2));
         
         ImGui.Begin("Settings", ImGuiWindowFlags.NoResize);
+        ImGui.DragFloat("Shadow Cascade Split Ratio", ref Light.lambda, 0.001f, 0.05f, 1.0f);
 
+        if (ImGui.Button("Add Shadowcasting Spotlight"))
+        {
+            Light light = new Light(Engine.ActiveCamera.Transform.Position + Engine.ActiveCamera.Transform.Forward * 0.25f);
+            light.Type = Light.LightType.Spot;
+            light.EnableShadows = true;
+            light.Transform.Rotation = Engine.ActiveCamera.Transform.Rotation;
+            light.Colour = Color4.White;
+            light.Intensity = 80.0f;
+            light.Range = 100.0f;
+            light.InnerCone = 60.0f;
+            light.OuterCone = 90.0f;
+            lights.Add(light);
+        }
+        
         if (ImGui.Button("Reload all shaders"))
         {
             ShaderManager.ReloadAllShaders();
@@ -386,17 +403,68 @@ public class ApplicationWindow : GameWindow
         ImGui.DragFloat("SSAO - Radius", ref Engine.SSAOSettings.Radius, 0.01f, 0.05f, 10.0f);
         ImGui.DragInt("SSAO - Number of Samples", ref Engine.SSAOSettings.NumberOfSamples, 1, 1, 32);
         ImGui.Spacing();
-        DrawTexture("Spotlight Last ShadowMap", Engine.SpotShadowMapTexture);
-        
+        for (int i = 0; i < 2; i++)
+        {
+            DrawTexture("Spotlight Last ShadowMap", Engine.PointShadowMapTextures[i]);
+        }
+
         DrawLightHierarchy();
    
         
         if (Engine.SelectedRenderableObjects.Count == 1)
         {
             Light? light = Engine.SelectedRenderableObjects[0] as Light;
+            
             if (light != null)
             {
+                if (ImGui.Button($"Light Cast Shadows {light.EnableShadows}"))
+                {
+                    light.EnableShadows = !light.EnableShadows;
+                }
                 
+                float tmpBias = light.Bias;
+                if (ImGui.DragFloat("Light Shadow Bias", ref tmpBias, 0.00001f, 0.000001f, 1.0f))
+                {
+                    light.Bias = tmpBias;
+                }
+                
+                System.Numerics.Vector3 colVec = new System.Numerics.Vector3(light.Colour.R, light.Colour.G, light.Colour.B);
+                if (ImGui.ColorEdit3("Light Colour", ref colVec, ImGuiColorEditFlags.Float))
+                {
+                    light.Colour = new Color4(colVec.X, colVec.Y, colVec.Z, 1.0f);
+                }
+                
+                float tmpIntensity = light.Intensity;
+                if (ImGui.DragFloat("Light Intensity", ref tmpIntensity, 0.01f, 0.0f, 100.0f))
+                {
+                    light.Intensity = tmpIntensity;
+                }
+                
+                if (light.Type == Light.LightType.Spot || light.Type == Light.LightType.Projector || light.Type == Light.LightType.Point)
+                {
+                    float tmpRange = light.Range;
+                    if (ImGui.DragFloat("Light Range", ref tmpRange, 0.25f, 0.2f, 1000.0f))
+                    {
+                        light.Range = tmpRange;
+                    }
+                    
+                    if (light.Type == Light.LightType.Spot)
+                    {
+                        float tmpInnerCone = light.InnerCone;
+                        if (ImGui.DragFloat("Light Inner Cone", ref tmpInnerCone, 0.1f, 1.0f, 179.0f))
+                        {
+                            light.InnerCone = tmpInnerCone;
+                            light.OuterCone = MathF.Max(tmpInnerCone, light.OuterCone);
+                        }
+                        
+                        float tmpOuterCone = light.OuterCone;
+                        if (ImGui.DragFloat("Light Outer Cone", ref tmpOuterCone, 0.1f, 1.0f, 179.0f))
+                        {
+                            light.OuterCone = tmpOuterCone;
+                            light.InnerCone = MathF.Min(tmpOuterCone, light.InnerCone);
+                        }
+                    }
+                }
             }
 
             GameObject target = Engine.SelectedRenderableObjects[0];
@@ -426,7 +494,7 @@ public class ApplicationWindow : GameWindow
             if (ImGui.DragFloat3($"Rotate Object", ref rot, snapSize))
             {
                 newRotation = new System.Numerics.Vector3((rot.X), (rot.Y), (rot.Z));
-                target.GetRoot().Transform.Rotation = Rotation(newRotation.X, newRotation.Y, newRotation.Z);
+                target.GetRoot().Transform.Rotation = Rotation(newRotation.X, 0,0) * Rotation(0,newRotation.Y,0) * Rotation(0,0, newRotation.Z);
             }
 
             if (ImGui.DragFloat3($"Scale Object", ref newScale))
@@ -537,7 +605,7 @@ public class ApplicationWindow : GameWindow
         {
             Engine.ShouldDoSelectionNextFrame = false;
         }
-        l1.Transform.Position = Engine.ActiveCamera.Transform.Position;
+        //l1.Transform.Position = Engine.ActiveCamera.Transform.Position;
         //model2.Transform.Rotation *= Quaternion.FromEulerAngles(0, MathHelper.DegreesToRadians(900 * (float)args.Time), 0);
 
         for (int i = 0; i < numLights; i++)
