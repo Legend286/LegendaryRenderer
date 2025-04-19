@@ -10,6 +10,7 @@ using OpenTK.Mathematics;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
+using TheLabs.LegendaryRuntime.Engine.GameObjects;
 using TheLabs.LegendaryRuntime.Engine.Renderer;
 using static LegendaryRenderer.Application.Engine;
 
@@ -198,6 +199,35 @@ namespace Geometry
                     GL.DrawElements(RenderMode, IndexCount, DrawElementsType.UnsignedInt, 0);
                 }
                 previousModelMatrix = Transform.GetPreviousWorldMatrix();
+            }
+        }
+
+        public void RenderInstancedShadows(Light? light)
+        {
+            if (light != null)
+            {
+                if (Loaded)
+                {
+                    DrawCalls++;
+                    GL.Enable(EnableCap.Texture2D);
+                    currentShader.SetShaderMatrix4x4("model", Transform.GetWorldMatrix(), true);
+
+                    if (Material.DiffuseTexture != -1)
+                    {
+                        GL.ActiveTexture(TextureUnit.Texture0);
+                        GL.BindTexture(TextureTarget.Texture2D, Material.DiffuseTexture);
+                        currentShader.SetShaderInt("diffuseTexture", 0);
+                    }
+                    currentShader.SetShaderFloat("hasDiffuse", Material.DiffuseTexture != -1 ? 1.0f : 0.0f);
+
+                    for (int i = 0; i < light.CascadeCount; i++)
+                    {
+                        currentShader.SetShaderMatrix4x4("shadowInstanceMatrices[" + i + "]", CSMMatrices[i]);
+                    }
+                    
+                    BindVAOCached(VertexArrayObjectShadows);
+                    GL.DrawElementsInstanced(PrimitiveType.Triangles, IndexCount, DrawElementsType.UnsignedInt, 0, light.CascadeCount);
+                }
             }
         }
         

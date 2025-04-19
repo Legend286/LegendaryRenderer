@@ -6,6 +6,7 @@ using System.IO;
 using System.Text.RegularExpressions;
 using LegendaryRenderer.Application;
 using LegendaryRenderer.Geometry;
+using LegendaryRenderer.LegendaryRuntime.Engine.Renderer.MaterialSystem;
 using LegendaryRenderer.Shaders;
 using OpenTK.Mathematics;
 using TheLabs.LegendaryRuntime.Engine.GameObjects;
@@ -108,6 +109,7 @@ public static class FullscreenQuad
                 Engine.currentShader.SetShaderVector3("spotLightCones", new Vector3(angleRangeInv, -outerCos * angleRangeInv, 0));
                 Engine.currentShader.SetShaderVector3("lightColour", new Vector3(light.Colour.R, light.Colour.G, light.Colour.B));
                 Engine.currentShader.SetShaderInt("lightType", (int)light.Type);
+                Engine.currentShader.SetShaderInt("enableCookie", light.EnableCookie ? 1 : 0);
                 Engine.currentShader.SetShaderFloat("lightShadowBiasNormal", light.NormalBias);
                 Engine.currentShader.SetShaderFloat("lightRadius", 1.0f / MathF.Max(light.Range * light.Range, 0.0000001f));
                 Engine.currentShader.SetShaderFloat("lightIntensity", light.Intensity);

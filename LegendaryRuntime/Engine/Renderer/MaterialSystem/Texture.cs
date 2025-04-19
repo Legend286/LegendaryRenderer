@@ -43,7 +43,7 @@ public class Texture
             var pixelData = new byte[1 * 4];
 
             pixelData[0] = 255;
-            pixelData[1] = 0;
+            pixelData[1] = 255;
             pixelData[2] = 255;
             pixelData[3] = 255;
             

@@ -643,6 +643,8 @@ public static class Engine
     }
 
     public static Matrix4[] CSMMatrices = new Matrix4[6];
+
+    public static bool UseInstancedShadows = true;
     public static void RenderCascadedShadowMaps(Light light, bool shouldRender)
     {
         CSMMatrices = Light.GenerateCascadedShadowMatrices(ActiveCamera, light, ShadowResolution);
@@ -665,15 +667,20 @@ public static class Engine
                 {
                     if (shouldRender)
                     {
+
                         if (go is not Camera && go is not Light)
                         {
                             NumShadowCasters++;
                             shader.SetShaderMatrix4x4("shadowViewProjection", CSMMatrices[i], true);
                             shader.SetShaderMatrix4x4("model", go.Transform.GetWorldMatrix());
+                        /*    if (UseInstancedShadows == true && go is RenderableMesh mesh)
+                            {
+                                shader.SetShaderInt("UseInstancing", 1);
+                                mesh.RenderInstancedShadows(light);
+                            }*/
                             go.Render(GameObject.RenderMode.ShadowPass);
                         }
                     }
-
                 }
 
                 GL.BindFramebuffer(FramebufferTarget.Framebuffer, RenderBufferHelpers.HandleLightingBuffer);
@@ -962,6 +969,4 @@ public static class Engine
             SelectedRenderableObjects.Clear();
         }
     }
-    
-    
 }

@@ -13,6 +13,8 @@ uniform sampler2D ssaoNoise;
 
 uniform sampler2D cubemap;
 
+uniform sampler2D lightCookieTexture;
+
 // point light shadowmaps
 uniform sampler2D shadowMap0;
 uniform sampler2D shadowMap1;
@@ -542,6 +544,7 @@ float GetShadowAttenuationCSM(vec3 pos, vec3 normal, vec3 lightDir)
 
     return shadowFactor;
 }
+uniform int enableCookie;
 
 void main()
 {
@@ -567,6 +570,8 @@ void main()
     float metallic = albMat.w;
     float roughness = norm.w;
     
+    vec4 lightCookie = vec4(1);
+    
     if (lightType == 0 || lightType == 4)
     {
         shadowFactor = GetShadowAttenuation(shadowViewProjection, shadowMap, pos, normal, lightDir);
@@ -574,6 +579,15 @@ void main()
         {
             lightDir = -spotLightDir;
         }
+        if(enableCookie > 0)
+        {
+            vec4 projCoords = vec4(pos, 1.0f) * shadowViewProjection;
+            projCoords.xyz /= projCoords.w;
+            projCoords.xyz = projCoords.xyz * 0.5f + 0.5f;
+            projCoords.xy = clamp(projCoords.xy, 0, 1);
+            lightCookie = texture(lightCookieTexture, projCoords.xy);
+        }
+        
     }
     else if (lightType == 1)
     {
@@ -597,7 +611,7 @@ void main()
 
     vec3 viewDir = normalize(pos - cameraPosWS);
 
-    vec3 light = PBR(normal, -viewDir, lightDir, albedo, metallic, roughness, vec3(1, 1, 1), lightColour, lightIntensity) * attenuation;
+    vec3 light = PBR(normal, -viewDir, lightDir, albedo, metallic, roughness, vec3(1, 1, 1), lightColour*lightCookie.rgb, lightIntensity) * attenuation;
     vec3 n = normalize(texture(screenNormal, texCoord).rgb);
     vec3 vsNormal = (vec4(n * 2 - 1, 0.0f) * (view)).xyz;
 
@@ -608,7 +622,7 @@ void main()
     vec2 reflectionUV = EquirectangularUVFromReflectionVector(ReflectionVector);
     vec3 refl = texture(cubemap, reflectionUV).rgb;
     
-    FragColor = vec4(((light * (1-(shadowFactor)))) + 0.015f * ((dot(normal, lightDir)*0.5+0.5)*((lightColour*albedo)* max(lightIntensity, 0.0f))),1.0f);
+    FragColor = vec4(((light * (1-(shadowFactor)))) + 0.015f * ((dot(normal, lightDir)*0.5+0.5)*(((lightColour*lightCookie.rgb)*albedo))),1.0f);
     
     if(texture(screenDepth, texCoord).r >= 0.9999999f)
     {

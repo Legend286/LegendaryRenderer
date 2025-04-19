@@ -20,7 +20,18 @@ public class Light : GameObject
 
     public bool EnableShadows { get; set; } = false;
 
+    public bool EnableCookie = false;
+
     private int cascadeCount = 1;
+
+    private int cookieTexID = Texture.NullTexture().Reference().GetGLTexture();
+
+    public int CookieTextureID
+    {
+        get { return cookieTexID; }
+        set { cookieTexID = value; EnableCookie = true; }
+    }
+    
     public int CascadeCount
     {
         get
@@ -38,6 +49,8 @@ public class Light : GameObject
     public float InnerCone { get; set; } = 75.0f;
 
     public float OuterCone { get; set; } = 90.0f;
+
+    public float ProjectorSize { get; set; } = 5.0f;
 
     public float NearPlane { get; set; } = 0.05f;
 
@@ -147,7 +160,7 @@ public class Light : GameObject
             }
             else if(Type == LightType.Projector)
             {
-                projection = Matrix4.CreateOrthographic(5, 5, 0.1f, 1000.0f);
+                projection = Matrix4.CreateOrthographic(ProjectorSize, ProjectorSize, 0.1f, Range);
             }
             return view * projection;
         }
@@ -226,10 +239,11 @@ public class Light : GameObject
         tex[3] = SpotShadowMapTexture;
         tex[4] = noiseTex;
         tex[5] = Environment.EnvmapID;
+        tex[6] = CookieTextureID;
 
         if (Type == LightType.Spot || Type == LightType.Projector)
         {
-            FullscreenQuad.RenderQuad("DeferredLight", tex, new[] { "screenTexture", "screenDepth", "screenNormal", "shadowMap", "ssaoNoise", "cubemap" }, Transform, this);
+            FullscreenQuad.RenderQuad("DeferredLight", tex, new[] { "screenTexture", "screenDepth", "screenNormal", "shadowMap", "ssaoNoise", "cubemap", "lightCookieTexture" }, Transform, this);
         }
         else if (Type == LightType.Point || Type == LightType.Directional)
         {

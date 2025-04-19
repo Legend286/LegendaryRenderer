@@ -97,8 +97,9 @@ public class ApplicationWindow : GameWindow
         return textureExtensions.Contains(Path.GetExtension(fileName));
     }
 
-    private RenderableMesh droppedMesh;
+    private RenderableMesh? droppedMesh;
     private string droppedFile;
+    private int droppedTextureID = -1;
     
     protected override void OnFileDrop(FileDropEventArgs e)
     {
@@ -111,24 +112,35 @@ public class ApplicationWindow : GameWindow
         {
             Console.WriteLine("Please for now only try to import one asset at once.");
         }
+        else if (ImGui.IsAnyItemHovered())
+        {
+            DraggedOnImGui = true;
+
+            if (ContainsTexture(fileName))
+            {
+                droppedTextureID = TextureLoader.LoadTexture(fileName, false).Reference().GetGLTexture();
+            }
+        }
         else
         {
             if (ContainsModel(fileName))
             {
                 LoadModelFromDrag(fileName);
             }
-            
+            else if (ImGui.IsAnyItemHovered())
+            {
+                DraggedOnImGui = true;
+            }
             else if (ContainsTexture(fileName))
             {
                 Engine.RenderSelectionBufferOnce();
 
                 Engine.ReadMouseSelection((int)pos.X, (int)pos.Y, out GameObject target);
 
-                if (target != null && target is RenderableMesh)
+                if (target is RenderableMesh mesh)
                 {
                     int targetIndex = GetTargetFromFile(fileName);
-                    RenderableMesh mesh = target as RenderableMesh;
-                    
+
                     if (targetIndex != -1)
                     {
                         if (targetIndex == 0)
@@ -156,6 +168,7 @@ public class ApplicationWindow : GameWindow
             }
         }
     }
+    public bool DraggedOnImGui { get; set; }
     private Light l1;
     protected override void OnLoad()
     {
@@ -343,10 +356,22 @@ public class ApplicationWindow : GameWindow
         
         ImGui.End();
     }
-    private void DrawTexture(string name, int textureID)
+    private void DrawTexture(string name, int textureID, float Size = 128, Light? light = null)
     {
         ImGui.Text(name);
-        ImGui.Image(textureID, new Vector2(128,128), new Vector2(0,1), new Vector2(1,0));
+        if (light != null)
+        {
+            textureID = light.CookieTextureID;
+        }
+        
+        ImGui.ImageButton(name, textureID, new Vector2(Size, Size), new Vector2(0,1), new Vector2(1,0));
+        if (ImGui.IsItemHovered() && DraggedOnImGui && light != null)
+        {
+            Console.WriteLine($"Light {light.Name} Cookie ID" + droppedTextureID);
+            light.CookieTextureID = droppedTextureID;
+            droppedTextureID = -1;
+            DraggedOnImGui = false;
+        }
     }
     private bool first = true;
     System.Numerics.Vector3 rot = new System.Numerics.Vector3(0, 0, 0);
@@ -381,7 +406,7 @@ public class ApplicationWindow : GameWindow
         ImGui.Begin("Settings", ImGuiWindowFlags.NoResize);
         ImGui.DragFloat("Shadow Cascade Split Ratio", ref Light.lambda, 0.001f, 0.05f, 1.0f);
 
-        if (ImGui.Button("Add Shadowcasting Spotlight"))
+        if (ImGui.Button("Add Shadowed Spotlight"))
         {
             Light light = new Light(Engine.ActiveCamera.Transform.Position + Engine.ActiveCamera.Transform.Forward * 0.25f);
             light.Type = Light.LightType.Spot;
@@ -392,6 +417,7 @@ public class ApplicationWindow : GameWindow
             light.Range = 100.0f;
             light.InnerCone = 60.0f;
             light.OuterCone = 90.0f;
+            light.ProjectorSize = 5.0f;
             lights.Add(light);
         }
         
@@ -400,13 +426,10 @@ public class ApplicationWindow : GameWindow
             ShaderManager.ReloadAllShaders();
         }
         
-        ImGui.DragFloat("SSAO - Radius", ref Engine.SSAOSettings.Radius, 0.01f, 0.05f, 10.0f);
-        ImGui.DragInt("SSAO - Number of Samples", ref Engine.SSAOSettings.NumberOfSamples, 1, 1, 32);
-        ImGui.Spacing();
-        for (int i = 0; i < 2; i++)
-        {
-            DrawTexture("Spotlight Last ShadowMap", Engine.PointShadowMapTextures[i]);
-        }
+      //  ImGui.DragFloat("SSAO - Radius", ref Engine.SSAOSettings.Radius, 0.01f, 0.05f, 10.0f);
+      //  ImGui.DragInt("SSAO - Number of Samples", ref Engine.SSAOSettings.NumberOfSamples, 1, 1, 32);
+      //  ImGui.Spacing();
+    
 
         DrawLightHierarchy();
    
@@ -417,6 +440,24 @@ public class ApplicationWindow : GameWindow
             
             if (light != null)
             {
+                if (light.Type == Light.LightType.Directional)
+                {
+                    ImGui.Text($"Shadowmaps for {light.Name}");
+                    ImGui.BeginChild("Shadows", new System.Numerics.Vector2(80 * light.CascadeCount, 96));
+                    //ImGui.Text("Materials");
+                    ImGui.Columns(light.CascadeCount, "ShadowColumns");
+                   
+                    for (int i = 0; i < light.CascadeCount; i++)
+                    {
+                        ImGui.SetColumnWidth(i, 80);
+                        DrawTexture($"Cascade {i+1}", Engine.PointShadowMapTextures[i], 64);
+                        ImGui.NextColumn();
+                    }
+                    ImGui.EndChild();
+                }
+                
+                DrawTexture("Light Cookie", light.CookieTextureID, 64, light);
+                
                 if (ImGui.Button($"Light Cast Shadows {light.EnableShadows}"))
                 {
                     light.EnableShadows = !light.EnableShadows;
@@ -446,6 +487,15 @@ public class ApplicationWindow : GameWindow
                     if (ImGui.DragFloat("Light Range", ref tmpRange, 0.25f, 0.2f, 1000.0f))
                     {
                         light.Range = tmpRange;
+                    }
+
+                    if (light.Type == Light.LightType.Projector)
+                    {
+                        float tmpSize = light.ProjectorSize;
+                        if (ImGui.DragFloat("Light Projector Size", ref tmpSize, 0.5f, 0.5f, 100.0f))
+                        {
+                            light.ProjectorSize = tmpSize;
+                        }
                     }
                     
                     if (light.Type == Light.LightType.Spot)

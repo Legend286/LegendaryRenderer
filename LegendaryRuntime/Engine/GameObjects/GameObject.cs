@@ -110,6 +110,7 @@ public class GameObject
         Wireframe,
         Default,
         ShadowPass,
+        ShadowPassInstanced,
     }
     public virtual void Render(RenderMode mode = RenderMode.Default)
     {
