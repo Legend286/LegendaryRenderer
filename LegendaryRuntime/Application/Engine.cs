@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Drawing;
+using System.Numerics;
 using External.ImguiController;
 using Geometry;
 using Geometry.MaterialSystem;
@@ -32,6 +33,9 @@ using TextureParameterName = OpenTK.Graphics.OpenGL.TextureParameterName;
 using TextureTarget = OpenTK.Graphics.OpenGL.TextureTarget;
 using TextureWrapMode = OpenTK.Graphics.OpenGL.TextureWrapMode;
 using TextureHandle = TheLabs.LegendaryRuntime.Engine.Utilities.GLHelpers.TextureHandle;
+using Vector2 = OpenTK.Mathematics.Vector2;
+using Vector3 = OpenTK.Mathematics.Vector3;
+using Vector4 = OpenTK.Mathematics.Vector4;
 
 namespace LegendaryRenderer.Application;
 
@@ -642,52 +646,109 @@ public static class Engine
         }
     }
 
-    public static Matrix4[] CSMMatrices = new Matrix4[6];
+    public static Vector4[] BuildCascadeAtlas(int numCascades)
+    {
+        // 1) compute grid dimensions
+        int cols = (int)MathF.Ceiling(MathF.Sqrt(numCascades));
+        int rows = (int)MathF.Ceiling((float)numCascades / cols);
+        
+        // 2) one uniform UV scale for all tiles
+        Vector2 uvScale = new Vector2(1f / cols, 1f / rows);
 
-    public static bool UseInstancedShadows = true;
+        // 3) fill out the per-cascade offset+scale
+        var atlas = new Vector4[numCascades];
+        for (int i = 0; i < numCascades; i++)
+        {
+            int col = i % cols;
+            int row = i / cols;
+            Vector2 offset = new Vector2(col * uvScale.X, row * uvScale.Y);
+            atlas[i] = new Vector4(offset.X, offset.Y, uvScale.X, uvScale.Y);
+        }
+
+        return atlas;
+    }
+    
+    public static Matrix4[] CSMMatrices = new Matrix4[4];
+
+    public static bool UseInstancedShadows = false;
     public static void RenderCascadedShadowMaps(Light light, bool shouldRender)
     {
         CSMMatrices = Light.GenerateCascadedShadowMatrices(ActiveCamera, light, ShadowResolution);
-        
-        for (int i = 0; i < light.CascadeCount; i++)
+
+        int index = 0;
+        using (new ScopedProfiler($"{light.Name} Cascade {index} Shadowmap Rendering"))
         {
-            using (new ScopedProfiler($"{light.Name} Cascade: {i} Shadowmap Rendering"))
+            if (!UseInstancedShadows)
             {
-                BindPointShadowMap(i);
-                GL.Viewport(0, 0, ShadowResolution, ShadowResolution);
-                GL.Clear(ClearBufferMask.DepthBufferBit);
-                ShaderManager.LoadShader("shadowgen", out ShaderFile shader);
-                shader.UseShader();
-                
-                if (shouldRender)
+
+                for (int i = 0; i < light.CascadeCount; i++)
                 {
-                    ShadowViewCount++;
+                    index++;
+
+                    BindPointShadowMap(i);
+                    GL.Viewport(0, 0, ShadowResolution, ShadowResolution);
+                    GL.Clear(ClearBufferMask.DepthBufferBit);
+                    ShaderManager.LoadShader("shadowgen", out ShaderFile shader);
+                    shader.UseShader();
+
+                    if (shouldRender)
+                    {
+                        ShadowViewCount++;
+                    }
+                    foreach (GameObject go in CullRenderables(CSMMatrices[i], shouldRender))
+                    {
+                        if (shouldRender)
+                        {
+                            if (go is not Camera && go is not Light)
+                            {
+                                NumShadowCasters++;
+                                shader.SetShaderMatrix4x4("shadowViewProjection", CSMMatrices[i], true);
+                                shader.SetShaderMatrix4x4("model", go.Transform.GetWorldMatrix());
+
+                                go.Render(GameObject.RenderMode.ShadowPass);
+
+                            }
+                        }
+                    }
+
+                    GL.BindFramebuffer(FramebufferTarget.Framebuffer, RenderBufferHelpers.HandleLightingBuffer);
+                    GL.Viewport(0, 0, Application.Width, Application.Height);
                 }
-                foreach (GameObject go in CullRenderables(CSMMatrices[i], shouldRender))
+            }
+            else
+            {
+                foreach (GameObject go in CullRenderables(CSMMatrices[3], shouldRender))
                 {
                     if (shouldRender)
                     {
-
-                        if (go is not Camera && go is not Light)
+                        ShadowViewCount += light.CascadeCount;
+                        
+                        if (UseInstancedShadows == true && go is RenderableMesh mesh)
                         {
-                            NumShadowCasters++;
-                            shader.SetShaderMatrix4x4("shadowViewProjection", CSMMatrices[i], true);
+                            BindPointShadowMap(0);
+                            GL.Viewport(0, 0, ShadowResolution, ShadowResolution);
+                            GL.Clear(ClearBufferMask.DepthBufferBit);
+                            ShaderManager.LoadShader("shadowgen", out ShaderFile shader);
+                            shader.UseShader();
+                            shader.SetShaderInt("useInstancing", 1);
+                            Vector4[] offsets = BuildCascadeAtlas(light.CascadeCount);
                             shader.SetShaderMatrix4x4("model", go.Transform.GetWorldMatrix());
-                        /*    if (UseInstancedShadows == true && go is RenderableMesh mesh)
-                            {
-                                shader.SetShaderInt("UseInstancing", 1);
-                                mesh.RenderInstancedShadows(light);
-                            }*/
-                            go.Render(GameObject.RenderMode.ShadowPass);
+                            for (int x = 0; x < light.CascadeCount; x++)
+                            { 
+                                shader.SetShaderVector4($"atlasScaleOffset[{x}]", offsets[x]); 
+                                shader.SetShaderMatrix4x4($"shadowInstanceMatrices[{x}]", CSMMatrices[x]);
+                            }
+                            mesh.RenderInstancedShadows(light);
+                           
                         }
                     }
                 }
-
                 GL.BindFramebuffer(FramebufferTarget.Framebuffer, RenderBufferHelpers.HandleLightingBuffer);
                 GL.Viewport(0, 0, Application.Width, Application.Height);
             }
         }
     }
+
     public static List<RenderableMesh> CullSceneByPointLight(Light light)
     {
         List<RenderableMesh> renderables = RenderableMeshes;

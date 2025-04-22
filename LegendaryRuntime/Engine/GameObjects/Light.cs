@@ -29,18 +29,19 @@ public class Light : GameObject
     public int CookieTextureID
     {
         get { return cookieTexID; }
-        set { cookieTexID = value; EnableCookie = true; }
-    }
-    
-    public int CascadeCount
-    {
-        get
-        {
-            return cascadeCount;
-        }
         set
         {
-            if (value is > 0 and <= 6)
+            cookieTexID = value;
+            EnableCookie = true;
+        }
+    }
+
+    public int CascadeCount
+    {
+        get { return cascadeCount; }
+        set
+        {
+            if (value is > 0 and <= 4)
             {
                 cascadeCount = value;
             }
@@ -80,37 +81,35 @@ public class Light : GameObject
 
     public bool UseIESProfile
     {
-        get
-        {
-            return useProfile;
-        }
-        set
-        {
-            useProfile = value;
-        }
+        get { return useProfile; }
+        set { useProfile = value; }
     }
 
     public enum LightType
     {
         Spot = 0, // a standard spot light
-        
+
         Point = 1, // a punctual light with 360 degree shadows
-        
+
         Directional = 2, // a sun-type of light with cascaded shadowmapping
-        
+
         Area = 3, // maybe I won't use this but it's here as a placeholder :)
-        
+
         Projector = 4, // this will be useful for projected texture lights where you don't always want a cone, instead I will use a smooth box...
-        
+
         Omni = 5, // this will behave like the omni lights found in source 2 where they render partial point light shadows,
-                  // when the spot outer angle (which controls the fov of spotlight shadow perspective matrix) is <= 90 degrees,
-                  // this light will render one perspective shadowmap, when the angle is > 90deg && < 270deg it'll render partial point light,
-                  // when it's above 270deg it'll draw all 6 shadowmaps but this type of light is handy for certain situations :)
+        // when the spot outer angle (which controls the fov of spotlight shadow perspective matrix) is <= 90 degrees,
+        // this light will render one perspective shadowmap, when the angle is > 90deg && < 270deg it'll render partial point light,
+        // when it's above 270deg it'll draw all 6 shadowmaps but this type of light is handy for certain situations :)
     }
 
-    public LightType Type { get; set; } = LightType.Spot;
-
-    private Matrix4 Projection;
+    private LightType type = LightType.Spot;
+    public LightType Type
+    {
+        get { return type; }
+        set { type = value; Name = $"({type.ToString().Split('.').Last()} light {lightID}) {localName}"; }
+    } 
+private Matrix4 Projection;
 
     public Matrix4 ViewProjectionMatrix
     {
@@ -127,10 +126,15 @@ public class Light : GameObject
             return GetPointLightViewProjections();
         }
     }
+
+    private int lightID = -1;
+    private string localName = "";
     
     public Light(Vector3 position, string name = "") : base(position, name)
     {
-        Name = $"(Light {++LightCount}) {name}";
+        lightID = ++LightCount;
+        localName = name;
+        Name = $"(Light {lightID}) {localName}";
         Random rnd = new Random();
         var col = new Color4(rnd.Next(60, 255), rnd.Next(60, 255), rnd.Next(60, 255), rnd.Next(0, 255));
         Colour = col;

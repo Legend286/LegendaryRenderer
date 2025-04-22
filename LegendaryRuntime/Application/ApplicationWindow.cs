@@ -182,7 +182,7 @@ public class ApplicationWindow : GameWindow
         l3.Range = 100.0f;
         l3.InnerCone = 50.0f;
         l3.OuterCone = 65.0f;
-        l3.CascadeCount = 6;
+        l3.CascadeCount = 4;
         lights.Add(l3);
         loading.StartTimingCPU();
 
