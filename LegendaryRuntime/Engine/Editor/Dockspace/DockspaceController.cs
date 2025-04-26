@@ -42,7 +42,7 @@ namespace LegendaryRenderer.LegendaryRuntime.Engine.Editor
 
             if (true)
             {
-                if (ImGuiDockHelper.igDockBuilderGetNode(dockspaceID) == IntPtr.Zero)
+                if (ImGuiDockBinding.igDockBuilderGetNode(dockspaceID) == IntPtr.Zero)
                 {
                     SetupDockspaceLayout();
                 }
@@ -60,21 +60,21 @@ namespace LegendaryRenderer.LegendaryRuntime.Engine.Editor
 
         private void SetupDockspaceLayout()
         {
-            ImGuiDockHelper.igDockBuilderRemoveNode(dockspaceID);
-            ImGuiDockHelper.igDockBuilderAddNode(dockspaceID, ImGuiDockNodeFlags.None);
+            ImGuiDockBinding.igDockBuilderRemoveNode(dockspaceID);
+            ImGuiDockBinding.igDockBuilderAddNode(dockspaceID, ImGuiDockNodeFlags.None);
 
             var viewport = ImGui.GetMainViewport();
-            ImGuiDockHelper.igDockBuilderSetNodeSize(dockspaceID, viewport.Size);
+            ImGuiDockBinding.igDockBuilderSetNodeSize(dockspaceID, viewport.Size);
 
             uint dockMain = dockspaceID;
-            uint dockLeft = ImGuiDockHelper.igDockBuilderSplitNode(dockMain, ImGuiDir.Left, 0.2f, out _, out dockMain);
-            uint dockRight = ImGuiDockHelper.igDockBuilderSplitNode(dockMain, ImGuiDir.Right, 0.25f, out dockMain, out _);
-            uint dockBottom = ImGuiDockHelper.igDockBuilderSplitNode(dockMain, ImGuiDir.Down, 0.25f, out dockMain, out _);
+            uint dockLeft = ImGuiDockBinding.igDockBuilderSplitNode(dockMain, ImGuiDir.Left, 0.2f, out _, out dockMain);
+            uint dockRight = ImGuiDockBinding.igDockBuilderSplitNode(dockMain, ImGuiDir.Right, 0.25f, out dockMain, out _);
+            uint dockBottom = ImGuiDockBinding.igDockBuilderSplitNode(dockMain, ImGuiDir.Down, 0.25f, out dockMain, out _);
 
-            ImGuiDockHelper.DockWindow("Viewport", dockMain);
-            ImGuiDockHelper.DockWindow("Scene Hierarchy", dockLeft);
+            ImGuiDockBinding.DockWindow("Viewport", dockMain);
+            ImGuiDockBinding.DockWindow("Scene Hierarchy", dockLeft);
 
-            ImGuiDockHelper.igDockBuilderFinish(dockspaceID);
+            ImGuiDockBinding.igDockBuilderFinish(dockspaceID);
         }
 
         private void UpdateImGuiViewport()

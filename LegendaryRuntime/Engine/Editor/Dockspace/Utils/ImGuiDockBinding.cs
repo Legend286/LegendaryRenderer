@@ -4,7 +4,7 @@ using ImGuiNET;
 
 namespace LegendaryRenderer.LegendaryRuntime.Engine.Editor;
 
-public static class ImGuiDockHelper
+public static class ImGuiDockBinding
 {
     private const string ImGuiNativeLib = "cimgui"; // Standard cimgui backend library
 

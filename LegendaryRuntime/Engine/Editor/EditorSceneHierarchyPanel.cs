@@ -2,6 +2,7 @@ using ImGuiNET;
 using LegendaryRenderer.Application.SceneManagement;
 using LegendaryRenderer.GameObjects;
 using OpenTK.Graphics.ES30;
+using OpenTK.Mathematics;
 using TheLabs.LegendaryRuntime.Engine.GameObjects;
 
 namespace LegendaryRenderer.LegendaryRuntime.Engine.Editor;
@@ -25,6 +26,14 @@ public class EditorSceneHierarchyPanel
         if (ImGui.Button("Create Light"))
         {
             var newLight = new Light(Application.Engine.ActiveCamera.Transform.Position, "Light");
+            newLight.Transform.Rotation = Application.Engine.ActiveCamera.Transform.Rotation;
+            newLight.Type = Light.LightType.Spot;
+            newLight.EnableShadows = false;
+            float step = (Light.GetCount % 20);
+            step = step / 20.0f;
+            newLight.Colour = Color4.FromHsv(new Vector4(step, 0.8f, 1.0f, 1.0f));
+            newLight.Intensity = 50.0f;
+            newLight.Range = 20.0f;
             CurrentScene.AddGameObject(newLight);
         }
 
@@ -34,9 +43,15 @@ public class EditorSceneHierarchyPanel
         {
             DrawGameObjectNode(gameObject);
         }
-
+        
+        foreach (var go in MarkedForDeletion)
+        {
+            CurrentScene.RemoveGameObject(go);
+        }
         ImGui.End();
     }
+    
+    List<GameObject> MarkedForDeletion = new List<GameObject>();
 
     private void DrawGameObjectNode(GameObject gameObject)
     {
@@ -54,14 +69,15 @@ public class EditorSceneHierarchyPanel
             OnObjectSelected?.Invoke(gameObject);
         }
 
+        // 👇👇👇 FIXED: Popup per *this* GameObject, not the whole scene!
         if (ImGui.BeginPopupContextItem())
         {
             if (ImGui.MenuItem("Delete"))
             {
-                CurrentScene.RemoveGameObject(gameObject);
-                ImGui.EndPopup();
-                return;
+                // 👇 Mark THIS object for deletion
+                MarkedForDeletion.Add(gameObject);
             }
+
             ImGui.EndPopup();
         }
 
@@ -75,6 +91,6 @@ public class EditorSceneHierarchyPanel
             ImGui.TreePop();
         }
     }
-
-    public GameObject? GetSelectedObject() => SelectedObject;
+    
+    
 }

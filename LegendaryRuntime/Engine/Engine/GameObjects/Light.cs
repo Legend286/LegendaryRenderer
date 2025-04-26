@@ -18,6 +18,8 @@ public class Light : GameObject
     public Color4 Colour { get; set; } = Color4.White;
     public float Range { get; set; } = 10.0f;
 
+    public static int GetCount => LightCount;
+
     public bool EnableShadows { get; set; } = false;
 
     public bool EnableCookie = false;
