@@ -263,7 +263,7 @@ public static class Engine
             ShouldDoSelectionNextFrame = false;
             Engine.RenderSelectionBufferOnce();
 
-            Engine.ReadMouseSelection((int)ApplicationWindow.mouseState.X, Application.Height - (int)ApplicationWindow.mouseState.Y, out GameObject? hit);
+            Engine.ReadMouseSelection((int)EditorViewport.MouseFramebufferPosition.X,  (int) EditorViewport.ViewportSize.Y - (int) EditorViewport.MouseFramebufferPosition.Y, out GameObject? hit);
             // width - pos for y because UV starts at bottom and window coord starts at top (or the other way around idk)
 
             Console.WriteLine($"Mouse Position: {(Vector2i)ApplicationWindow.mouseState.Position}");
@@ -347,6 +347,7 @@ public static class Engine
 
         using (new ScopedProfiler("Scene Rendering (Total)"))
         {
+            EditorViewport.SetFramebufferID(RenderBuffers.GetTextureHandle(TextureHandle.COPY));
             FullscreenQuad.RenderQuad("AtmosphericSky", new[] { 0 }, new[] { "null" });
 
             RenderBuffers.BindGBuffer();
@@ -448,12 +449,12 @@ public static class Engine
         return uintData;
     }
 
-    public static Guid ReadGuidFromSelectionBuffer(int x, int y)
+    public static Guid ReadGUIDFromPickingBuffer(int x, int y)
     {
         // Allocate an array to hold 4 floats (RGBA channels).
         float[] pixel = new float[4];
         
-        RenderBufferHelpers.Instance.BindSelectionFramebuffer();
+        RenderBufferHelpers.Instance.BindPickingBuffer();
         GL.ReadPixels(x, y, 1, 1, PixelFormat.Rgba, PixelType.Float, pixel);
 
         Console.WriteLine($"Pixel Values ({pixel[0]} {pixel[1]} {pixel[2]} {pixel[3]})");
@@ -506,9 +507,8 @@ public static class Engine
     
     public static void RenderSelectionBufferOnce()
     {
-        RenderBufferHelpers.Instance?.BindSelectionFramebuffer();
-        GL.Viewport(0, 0, Application.Width, Application.Height);
-
+        RenderBufferHelpers.Instance?.BindPickingBuffer();
+        
         GL.DrawBuffers(1, new DrawBuffersEnum[] { DrawBuffersEnum.ColorAttachment0 });
 
         GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
@@ -666,7 +666,7 @@ public static class Engine
             }
          
             RenderBufferHelpers.Instance.BindLightingFramebuffer();
-            GL.Viewport(0, 0, Application.Width, Application.Height);
+            
         }
     }
 
@@ -736,7 +736,7 @@ public static class Engine
                     }
 
                     RenderBufferHelpers.Instance?.BindLightingFramebuffer();
-                    GL.Viewport(0, 0, Application.Width, Application.Height);
+                  
                 }
             }
             else
@@ -768,7 +768,7 @@ public static class Engine
                     }
                 }
                 RenderBufferHelpers.Instance?.BindLightingFramebuffer();
-                GL.Viewport(0, 0, Application.Width, Application.Height);
+               
             }
         }
     }
@@ -826,7 +826,7 @@ public static class Engine
                 }
             }
             RenderBufferHelpers.Instance?.BindLightingFramebuffer();
-            GL.Viewport(0, 0, Application.Width, Application.Height);
+         
         }
     }
 
@@ -1033,7 +1033,7 @@ public static class Engine
     }
     public static void ReadMouseSelection(int mouseStateX, int mouseStateY, out GameObject? gameObject)
     {
-        var guid = ReadGuidFromSelectionBuffer(mouseStateX, mouseStateY);
+        var guid = ReadGUIDFromPickingBuffer(mouseStateX, mouseStateY);
         
         gameObject = null;
 

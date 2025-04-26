@@ -316,12 +316,9 @@ public class ApplicationWindow : GameWindow
 
         ResetCounters();
 
+        RenderBufferHelpers.Instance.ApplyPendingResize();
+        
         Engine.EngineRenderLoop();
-        
-        
-     //   DoImGui();
-        
-        
         
         imguiController.Render();
 

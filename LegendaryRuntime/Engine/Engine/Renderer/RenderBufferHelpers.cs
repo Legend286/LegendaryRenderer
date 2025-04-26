@@ -17,6 +17,8 @@ public class RenderBufferHelpers
     private FramebufferBundle? CurrentFramebuffer;
     private FramebufferBundle? PendingFramebuffer;
 
+    public int FramebufferID => CurrentFramebuffer?.TexScreenCopy ?? -1;
+
     private Vector2 offset;
 
     private bool resizePending = false;
@@ -228,6 +230,14 @@ public class RenderBufferHelpers
         if (CurrentFramebuffer == null) return;
         GL.Viewport((int)offset.X, (int)offset.Y, CurrentFramebuffer.Width, CurrentFramebuffer.Height);
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, CurrentFramebuffer.HandleSelectionBuffer);
+        GL.DrawBuffers(1, new[] { DrawBuffersEnum.ColorAttachment0 });
+    }
+    
+    public void BindPickingBuffer()
+    {
+        if (CurrentFramebuffer == null) return;
+        GL.Viewport((int)offset.X, (int)offset.Y, CurrentFramebuffer.Width, CurrentFramebuffer.Height);
+        GL.BindFramebuffer(FramebufferTarget.Framebuffer, CurrentFramebuffer.HandlePickingBuffer);
         GL.DrawBuffers(1, new[] { DrawBuffersEnum.ColorAttachment0 });
     }
 
