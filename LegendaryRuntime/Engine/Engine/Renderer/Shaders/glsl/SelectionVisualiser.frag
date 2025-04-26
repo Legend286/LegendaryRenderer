@@ -65,14 +65,14 @@ void main()
     vec4 sceneCol = texture(sceneColour, texCoord);
 
    
-    vec4 outlineColour  = vec4(192, 63, 99, 1.0) / 255.0f;
-    vec4 interiorColour = vec4(204, 102, 130, 1.0) / 255.0f;
-    
+    vec4 outlineColour  = vec4(192, 63, 99, 255.0) / 255.0f;
+    vec4 interiorColour = vec4(204, 102, 130, 255.0) / 255.0f;
+
     if (visibleEdge > 0.1f)
     {
         FragColour = outlineColour;
     }
-   
+
     else if (occludedEdge > 0.1f)
     {
         FragColour = interiorColour;

@@ -40,7 +40,7 @@ public static class ShaderManager
                 return ShaderLoadStatus.LOADED_FROM_CACHE;
             }
         }
-        
+
         ShaderFile shader = new ShaderFile(file);
 
         if (shader.IsCompiled)
@@ -51,13 +51,11 @@ public static class ShaderManager
             NumLoadedShaders++;
             return ShaderLoadStatus.SUCCESS;
         }
-        else
-        {
-            loadedShader = ShaderFile.GetErrorShader();
-            return ShaderLoadStatus.COMPILE_ERROR;
-        }
+
+        loadedShader = ShaderFile.GetErrorShader();
+        return ShaderLoadStatus.COMPILE_ERROR;
     }
-    
+
     public static void Dispose()
     {
         foreach(KeyValuePair<string, ShaderFile> shaderKV in LoadedShaders)

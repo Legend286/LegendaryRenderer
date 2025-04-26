@@ -5,7 +5,7 @@ namespace LegendaryRenderer.Application;
 
 public static class Application
 {
-    private static ApplicationWindow? windowInstance;
+    public static ApplicationWindow? windowInstance;
     public static int Width;
     public static int Height;
 

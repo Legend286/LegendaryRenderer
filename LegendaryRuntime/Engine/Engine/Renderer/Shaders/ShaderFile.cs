@@ -21,73 +21,86 @@ public class ShaderFile : IDisposable
     private DateTime lastReloadTime = DateTime.MinValue;
     private readonly TimeSpan reloadDelay = TimeSpan.FromMilliseconds(1000);
 
+    private bool IsErrorShader = false;
     /*
      * Specify the shader path either with .vert/.frag extension or without. 
      */
     public ShaderFile(string vertex, string fragment, out ShaderManager.ShaderLoadStatus compileStatus, bool ErrorShader = false)
     {
         LoadShader(vertex, fragment, out ShaderManager.ShaderLoadStatus status, ErrorShader);
+        IsErrorShader = ErrorShader;
         compileStatus = status;
     }
 
     void LoadShader(string vertex, string fragment, out ShaderManager.ShaderLoadStatus status, bool ErrorShader = false)
     {
-        // Get the absolute base directory of the executable.
-        string basePath = AppContext.BaseDirectory;
-        // Build your shader folder path using Path.Combine for proper platform independence.
-        string shaderFolder = Path.Combine(basePath, "LegendaryRuntime", "Engine", "Shaders", "glsl");
-
-        // Combine the shader folder with the given file names.
-        vertex = Path.Combine(shaderFolder, vertex);
-        fragment = Path.Combine(shaderFolder, fragment);
-
-        // Ensure correct file extensions.
-        if (!vertex.EndsWith(".vert", StringComparison.OrdinalIgnoreCase))
+        if (!ErrorShader)
         {
-            if (!string.IsNullOrEmpty(Path.GetExtension(vertex)))
-            {
-                throw new ArgumentException("Vertex shader file path has a typo...");
-            }
-            else
-            {
-                vertex += ".vert";
-            }
-        }
-        if (!fragment.EndsWith(".frag", StringComparison.OrdinalIgnoreCase))
-        {
-            if (!string.IsNullOrEmpty(Path.GetExtension(fragment)))
-            {
-                throw new ArgumentException("Fragment shader file path has a typo...");
-            }
-            else
-            {
-                fragment += ".frag";
-            }
-        }
+            // Get the absolute base directory of the executable.
+            string basePath = AppContext.BaseDirectory;
+            // Build your shader folder path using Path.Combine for proper platform independence.
+            string shaderFolder = Path.Combine(basePath, "LegendaryRuntime", "Engine", "Engine", "Renderer", "Shaders", "glsl");
 
-        // Convert to absolute paths (in case Path.Combine returns a relative path, which is unlikely here).
-        vertexShaderPath = Path.GetFullPath(vertex);
-        fragmentShaderPath = Path.GetFullPath(fragment);
+            // Combine the shader folder with the given file names.
+            vertex = Path.Combine(shaderFolder, vertex);
+            fragment = Path.Combine(shaderFolder, fragment);
 
+            // Ensure correct file extensions.
+            if (!vertex.EndsWith(".vert", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!string.IsNullOrEmpty(Path.GetExtension(vertex)))
+                {
+                    throw new ArgumentException("Vertex shader file path has a typo...");
+                }
+                else
+                {
+                    vertex += ".vert";
+                }
+            }
+            if (!fragment.EndsWith(".frag", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!string.IsNullOrEmpty(Path.GetExtension(fragment)))
+                {
+                    throw new ArgumentException("Fragment shader file path has a typo...");
+                }
+                else
+                {
+                    fragment += ".frag";
+                }
+            }
+
+
+            // Convert to absolute paths (in case Path.Combine returns a relative path, which is unlikely here).
+            vertexShaderPath = Path.GetFullPath(vertex);
+            fragmentShaderPath = Path.GetFullPath(fragment);
+        }
+        
         // Default shader sources for error cases.
-        string VertexShaderSource =
-            "#version 330 core\n" +
-            "layout (location = 0) in vec3 aPosition;\n\n" +
-            "uniform mat4 model;\n" +
-            "uniform mat4 viewProjection;\n" +
-            "void main()\n" +
-            "{\n" +
-            "   gl_Position = vec4(aPosition, 1.0f) * model * viewProjection;\n" +
-            "}\n";
+        string ErrorVertex =
+            @"#version 400 core
+            layout(location = 0) in vec3 aPosition;
+            layout(location = 1) in vec2 aTexCoord;
+            out vec2 texCoord;
+            uniform mat4 viewProjection;
+            uniform mat4 model;
+            void main()
+            {    
+                vec4 currentPos = vec4(aPosition, 1.0f) * model * viewProjection;
+                currentPos.z *= -1;
+                texCoord = aTexCoord;
+                gl_Position = currentPos;
+            }";
 
-        string FragmentShaderSource =
-            "#version 330 core\n" +
-            "out vec4 FragColor;\n\n" +
-            "void main()\n" +
-            "{\n" +
-            "    FragColor = vec4(1.0f, 0.0f, 1.0f, 1.0f);\n" +
-            "}\n";
+        string ErrorFragment =
+            @"#version 400 core
+            layout(location = 0) out vec4 FragColour;
+            in vec2 texCoord;
+            void main()
+            {
+                FragColour = vec4(1,0,1,1); // White color
+            }";
 
+        string VertexShaderSource, FragmentShaderSource;
         // Check if shader files exist; if so, read them.
         if (File.Exists(vertexShaderPath) && File.Exists(fragmentShaderPath) && !ErrorShader)
         {
@@ -99,8 +112,12 @@ public class ShaderFile : IDisposable
             Console.WriteLine($"Could not load shader files from disk. Searched for:\n Vertex: {vertexShaderPath}\n Fragment: {fragmentShaderPath}\n Defaulting to Error Shader.");
             status = ShaderManager.ShaderLoadStatus.ERROR_LOADING_FROM_DISK;
             // Use default error names for logging.
-            vertex = "ErrorVertex";
-            fragment = "ErrorFragment";
+            VertexShaderSource = ErrorVertex;
+            FragmentShaderSource = ErrorFragment;
+
+            vertexShaderPath = "ErrorVertex";
+            fragmentShaderPath = "ErrorFragment";
+            
         }
 
         // Create shader objects for vertex and fragment.
@@ -137,49 +154,6 @@ public class ShaderFile : IDisposable
         else
         {
             status = ShaderManager.ShaderLoadStatus.COMPILE_ERROR;
-        }
-
-        // Setup file watchers for hot reloading using absolute paths.
-        if (vertexWatcher == null)
-        {
-            if (File.Exists(vertexShaderPath))
-            {
-                vertexWatcher = new FileSystemWatcher(Path.GetDirectoryName(vertexShaderPath))
-                {
-                    Filter = Path.GetFileName(vertexShaderPath),
-                    NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.CreationTime
-                };
-                vertexWatcher.Changed += OnShaderFileChanged;
-                vertexWatcher.Created += OnShaderFileChanged;
-                vertexWatcher.Renamed += OnShaderFileChanged;
-                vertexWatcher.EnableRaisingEvents = true;
-                Console.WriteLine($"FileSystemWatcher created for {vertexShaderPath}.");
-            }
-            else
-            {
-                throw new Exception("Vertex Shader Path Invalid.");
-            }
-        }
-
-        if (fragmentWatcher == null)
-        {
-            if (File.Exists(fragmentShaderPath))
-            {
-                fragmentWatcher = new FileSystemWatcher(Path.GetDirectoryName(fragmentShaderPath))
-                {
-                    Filter = Path.GetFileName(fragmentShaderPath),
-                    NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.CreationTime
-                };
-                fragmentWatcher.Changed += OnShaderFileChanged;
-                fragmentWatcher.Created += OnShaderFileChanged;
-                fragmentWatcher.Renamed += OnShaderFileChanged;
-                fragmentWatcher.EnableRaisingEvents = true;
-                Console.WriteLine($"FileSystemWatcher created for {fragmentShaderPath}.");
-            }
-            else
-            {
-                throw new Exception("Fragment Shader Path Invalid.");
-            }
         }
     }
 
@@ -221,9 +195,15 @@ public class ShaderFile : IDisposable
         lastShader = ShaderHandle;
         Application.Engine.currentShader = this;
         GL.UseProgram(ShaderHandle);
-        SetShaderMatrix4x4("view", Application.Engine.ActiveCamera.ViewMatrix);
+        SetShaderMatrix4x4("view", Application.Engine.ActiveCamera.ViewMatrix); 
         SetShaderMatrix4x4("proj", Application.Engine.ActiveCamera.ProjectionMatrix);
-        SetShaderMatrix4x4("viewProjection", Application.Engine.ActiveCamera.ViewProjectionMatrix);
+        SetShaderMatrix4x4("viewProjection", IsErrorShader ? Matrix4.Identity : Application.Engine.ActiveCamera.ViewProjectionMatrix);
+        if (IsErrorShader)
+        {
+            SetShaderMatrix4x4("model", Matrix4.Identity);
+        }
+        // TODO: Some more robustness...
+        
         SetShaderMatrix4x4("prevViewProjection", Application.Engine.ActiveCamera.PreviousViewProjectionMatrix);
         SetShaderVector3("cameraPosWS", Application.Engine.ActiveCamera.Transform.Position);
     }

@@ -13,6 +13,8 @@ using OpenTK.Mathematics;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 using System.Diagnostics;
+using LegendaryRenderer.Application;
+using LegendaryRenderer.Engine.Editor;
 using ErrorCode = OpenTK.Graphics.OpenGL4.ErrorCode;
 
 namespace External.ImguiController
@@ -75,6 +77,7 @@ namespace External.ImguiController
 
             SetPerFrameImGuiData(1f / 60f);
 
+            DockLayoutManager.LoadLayoutFromDisk();
             ImGui.NewFrame();
             _frameBegun = true;
         }
@@ -212,6 +215,7 @@ void main()
             if (_frameBegun)
             {
                 _frameBegun = false;
+                OpenTK.Graphics.OpenGL.GL.Viewport(0,0,Application.Width, Application.Height);
                 ImGui.Render();
                 RenderImDrawData(ImGui.GetDrawData());
             }

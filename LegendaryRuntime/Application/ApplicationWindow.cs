@@ -1,4 +1,5 @@
 using System.Drawing;
+using System.Runtime.InteropServices;
 using Geometry;
 using Geometry.MaterialSystem.IESProfiles;
 using LegendaryRenderer.Engine.EngineTypes;
@@ -17,7 +18,9 @@ using TextureHandle = TheLabs.LegendaryRuntime.Engine.Utilities.GLHelpers.Textur
 // Imgui controller (see ImGuiController.cs for notice //
 using External.ImguiController;
 using ImGuiNET;
+using LegendaryRenderer.Engine.Editor;
 using LegendaryRenderer.Geometry;
+using LegendaryRenderer.LegendaryRuntime.Engine.Editor;
 using LegendaryRenderer.LegendaryRuntime.Engine.Renderer.MaterialSystem;
 using Microsoft.VisualBasic;
 using Vector2 = System.Numerics.Vector2;
@@ -170,6 +173,7 @@ public class ApplicationWindow : GameWindow
     }
     public bool DraggedOnImGui { get; set; }
     private Light l1;
+    
     protected override void OnLoad()
     {
         var loading = new ScopedProfiler("Loading Phase");
@@ -187,8 +191,12 @@ public class ApplicationWindow : GameWindow
         loading.StartTimingCPU();
 
         base.OnLoad();
+        
+      
         imguiController = new ImGuiController(Application.Width, Application.Height);
-
+       
+       // DockLayoutManager.LoadLayoutFromDisk();
+        
         GL.ClearColor(Color4.Black);
         PrintDebugLogInfo();
 
@@ -267,8 +275,6 @@ public class ApplicationWindow : GameWindow
         Console.WriteLine($"Loaded Application Successfully. It took {time.ToString("0.00")} seconds to load everything.");
     }
 
-
-
     protected override void OnUnload()
     {
         ShaderManager.Dispose();
@@ -283,8 +289,8 @@ public class ApplicationWindow : GameWindow
         Application.Height = e.Height;
         GL.Viewport(0, 0, e.Width, e.Height);
         imguiController.WindowResized(e.Width, e.Height);
-
-        Engine.RenderBuffers.OnResizeFramebuffer(e.Width, e.Height);
+        var io = ImGui.GetIO();
+        io.DisplayFramebufferScale = new Vector2(1,1);
     }
 
     void ResetCounters()
@@ -306,13 +312,16 @@ public class ApplicationWindow : GameWindow
     {
         base.OnRenderFrame(args);
         ScopedProfiler.ResetStats();
+     
 
         ResetCounters();
 
         Engine.EngineRenderLoop();
         
         
-        DoImGui();
+     //   DoImGui();
+        
+        
         
         imguiController.Render();
 
@@ -625,6 +634,8 @@ public class ApplicationWindow : GameWindow
 
         if (KeyboardState.IsKeyDown(Keys.Escape))
         {
+            DockLayoutManager.SaveLayoutToDisk();
+            
             Close();
         }
 

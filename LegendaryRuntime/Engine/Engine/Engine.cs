@@ -6,8 +6,10 @@ using External.ImguiController;
 using Geometry;
 using Geometry.MaterialSystem;
 using ImGuiNET;
+using LegendaryRenderer.Application.SceneManagement;
 using LegendaryRenderer.Engine.EngineTypes;
 using LegendaryRenderer.GameObjects;
+using LegendaryRenderer.LegendaryRuntime.Engine.Editor;
 using LegendaryRenderer.LegendaryRuntime.Engine.Renderer.MaterialSystem;
 using LegendaryRenderer.Shaders;
 using OpenTK.Graphics.ES11;
@@ -59,6 +61,8 @@ public static class Engine
     
     public static List<RenderableMesh> RenderableMeshes = new List<RenderableMesh>();
 
+    public static List<Scene> LoadedScenes = new List<Scene>();
+    
     public static Camera ActiveCamera;
 
     public static ShaderFile currentShader;
@@ -70,6 +74,10 @@ public static class Engine
     public static bool ShouldDoSelectionNextFrame = false;
 
     public static SSAOSettings SSAOSettings = new SSAOSettings();
+    
+    public static DockspaceController DockspaceController;
+    public static EditorViewport EditorViewport;
+    public static EditorSceneHierarchyPanel EditorSceneHierarchyPanel;
 
     // counters for statistics :)
     public static int
@@ -84,15 +92,22 @@ public static class Engine
 
     static Engine()
     {
+        Initialize();
+    }
+
+    public static void Initialize()
+    {
         ShaderManager.LoadShader("basepass", out ShaderFile loaded);
         currentShader = loaded;
-
         GenerateShadowMap(ShadowResolution, ShadowResolution);
         GeneratePointShadowMaps(ShadowResolution, ShadowResolution);
-        
         RenderBuffers = new RenderBufferHelpers(PixelInternalFormat.Rgba8, PixelInternalFormat.DepthComponent32f, Application.Width, Application.Height, "Main Buffer");
-
-
+        LoadedScenes.Add(new Scene());
+        DockspaceController = new DockspaceController(Application.windowInstance);
+        EditorViewport = new EditorViewport(RenderBufferHelpers.Instance.GetTextureHandle(TextureHandle.COPY));
+        EditorSceneHierarchyPanel = new EditorSceneHierarchyPanel(LoadedScenes[0]);
+        
+        
     }
     
     // Thread-safe queue for actions to run on the main thread.
@@ -243,9 +258,9 @@ public static class Engine
 
     private static void DoSelection()
     {
-        if(ShouldDoSelectionNextFrame && !ImGui.GetIO().WantCaptureMouse)
+        if(ShouldDoSelectionNextFrame)
         {
-
+            ShouldDoSelectionNextFrame = false;
             Engine.RenderSelectionBufferOnce();
 
             Engine.ReadMouseSelection((int)ApplicationWindow.mouseState.X, Application.Height - (int)ApplicationWindow.mouseState.Y, out GameObject? hit);
@@ -354,8 +369,7 @@ public static class Engine
 
             using (new ScopedProfiler("Render Lights"))
             {
-
-                GL.BindFramebuffer(FramebufferTarget.Framebuffer, RenderBufferHelpers.HandleLightingBuffer);
+                RenderBufferHelpers.Instance.BindLightingFramebuffer();
                 GL.ClearColor(Color.Black);
                 GL.Clear(ClearBufferMask.ColorBufferBit);
 
@@ -372,7 +386,7 @@ public static class Engine
 
             RenderBufferHelpers.Instance?.BindMainOutputBuffer();
 
-            Engine.RenderAutoExposure();
+            RenderAutoExposure();
 
             using (new ScopedProfiler("Motion Blur"))
             {
@@ -381,7 +395,7 @@ public static class Engine
 
 
             // TODO: ugly shit like this copy code should be refactored into neat postprocess chaining auto copy
-            GL.BindFramebuffer(FramebufferTarget.Framebuffer, RenderBufferHelpers.HandleLightingBuffer);
+            RenderBufferHelpers.Instance?.BindLightingFramebuffer();
             int x = RenderBufferHelpers.Instance.GetTextureHandle(TextureHandle.COPY);
             FullscreenQuad.RenderQuad("Blit", new[] { x }, new[] { "sourceTexture" });
 
@@ -394,8 +408,8 @@ public static class Engine
 
             // TODO: likewise 
             GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
-            x = RenderBufferHelpers.Instance.GetTextureHandle(TextureHandle.COPY);
-            FullscreenQuad.RenderQuad("Blit", new[] { x }, new[] { "sourceTexture" });
+           // x = RenderBufferHelpers.Instance.GetTextureHandle(TextureHandle.COPY);
+           // FullscreenQuad.RenderQuad("Blit", new[] { x }, new[] { "sourceTexture" });
 
             if (ActiveCamera.PauseCameraFrustum)
             {
@@ -408,7 +422,18 @@ public static class Engine
             
             RenderDebugModels();
 
+            RenderImGui();
         }
+    }
+
+    public static void RenderImGui()
+    {
+        GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
+        DockspaceController.BeginDockspace();
+        EditorViewport.Draw();
+        EditorViewport.ApplyPendingResize();
+        EditorSceneHierarchyPanel.Draw();
+        DockspaceController.EndDockspace();
     }
 
     // below was coded with help from CHATGPT>>
@@ -428,8 +453,7 @@ public static class Engine
         // Allocate an array to hold 4 floats (RGBA channels).
         float[] pixel = new float[4];
         
-        GL.BindFramebuffer(FramebufferTarget.Framebuffer, RenderBufferHelpers.HandlePickingBuffer);
-
+        RenderBufferHelpers.Instance.BindSelectionFramebuffer();
         GL.ReadPixels(x, y, 1, 1, PixelFormat.Rgba, PixelType.Float, pixel);
 
         Console.WriteLine($"Pixel Values ({pixel[0]} {pixel[1]} {pixel[2]} {pixel[3]})");
@@ -482,7 +506,7 @@ public static class Engine
     
     public static void RenderSelectionBufferOnce()
     {
-        GL.BindFramebuffer(FramebufferTarget.Framebuffer, RenderBufferHelpers.HandlePickingBuffer);
+        RenderBufferHelpers.Instance?.BindSelectionFramebuffer();
         GL.Viewport(0, 0, Application.Width, Application.Height);
 
         GL.DrawBuffers(1, new DrawBuffersEnum[] { DrawBuffersEnum.ColorAttachment0 });
@@ -641,7 +665,7 @@ public static class Engine
 
             }
          
-            GL.BindFramebuffer(FramebufferTarget.Framebuffer, RenderBufferHelpers.HandleLightingBuffer);
+            RenderBufferHelpers.Instance.BindLightingFramebuffer();
             GL.Viewport(0, 0, Application.Width, Application.Height);
         }
     }
@@ -711,7 +735,7 @@ public static class Engine
                         }
                     }
 
-                    GL.BindFramebuffer(FramebufferTarget.Framebuffer, RenderBufferHelpers.HandleLightingBuffer);
+                    RenderBufferHelpers.Instance?.BindLightingFramebuffer();
                     GL.Viewport(0, 0, Application.Width, Application.Height);
                 }
             }
@@ -743,7 +767,7 @@ public static class Engine
                         }
                     }
                 }
-                GL.BindFramebuffer(FramebufferTarget.Framebuffer, RenderBufferHelpers.HandleLightingBuffer);
+                RenderBufferHelpers.Instance?.BindLightingFramebuffer();
                 GL.Viewport(0, 0, Application.Width, Application.Height);
             }
         }
@@ -801,7 +825,7 @@ public static class Engine
                     }
                 }
             }
-            GL.BindFramebuffer(FramebufferTarget.Framebuffer, RenderBufferHelpers.HandleLightingBuffer);
+            RenderBufferHelpers.Instance?.BindLightingFramebuffer();
             GL.Viewport(0, 0, Application.Width, Application.Height);
         }
     }

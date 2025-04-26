@@ -22,7 +22,21 @@ public static class Maths
     {
         return new Vector3(MathF.Floor(vector.X), MathF.Floor(vector.Y), MathF.Floor(vector.Z));
     }
+
+    public static Vector2 FromNumericsVector2(System.Numerics.Vector2 vector)
+    {
+        return new Vector2(vector.X, vector.Y);
+    }
+
+    public static System.Numerics.Vector2 ToNumericsVector2(Vector2 vector)
+    {
+        return new System.Numerics.Vector2(vector.X, vector.Y);
+    }
     
+    public static Vector3 SnapVectorToGrid(Vector3 vector, float snapSize)
+    {
+        return FloorVector(vector / snapSize) * snapSize;
+    }
     public static Vector3 ProjectVectorOntoPlane(Vector3 vector, Vector3 planeNormal)
     {
         Vector3 normalizedNormal = planeNormal.Normalized();
