@@ -17,7 +17,17 @@ public static class Maths
     {
         return x - (float)MathF.Floor(x);
     }
+    
+    public static uint Color4ToUint(Color4 color)
+    {
+        byte r = (byte)(Math.Clamp(color.R, 0f, 1f) * 255f);
+        byte g = (byte)(Math.Clamp(color.G, 0f, 1f) * 255f);
+        byte b = (byte)(Math.Clamp(color.B, 0f, 1f) * 255f);
+        byte a = (byte)(Math.Clamp(color.A, 0f, 1f) * 255f);
 
+        return (uint)(r) | ((uint)(g) << 8) | ((uint)(b) << 16) | ((uint)(a) << 24);
+    }
+    
     public static Vector3 FloorVector(Vector3 vector)
     {
         return new Vector3(MathF.Floor(vector.X), MathF.Floor(vector.Y), MathF.Floor(vector.Z));

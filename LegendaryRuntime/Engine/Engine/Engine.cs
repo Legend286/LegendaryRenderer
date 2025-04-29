@@ -10,6 +10,7 @@ using LegendaryRenderer.Application.SceneManagement;
 using LegendaryRenderer.Engine.EngineTypes;
 using LegendaryRenderer.GameObjects;
 using LegendaryRenderer.LegendaryRuntime.Engine.Editor;
+using LegendaryRenderer.LegendaryRuntime.Engine.Editor.Gizmos;
 using LegendaryRenderer.LegendaryRuntime.Engine.Renderer.MaterialSystem;
 using LegendaryRenderer.Shaders;
 using OpenTK.Graphics.ES11;
@@ -74,6 +75,8 @@ public static class Engine
     public static bool ShouldDoSelectionNextFrame = false;
 
     public static SSAOSettings SSAOSettings = new SSAOSettings();
+
+    public static bool EnableShadows = true;
     
     public static DockspaceController DockspaceController;
     public static EditorViewport EditorViewport;
@@ -106,8 +109,17 @@ public static class Engine
         DockspaceController = new DockspaceController(Application.windowInstance);
         EditorViewport = new EditorViewport(RenderBufferHelpers.Instance.GetTextureHandle(TextureHandle.COPY));
         EditorSceneHierarchyPanel = new EditorSceneHierarchyPanel(LoadedScenes[0]);
-        
-        
+        EditorSceneHierarchyPanel.OnObjectSelected += Go =>
+        {
+            if (Go is not null)
+            {
+                SelectedRenderableObjects.Clear();
+                SelectedRenderableObjects.Add(Go);
+                Console.WriteLine("Selected from inspector" + Go.Name);
+            }
+            
+        };
+
     }
     
     // Thread-safe queue for actions to run on the main thread.
@@ -256,14 +268,19 @@ public static class Engine
     public static List<GameObject> SelectedRenderableObjects { get; private set; } = new List<GameObject>();
     public static bool IsMultiSelect { get; set; } = false;
 
-    private static void DoSelection()
+    public static void DoSelection()
     {
-        if(ShouldDoSelectionNextFrame)
+        if(ShouldDoSelectionNextFrame && !Gizmos.isGizmoActive && EditorViewport.IsHovered)
         {
             ShouldDoSelectionNextFrame = false;
             Engine.RenderSelectionBufferOnce();
 
-            Engine.ReadMouseSelection((int)EditorViewport.MouseFramebufferPosition.X,  (int) EditorViewport.ViewportSize.Y - (int) EditorViewport.MouseFramebufferPosition.Y, out GameObject? hit);
+            var Vec = ImGui.GetMousePos();
+            Vec -= EditorViewport.ViewportPosition;
+            Vec.X *= DPI.DPIScale.X;
+            Vec.Y = (EditorViewport.ViewportSize.Y - Vec.Y) * DPI.DPIScale.Y;
+            
+            Engine.ReadMouseSelection((int)Vec.X,  (int)Vec.Y, out GameObject? hit);
             // width - pos for y because UV starts at bottom and window coord starts at top (or the other way around idk)
 
             Console.WriteLine($"Mouse Position: {(Vector2i)ApplicationWindow.mouseState.Position}");
@@ -383,7 +400,7 @@ public static class Engine
                 GL.Disable(EnableCap.Blend);
             }
 
-            DoSelection();
+      
 
             RenderBufferHelpers.Instance?.BindMainOutputBuffer();
 
@@ -1000,7 +1017,7 @@ public static class Engine
                     shouldRender = light.IsVisible;
                 }
                 
-                if (light.EnableShadows)
+                if (light.EnableShadows && EnableShadows)
                 {
                  //   GL.CullFace(OpenTK.Graphics.OpenGL.CullFaceMode.Front);
                     
@@ -1018,6 +1035,21 @@ public static class Engine
                     }
                     
                   //  GL.CullFace(OpenTK.Graphics.OpenGL.CullFaceMode.Back);
+                }
+                else
+                {
+                    BindShadowMap();
+                    GL.Viewport(0, 0, SpotShadowWidth, SpotShadowHeight);
+                    GL.Clear(ClearBufferMask.DepthBufferBit);
+
+                    for (int i = 0; i < 6; i++)
+                    {
+                        BindPointShadowMap(i);
+                        GL.Viewport(0, 0, PointShadowWidth, PointShadowHeight);
+                        GL.Clear(ClearBufferMask.DepthBufferBit);
+                    }
+                    
+                    RenderBufferHelpers.Instance?.BindLightingFramebuffer();
                 }
 
                 using (new ScopedProfiler($"{light.Name} Render"))

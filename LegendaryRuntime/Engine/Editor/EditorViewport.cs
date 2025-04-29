@@ -1,5 +1,4 @@
 using ImGuiNET;
-using OpenTK.Graphics.ES30;
 using System.Numerics;
 using LegendaryRenderer.Engine.EngineTypes;
 using TheLabs.LegendaryRuntime.Engine.Utilities;
@@ -11,9 +10,12 @@ public class EditorViewport
     public Vector2 ViewportSize { get; private set; }
     public Vector2 ViewportPosition { get; private set; }
     public Vector2 MouseViewportPosition { get; private set; }
-    public Vector2 MouseFramebufferPosition { get; private set; }    
+    public static Vector2 MouseFramebufferPosition { get; private set; }    
     public bool IsFocused { get; private set; }
     public bool IsHovered { get; private set; }
+    
+    public Vector2 Min { get; private set; }
+    public Vector2 Max { get; private set; }
     
     private bool bInitialized = false;
     
@@ -47,12 +49,74 @@ public class EditorViewport
     {
         // 0) Reset resize flag
         resizingThisFrame = false;
-
-        // 1) Begin the window with NO padding
+       
+        // 1) Begin window with no padding
         ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Vector2(0, 0));
-        ImGui.Begin("Viewport", ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse);
-        ImGui.PopStyleVar(); // pop WindowPadding
-
+        ImGui.Begin("Viewport", ImGuiWindowFlags.MenuBar | ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse);
+     
+        // ─────────────────────────────────────────────────────────────────────────────────────────────────
+        
+        // 2) Draw a simple menu bar
+        if (ImGui.BeginMenuBar())
+        {
+            if (ImGui.BeginMenu("Create"))
+            {
+                if (ImGui.BeginMenu("Lights"))
+                {
+                    if (ImGui.MenuItem("Point Light"))
+                    {
+                        // your light creation logic
+                    }
+                    if (ImGui.MenuItem("Spot Light"))
+                    {
+                        // your spot light creation logic
+                    }
+                    if (ImGui.MenuItem("Directional Light"))
+                    {
+                        // directional light
+                    }
+                    ImGui.EndMenu();
+                }
+                ImGui.EndMenu();
+            }
+            
+            if (ImGui.BeginMenu("View"))
+            {
+                if (ImGui.MenuItem("Show Grid"))
+                {
+                    // your grid toggle logic
+                }
+                if (ImGui.MenuItem("Show Gizmos"))
+                {
+                    // your gizmo toggle logic
+                }
+                ImGui.EndMenu();
+            }
+            if (ImGui.BeginMenu("Settings"))
+            {
+                string ShadowState = Application.Engine.EnableShadows ? "Disable" : "Enable";
+                if (ImGui.MenuItem($"{ShadowState} Shadows"))
+                {
+                    Application.Engine.EnableShadows = !Application.Engine.EnableShadows;
+                }
+                if (ImGui.MenuItem("Enable Post Processing"))
+                {
+                    // your post processing toggle logic
+                }
+                ImGui.EndMenu();
+            }
+            
+            if (ImGui.BeginMenu("Camera"))
+            {
+                if (ImGui.MenuItem("Reset View"))
+                {
+                    // your camera reset logic
+                }
+                ImGui.EndMenu();
+            }
+            ImGui.EndMenuBar();
+        }
+        
         // 2) Compute how big the content area is (in ImGui “points”)
         Vector2 contentAvail = ImGui.GetContentRegionAvail();
         int viewW = (int)Math.Max(contentAvail.X, 1);
@@ -86,16 +150,19 @@ public class EditorViewport
                 new Vector2(0, 1),
                 new Vector2(1, 0)
             );
+        
         ImGui.PopStyleVar(2); // pop FramePadding + ItemSpacing
 
         // 6) Capture the exact image bounds in screen coords
         Vector2 imgMin = ImGui.GetItemRectMin();
         Vector2 imgMax = ImGui.GetItemRectMax();
+        Min = new Vector2(imgMin.X, imgMin.Y);
+        Max = new Vector2(imgMax.X, imgMax.Y);
 
         // 7) Expose viewport position & size (in points)
         ViewportPosition = imgMin;
-        ViewportSize = new Vector2(viewW, viewH);
-
+        ViewportSize = new Vector2(imgMax.X - imgMin.X, imgMax.Y - imgMin.Y);
+        
         ImGui.End();
 
         // 8) Compute mouse‐in‐viewport (points)
@@ -106,7 +173,7 @@ public class EditorViewport
         // clamp into [0, viewW/viewH]
         local.X = Math.Clamp(local.X, 0, ViewportSize.X);
         local.Y = Math.Clamp(local.Y, 0, ViewportSize.Y);
-        MouseViewportPosition = local;
+        MouseViewportPosition = io.MousePos - ViewportPosition;
 
         // 9) Convert to *pixel* coords using ImGui’s framebuffer scale
         Vector2 scale = io.DisplayFramebufferScale; // e.g. (2,2) on Retina
@@ -118,6 +185,8 @@ public class EditorViewport
         py = Math.Clamp(py, 0, viewH * scale.Y - 1);
 
         MouseFramebufferPosition = new Vector2(px, py);
+        ImGui.PopStyleVar(); // pop WindowPadding
+
     }
 
     public void ApplyPendingResize()
@@ -132,5 +201,4 @@ public class EditorViewport
             resizingThisFrame = false;
         }
     }
-
 }

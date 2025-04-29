@@ -55,6 +55,7 @@ namespace Geometry
 
         public RenderableMesh(string file, int part = 0) : base(new Vector3(0, 0, 0), $"{file}-{part}")
         {
+            Bounds = new SphereBounds(Transform.Position, 10.0f);
             fileName = file;
             if (MeshFactory.AddMesh(this, out RenderableMesh loaded, part))
             {
@@ -86,6 +87,7 @@ namespace Geometry
         void SetBounds(SphereBounds bounds)
         {
             LocalBounds = bounds;
+            
         }
 
         private int IndexCount;

@@ -13,6 +13,7 @@ using OpenTK.Mathematics;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using LegendaryRenderer.Application;
 using LegendaryRenderer.Engine.Editor;
 using ErrorCode = OpenTK.Graphics.OpenGL4.ErrorCode;
@@ -33,7 +34,8 @@ namespace External.ImguiController
 
         private int _fontTexture;
 
-        private int _shader;
+        private static int _shader;
+        public static int Shader => _shader;
         private int _shaderFontTextureLocation;
         private int _shaderProjectionMatrixLocation;
 
@@ -53,8 +55,7 @@ namespace External.ImguiController
         public ImGuiController(int width, int height)
         {
             _windowWidth = width;
-            _windowHeight = height;
-
+            _windowHeight = height; 
             int major = GL.GetInteger(GetPName.MajorVersion);
             int minor = GL.GetInteger(GetPName.MinorVersion);
 
@@ -304,6 +305,8 @@ void main()
             io.MouseWheel = offset.Y;
             io.MouseWheelH = offset.X;
         }
+        
+        public delegate void ImDrawCallback(ImDrawListPtr parentList, ImDrawCmdPtr cmd);
 
         private void RenderImDrawData(ImDrawDataPtr draw_data)
         {
@@ -429,7 +432,10 @@ void main()
                     ImDrawCmdPtr pcmd = cmd_list.CmdBuffer[cmd_i];
                     if (pcmd.UserCallback != IntPtr.Zero)
                     {
-                        throw new NotImplementedException();
+                        var drawCb = Marshal.GetDelegateForFunctionPointer<ImDrawCallback>(pcmd.UserCallback);
+
+                        drawCb(cmd_list, pcmd);
+                        continue;
                     }
                     else
                     {

@@ -139,7 +139,7 @@ public class Camera : GameObject
         
         ViewMatrix = Matrix4.LookAt(Transform.LocalPosition, Transform.Position + Transform.Forward * 50, Vector3.UnitY);
         
-        AspectRatio = ((float)App.Width / (float)App.Height);
+        AspectRatio = ((float)Eng.EditorViewport.ViewportSize.X / (float)Eng.EditorViewport.ViewportSize.Y);
         Matrix4.CreatePerspectiveFieldOfView(MathHelper.DegreesToRadians(FieldOfView),
             AspectRatio, ZNear, ZFar,
             out Matrix4 projection);

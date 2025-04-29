@@ -28,18 +28,18 @@ public class EditorSceneHierarchyPanel
             var newLight = new Light(Application.Engine.ActiveCamera.Transform.Position, "Light");
             newLight.Transform.Rotation = Application.Engine.ActiveCamera.Transform.Rotation;
             newLight.Type = Light.LightType.Spot;
-            newLight.EnableShadows = false;
+            newLight.EnableShadows = true;
             float step = (Light.GetCount % 20);
             step = step / 20.0f;
             newLight.Colour = Color4.FromHsv(new Vector4(step, 0.8f, 1.0f, 1.0f));
-            newLight.Intensity = 50.0f;
-            newLight.Range = 20.0f;
+            newLight.Intensity = 120.0f;
+            newLight.Range = 40.0f;
             CurrentScene.AddGameObject(newLight);
         }
 
         ImGui.Separator();
 
-        foreach (var gameObject in CurrentScene.SceneObjects)
+        foreach (var gameObject in Application.Engine.GameObjects)
         {
             DrawGameObjectNode(gameObject);
         }

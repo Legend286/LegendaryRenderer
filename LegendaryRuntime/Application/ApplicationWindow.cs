@@ -21,6 +21,7 @@ using ImGuiNET;
 using LegendaryRenderer.Engine.Editor;
 using LegendaryRenderer.Geometry;
 using LegendaryRenderer.LegendaryRuntime.Engine.Editor;
+using LegendaryRenderer.LegendaryRuntime.Engine.Editor.Gizmos;
 using LegendaryRenderer.LegendaryRuntime.Engine.Renderer.MaterialSystem;
 using Microsoft.VisualBasic;
 using Vector2 = System.Numerics.Vector2;
@@ -34,13 +35,32 @@ public class ApplicationWindow : GameWindow
     public static KeyboardState keyboardState;
     public static MouseState mouseState;
     private ImGuiController imguiController;
+    
+    Vector2 DPIScale = new Vector2(1, 1);
 
     public ApplicationWindow(GameWindowSettings gameWindowSettings, NativeWindowSettings nativeWindowSettings) : base(gameWindowSettings, nativeWindowSettings)
     {
+        imguiController = new ImGuiController(Application.Width, Application.Height);
+
         keyboardState = KeyboardState;
         mouseState = MouseState;
         GL.Enable(EnableCap.DebugOutput);
         GL.Enable(EnableCap.DebugOutputSynchronous);
+        
+        var windowSizeInPoints      = new Vector2(Size.X, Size.Y);           // ImGui points
+        var framebufferSizeInPixels = new Vector2(Application.Width, Application.Height);
+
+        var dpiScale =  framebufferSizeInPixels / windowSizeInPoints;
+        Console.WriteLine($"DPI Scale = {dpiScale}");
+
+        DPI.SetDPIScale(FromNumericsVector2(dpiScale));
+
+
+        var io = ImGui.GetIO();
+        io.DisplaySize             = windowSizeInPoints;
+        io.DisplayFramebufferScale = dpiScale;
+        // 🛠 NEW: scale fonts down if needed
+        io.FontGlobalScale = 1.0f / dpiScale.Y;
 
     }
 
@@ -192,9 +212,6 @@ public class ApplicationWindow : GameWindow
 
         base.OnLoad();
         
-      
-        imguiController = new ImGuiController(Application.Width, Application.Height);
-       
        // DockLayoutManager.LoadLayoutFromDisk();
         
         GL.ClearColor(Color4.Black);
@@ -289,8 +306,21 @@ public class ApplicationWindow : GameWindow
         Application.Height = e.Height;
         GL.Viewport(0, 0, e.Width, e.Height);
         imguiController.WindowResized(e.Width, e.Height);
+        
+        var windowSizeInPoints      = new Vector2(Size.X, Size.Y);           // ImGui points
+        var framebufferSizeInPixels = new Vector2(Application.Width, Application.Height);
+
+        var dpiScale =  framebufferSizeInPixels / windowSizeInPoints;
+        Console.WriteLine($"DPI Scale = {dpiScale}");
+
+        DPI.SetDPIScale(FromNumericsVector2(dpiScale));
+
+
         var io = ImGui.GetIO();
-        io.DisplayFramebufferScale = new Vector2(1,1);
+        io.DisplaySize             = windowSizeInPoints;
+        io.DisplayFramebufferScale = dpiScale;
+        // 🛠 NEW: scale fonts down if needed
+        io.FontGlobalScale = 1.0f / dpiScale.Y;
     }
 
     void ResetCounters()
@@ -315,14 +345,38 @@ public class ApplicationWindow : GameWindow
      
 
         ResetCounters();
-
-        RenderBufferHelpers.Instance.ApplyPendingResize();
         
         Engine.EngineRenderLoop();
+
+        var size = FromNumericsVector2(Engine.EditorViewport.ViewportSize);
+        var vpPos = Engine.EditorViewport.ViewportPosition;
+        // Mouse inside viewport, relative to ViewportPosition
+        var io = ImGui.GetIO();
+
+        var mousePosGlobal = FromNumericsVector2(io.MousePos);
+
+        var viewPos = FromNumericsVector2(new Vector2(vpPos.X, vpPos.Y));
+
+        if (Engine.SelectedRenderableObjects.Count == 1)
+        {
+            Gizmos.DrawAndHandle(ref Engine.SelectedRenderableObjects[0].GetRoot().Transform, ref Engine.ActiveCamera, ref mousePosGlobal, ref size, ref viewPos);
+        }
+
+        foreach (GameObject go in Engine.SelectedRenderableObjects)
+        {
+            var light = go as Light;
+            if (light == null) continue;
+            if (light.Type == Light.LightType.Spot)
+            {
+                Gizmos.DrawSpotLightCone(Engine.ActiveCamera, light, size, viewPos);
+            }
+        }
+
+        Engine.DoSelection();
         
         imguiController.Render();
-
         ImGuiController.CheckGLError("End of Frame");
+        RenderBufferHelpers.Instance.ApplyPendingResize();
         
         SwapBuffers();
         

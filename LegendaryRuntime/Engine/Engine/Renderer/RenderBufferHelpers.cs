@@ -94,6 +94,8 @@ public class RenderBufferHelpers
         resizePending = false;
 
       //  GL.Viewport(0, 0, Width, Height);
+        
+       Console.WriteLine(Width + " x " + Height);
     }
 
     private FramebufferBundle CreateFramebuffer(int width, int height)
