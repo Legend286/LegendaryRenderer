@@ -1,10 +1,13 @@
 using System.Diagnostics;
-using Geometry;
 using LegendaryRenderer;
 using LegendaryRenderer.Application;
+using LegendaryRenderer.LegendaryRuntime.Application.Profiling;
+using LegendaryRenderer.LegendaryRuntime.Engine.Engine.GameObjects;
 using LegendaryRenderer.Shaders;
 using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
+
+namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer;
 
 public class Frustum
 {

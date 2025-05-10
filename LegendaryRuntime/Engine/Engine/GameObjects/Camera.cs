@@ -1,19 +1,15 @@
-using System.Data;
-using System.Runtime;
-using Geometry;
 using LegendaryRenderer.Application;
-using LegendaryRenderer.GameObjects;
-using LegendaryRenderer.Shaders;
+using LegendaryRenderer.LegendaryRuntime.Application;
+using LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer;
 using OpenTK.Mathematics;
-using OpenTK.Windowing.Common.Input;
 using OpenTK.Windowing.GraphicsLibraryFramework;
-using App = LegendaryRenderer.Application.Application;
-using Eng = LegendaryRenderer.Application.Engine;
-using static LegendaryRenderer.Maths;
-using OpenTK.Input;
+using App = LegendaryRenderer.LegendaryRuntime.Application.Application;
+using Eng = LegendaryRenderer.LegendaryRuntime.Engine.Engine.Engine;
+using static LegendaryRenderer.LegendaryRuntime.Engine.Utilities.Maths;
+using FrustumDrawMode = LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer.Frustum.FrustumDrawMode;
 
 
-namespace LegendaryRenderer;
+namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine.GameObjects;
 public class Camera : GameObject
 {
     public Matrix4 ProjectionMatrix;
@@ -69,7 +65,7 @@ public class Camera : GameObject
         {
             App.SetCursorVisible(false);
 
-            if (Application.Engine.ActiveCamera == this)
+            if (Eng.ActiveCamera == this)
             {
                 MovingCamera = true;
             }
@@ -153,7 +149,7 @@ public class Camera : GameObject
 
     public override void Render(RenderMode mode = RenderMode.Default)
     {
-        if (Application.Engine.ActiveCamera != this)
+        if (Eng.ActiveCamera != this)
         {
             if (mode == RenderMode.SelectionMask)
             {
@@ -163,7 +159,7 @@ public class Camera : GameObject
                 }
                 Frustum.first = true;
                 Console.WriteLine($"Camera Guid {GUID}");
-                Frustum.DrawFrustum(Frustum.FrustumDrawMode.Selection);
+                Frustum.DrawFrustum(FrustumDrawMode.Selection);
             }
             else
             {
@@ -172,7 +168,7 @@ public class Camera : GameObject
                     return;
                 }
                 Frustum.first = true;
-                Frustum.DrawFrustum(Frustum.FrustumDrawMode.Debug);
+                Frustum.DrawFrustum(FrustumDrawMode.Debug);
             }
         }
     }

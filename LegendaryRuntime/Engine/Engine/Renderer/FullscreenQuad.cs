@@ -1,18 +1,11 @@
-using System.Drawing;
-using OpenTK;
-using OpenTK.Graphics;
-using OpenTK.Graphics.OpenGL4;
-using System.IO;
-using System.Text.RegularExpressions;
-using LegendaryRenderer.Application;
-using LegendaryRenderer.Geometry;
-using LegendaryRenderer.LegendaryRuntime.Engine.Renderer.MaterialSystem;
+using LegendaryRenderer.LegendaryRuntime.Engine.Engine.EngineTypes;
+using LegendaryRenderer.LegendaryRuntime.Engine.Engine.GameObjects;
 using LegendaryRenderer.Shaders;
+using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
-using TheLabs.LegendaryRuntime.Engine.GameObjects;
+using LegendaryRenderer.LegendaryRuntime.Application;
 
-
-namespace Geometry;
+namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer;
 
 public static class FullscreenQuad
 {
@@ -80,7 +73,7 @@ public static class FullscreenQuad
             Engine.currentShader.SetShaderInt(textureNames[i], i);
         }
         Engine.currentShader.SetShaderFloat("exposureValue", Engine.currentExposure);
-        Engine.currentShader.SetShaderVector4("screenDimensions", new Vector4(Application.Width, Application.Height, 1/(float)Application.Width, 1/(float)Application.Height));
+        Engine.currentShader.SetShaderVector4("screenDimensions", new Vector4(Application.Application.Width, Application.Application.Height, 1/(float)Application.Application.Width, 1/(float)Application.Application.Height));
         float far = Engine.ActiveCamera.ZFar;
         float near = Engine.ActiveCamera.ZNear;
         Engine.currentShader.SetShaderVector4("projectionParameters", new Vector4(near, far, 1 / near, 1 / far));

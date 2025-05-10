@@ -1,6 +1,6 @@
-﻿using LegendaryRenderer.GameObjects;
+﻿using LegendaryRenderer.LegendaryRuntime.Engine.Engine.GameObjects;
 
-namespace LegendaryRenderer.Components;
+namespace LegendaryRenderer.LegendaryRuntime.Engine.Components;
 
 
 public class Component

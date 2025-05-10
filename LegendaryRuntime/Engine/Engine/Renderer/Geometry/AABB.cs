@@ -1,6 +1,6 @@
 using OpenTK.Mathematics;
 
-namespace Geometry;
+namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer;
 
 public class AABB
 {

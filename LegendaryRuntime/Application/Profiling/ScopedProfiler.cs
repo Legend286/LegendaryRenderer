@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using OpenTK.Graphics.OpenGL4;
 
+namespace LegendaryRenderer.LegendaryRuntime.Application.Profiling;
 public class ScopedProfiler : IDisposable
 {
     private readonly string _profilerName;

@@ -1,9 +1,6 @@
-using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.IO;
 
-namespace Geometry.MaterialSystem.IESProfiles;
+namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer.MaterialSystem;
 
 // ChatGPT helped me write this IES profile loading code :)
 

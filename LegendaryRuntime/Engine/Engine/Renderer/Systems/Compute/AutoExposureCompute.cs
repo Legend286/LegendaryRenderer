@@ -1,7 +1,6 @@
-﻿using System.Xml.Resolvers;
-using OpenTK.Graphics.OpenGL;
+﻿using OpenTK.Graphics.OpenGL;
 
-namespace Geometry;
+namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer.Systems.Compute;
 
 public class AutoExposureCompute
 {

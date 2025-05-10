@@ -1,11 +1,9 @@
 using ImGuiNET;
-using LegendaryRenderer.Application.SceneManagement;
-using LegendaryRenderer.GameObjects;
-using OpenTK.Graphics.ES30;
+using LegendaryRenderer.LegendaryRuntime.Engine.Engine.GameObjects;
+using LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer.Systems.SceneSystem;
 using OpenTK.Mathematics;
-using TheLabs.LegendaryRuntime.Engine.GameObjects;
 
-namespace LegendaryRenderer.LegendaryRuntime.Engine.Editor;
+namespace LegendaryRenderer.LegendaryRuntime.Engine.Editor.UserInterface;
 
 public class EditorSceneHierarchyPanel
 {
@@ -25,8 +23,8 @@ public class EditorSceneHierarchyPanel
 
         if (ImGui.Button("Create Light"))
         {
-            var newLight = new Light(Application.Engine.ActiveCamera.Transform.Position, "Light");
-            newLight.Transform.Rotation = Application.Engine.ActiveCamera.Transform.Rotation;
+            var newLight = new Light(Engine.Engine.ActiveCamera.Transform.Position, "Light");
+            newLight.Transform.Rotation = Engine.Engine.ActiveCamera.Transform.Rotation;
             newLight.Type = Light.LightType.Spot;
             newLight.EnableShadows = true;
             float step = (Light.GetCount % 20);
@@ -39,7 +37,7 @@ public class EditorSceneHierarchyPanel
 
         ImGui.Separator();
 
-        foreach (var gameObject in Application.Engine.GameObjects)
+        foreach (var gameObject in Engine.Engine.GameObjects)
         {
             DrawGameObjectNode(gameObject);
         }

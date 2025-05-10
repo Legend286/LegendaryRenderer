@@ -1,7 +1,6 @@
-using System.Runtime.InteropServices;
 using ImGuiNET;
 
-namespace LegendaryRenderer.Engine.Editor
+namespace LegendaryRenderer.LegendaryRuntime.Engine.Editor.Dockspace
 {
     public static class DockLayoutManager
     {

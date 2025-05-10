@@ -1,8 +1,8 @@
-using LegendaryRenderer.Components;
-using LegendaryRenderer.Geometry;
+using LegendaryRenderer.LegendaryRuntime.Engine.Components;
+using LegendaryRenderer.LegendaryRuntime.Engine.Engine.EngineTypes;
 using OpenTK.Mathematics;
 
-namespace LegendaryRenderer.GameObjects;
+namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine.GameObjects;
 
 public class GameObject
 {
@@ -66,7 +66,7 @@ public class GameObject
         Transform = new Transform(position, this);
         Transform.LocalPosition = position;
         
-        Application.Engine.AddGameObject(this);
+        LegendaryRuntime.Engine.Engine.Engine.AddGameObject(this);
     }
 
     public Component? AddComponent<T>() where T : Component
@@ -118,7 +118,7 @@ public class GameObject
 
     public virtual void Delete()
     {
-        Application.Engine.RemoveGameObject(this);
+        LegendaryRuntime.Engine.Engine.Engine.RemoveGameObject(this);
     }
 
     public void AddChild(GameObject child)

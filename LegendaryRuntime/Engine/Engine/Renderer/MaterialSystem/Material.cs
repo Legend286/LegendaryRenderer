@@ -1,7 +1,6 @@
-using LegendaryRenderer.Application;
 using OpenTK.Mathematics;
 
-namespace Geometry.MaterialSystem;
+namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer.MaterialSystem;
 
 public class Material
 {

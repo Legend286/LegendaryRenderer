@@ -1,6 +1,6 @@
 using OpenTK.Graphics.OpenGL;
 
-namespace TheLabs.LegendaryRuntime.Engine.Utilities;
+namespace LegendaryRenderer.LegendaryRuntime.Engine.Utilities;
 
 public static class GLHelpers
 {

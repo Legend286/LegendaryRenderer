@@ -1,7 +1,6 @@
-using Geometry;
 using LegendaryRenderer.LegendaryRuntime.Engine.Renderer.MaterialSystem;
 
-namespace TheLabs.LegendaryRuntime.Engine.Renderer;
+namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer;
 
 public static class Environment
 {

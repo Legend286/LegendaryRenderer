@@ -1,4 +1,4 @@
-﻿namespace Geometry
+﻿namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer
 {
     public class ProceduralRenderableMesh : RenderableMesh
     {

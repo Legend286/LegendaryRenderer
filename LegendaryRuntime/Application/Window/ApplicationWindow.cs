@@ -1,32 +1,25 @@
-using System.Drawing;
-using System.Runtime.InteropServices;
-using Geometry;
-using Geometry.MaterialSystem.IESProfiles;
-using LegendaryRenderer.Engine.EngineTypes;
-using LegendaryRenderer.GameObjects;
+using ImGuiNET;
+using LegendaryRenderer.Application;
+using LegendaryRenderer.LegendaryRuntime.Application.Profiling;
+using LegendaryRenderer.LegendaryRuntime.Engine.Editor.Dockspace;
+using LegendaryRenderer.LegendaryRuntime.Engine.Editor.Gizmos;
+using LegendaryRenderer.LegendaryRuntime.Engine.Engine.GameObjects;
+using LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer;
+using LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer.MaterialSystem;
+using LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer.ModelLoader;
+using LegendaryRenderer.LegendaryRuntime.Engine.Renderer.MaterialSystem;
 using LegendaryRenderer.Shaders;
 using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
-using TheLabs.LegendaryRuntime.Engine.GameObjects;
-using static LegendaryRenderer.Maths;
-using PixelInternalFormat = OpenTK.Graphics.OpenGL4.PixelInternalFormat;
-using TextureHandle = TheLabs.LegendaryRuntime.Engine.Utilities.GLHelpers.TextureHandle;
+using static LegendaryRenderer.LegendaryRuntime.Engine.Utilities.Maths;
 
 // Imgui controller (see ImGuiController.cs for notice //
-using External.ImguiController;
-using ImGuiNET;
-using LegendaryRenderer.Engine.Editor;
-using LegendaryRenderer.Geometry;
-using LegendaryRenderer.LegendaryRuntime.Engine.Editor;
-using LegendaryRenderer.LegendaryRuntime.Engine.Editor.Gizmos;
-using LegendaryRenderer.LegendaryRuntime.Engine.Renderer.MaterialSystem;
-using Microsoft.VisualBasic;
 using Vector2 = System.Numerics.Vector2;
 
-namespace LegendaryRenderer.Application;
+namespace LegendaryRenderer.LegendaryRuntime.Application;
 
 
 
@@ -87,7 +80,7 @@ public class ApplicationWindow : GameWindow
 
     void LoadModelFromDrag(string fileName)
     {
-        ModelLoader.LoadModel(fileName, Engine.ActiveCamera.Transform.Position, Rotation(0, 0, 0), Vector3.One, true);
+        ModelLoader.LoadModel(fileName, LegendaryRuntime.Engine.Engine.Engine.ActiveCamera.Transform.Position, Rotation(0, 0, 0), Vector3.One, true);
     }
 
     // Returns 0 if diffuse, 1 if normal, 2 if metallic / rough / mask
@@ -156,9 +149,9 @@ public class ApplicationWindow : GameWindow
             }
             else if (ContainsTexture(fileName))
             {
-                Engine.RenderSelectionBufferOnce();
+                LegendaryRuntime.Engine.Engine.Engine.RenderSelectionBufferOnce();
 
-                Engine.ReadMouseSelection((int)pos.X, (int)pos.Y, out GameObject target);
+                LegendaryRuntime.Engine.Engine.Engine.ReadMouseSelection((int)pos.X, (int)pos.Y, out GameObject target);
 
                 if (target is RenderableMesh mesh)
                 {
@@ -325,14 +318,14 @@ public class ApplicationWindow : GameWindow
 
     void ResetCounters()
     {
-        Engine.TriangleCountTotal = 0;
-        Engine.TriangleCountCulled = 0;
-        Engine.TriangleCountRendered = 0;
-        Engine.NumShadowCasters = 0;
-        Engine.DrawCalls = 0;
-        Engine.CullPass = 0;
-        Engine.NumberOfVisibleLights = 0;
-        Engine.ShadowViewCount = 0;
+        LegendaryRuntime.Engine.Engine.Engine.TriangleCountTotal = 0;
+        LegendaryRuntime.Engine.Engine.Engine.TriangleCountCulled = 0;
+        LegendaryRuntime.Engine.Engine.Engine.TriangleCountRendered = 0;
+        LegendaryRuntime.Engine.Engine.Engine.NumShadowCasters = 0;
+        LegendaryRuntime.Engine.Engine.Engine.DrawCalls = 0;
+        LegendaryRuntime.Engine.Engine.Engine.CullPass = 0;
+        LegendaryRuntime.Engine.Engine.Engine.NumberOfVisibleLights = 0;
+        LegendaryRuntime.Engine.Engine.Engine.ShadowViewCount = 0;
         Frustum.Count = 0;
         RenderableMesh.ReusedCounter = 0;
         RenderableMesh.TotalSceneMeshes = 0;
@@ -348,10 +341,10 @@ public class ApplicationWindow : GameWindow
 
         ResetCounters();
         
-        Engine.EngineRenderLoop();
+        LegendaryRuntime.Engine.Engine.Engine.EngineRenderLoop();
 
-        var size = FromNumericsVector2(Engine.EditorViewport.ViewportSize);
-        var vpPos = Engine.EditorViewport.ViewportPosition;
+        var size = FromNumericsVector2(LegendaryRuntime.Engine.Engine.Engine.EditorViewport.ViewportSize);
+        var vpPos = LegendaryRuntime.Engine.Engine.Engine.EditorViewport.ViewportPosition;
         // Mouse inside viewport, relative to ViewportPosition
         var io = ImGui.GetIO();
 
@@ -359,26 +352,26 @@ public class ApplicationWindow : GameWindow
 
         var viewPos = FromNumericsVector2(new Vector2(vpPos.X, vpPos.Y));
 
-        if (Engine.SelectedRenderableObjects.Count == 1)
+        if (LegendaryRuntime.Engine.Engine.Engine.SelectedRenderableObjects.Count == 1)
         {
-            Gizmos.DrawAndHandle(ref Engine.SelectedRenderableObjects[0].GetRoot().Transform, ref Engine.ActiveCamera, ref mousePosGlobal, ref size, ref viewPos, mode);
+            Gizmos.DrawAndHandle(ref LegendaryRuntime.Engine.Engine.Engine.SelectedRenderableObjects[0].GetRoot().Transform, ref LegendaryRuntime.Engine.Engine.Engine.ActiveCamera, ref mousePosGlobal, ref size, ref viewPos, mode);
         }
 
-        foreach (GameObject go in Engine.SelectedRenderableObjects)
+        foreach (GameObject go in LegendaryRuntime.Engine.Engine.Engine.SelectedRenderableObjects)
         {
             var light = go as Light;
             if (light == null) continue;
             if (light.Type == Light.LightType.Spot)
             {
-                Gizmos.DrawSpotLightCone(Engine.ActiveCamera, light, size, viewPos);
+                Gizmos.DrawSpotLightCone(LegendaryRuntime.Engine.Engine.Engine.ActiveCamera, light, size, viewPos);
             }
             if (light.Type == Light.LightType.Point)
             {
-                Gizmos.DrawPointLightGizmo(Engine.ActiveCamera, light, size, viewPos);
+                Gizmos.DrawPointLightGizmo(LegendaryRuntime.Engine.Engine.Engine.ActiveCamera, light, size, viewPos);
             }
         }
 
-        Engine.DoSelection();
+        LegendaryRuntime.Engine.Engine.Engine.DoSelection();
         
         imguiController.Render();
         ImGuiController.CheckGLError("End of Frame");
@@ -452,8 +445,8 @@ public class ApplicationWindow : GameWindow
             {
                 if (ImGui.Button(light.Name))
                 {
-                    Engine.SelectedRenderableObjects.Clear();
-                    Engine.SelectedRenderableObjects.Add(light);
+                    LegendaryRuntime.Engine.Engine.Engine.SelectedRenderableObjects.Clear();
+                    LegendaryRuntime.Engine.Engine.Engine.SelectedRenderableObjects.Add(light);
                 }
             }
             ImGui.TreePop();
@@ -474,10 +467,10 @@ public class ApplicationWindow : GameWindow
 
         if (ImGui.Button("Add Shadowed Spotlight"))
         {
-            Light light = new Light(Engine.ActiveCamera.Transform.Position + Engine.ActiveCamera.Transform.Forward * 0.25f);
+            Light light = new Light(LegendaryRuntime.Engine.Engine.Engine.ActiveCamera.Transform.Position + LegendaryRuntime.Engine.Engine.Engine.ActiveCamera.Transform.Forward * 0.25f);
             light.Type = Light.LightType.Spot;
             light.EnableShadows = true;
-            light.Transform.Rotation = Engine.ActiveCamera.Transform.Rotation;
+            light.Transform.Rotation = LegendaryRuntime.Engine.Engine.Engine.ActiveCamera.Transform.Rotation;
             light.Colour = Color4.White;
             light.Intensity = 80.0f;
             light.Range = 100.0f;
@@ -500,9 +493,9 @@ public class ApplicationWindow : GameWindow
         DrawLightHierarchy();
    
         
-        if (Engine.SelectedRenderableObjects.Count == 1)
+        if (LegendaryRuntime.Engine.Engine.Engine.SelectedRenderableObjects.Count == 1)
         {
-            Light? light = Engine.SelectedRenderableObjects[0] as Light;
+            Light? light = LegendaryRuntime.Engine.Engine.Engine.SelectedRenderableObjects[0] as Light;
             
             if (light != null)
             {
@@ -516,7 +509,7 @@ public class ApplicationWindow : GameWindow
                     for (int i = 0; i < light.CascadeCount; i++)
                     {
                         ImGui.SetColumnWidth(i, 80);
-                        DrawTexture($"Cascade {i+1}", Engine.PointShadowMapTextures[i], 64);
+                        DrawTexture($"Cascade {i+1}", LegendaryRuntime.Engine.Engine.Engine.PointShadowMapTextures[i], 64);
                         ImGui.NextColumn();
                     }
                     ImGui.EndChild();
@@ -583,7 +576,7 @@ public class ApplicationWindow : GameWindow
                 }
             }
 
-            GameObject target = Engine.SelectedRenderableObjects[0];
+            GameObject target = LegendaryRuntime.Engine.Engine.Engine.SelectedRenderableObjects[0];
             
             Vector3 pos = target.GetRoot().Transform.LocalPosition;
             Vector3 scale = target.GetRoot().Transform.Scale;
@@ -618,7 +611,7 @@ public class ApplicationWindow : GameWindow
                 target.GetRoot().Transform.Scale = new Vector3(newScale.X, newScale.Y, newScale.Z);
             }
             
-            RenderableMesh? targetRenderable = (Engine.SelectedRenderableObjects[0] as RenderableMesh);
+            RenderableMesh? targetRenderable = (LegendaryRuntime.Engine.Engine.Engine.SelectedRenderableObjects[0] as RenderableMesh);
             
             if (targetRenderable != null)
             {
@@ -650,7 +643,7 @@ public class ApplicationWindow : GameWindow
                 }
                 ImGui.EndChild();
             }
-            else if (Engine.SelectedRenderableObjects.Count == 0)
+            else if (LegendaryRuntime.Engine.Engine.Engine.SelectedRenderableObjects.Count == 0)
             {
                 first = true;
             }
@@ -677,16 +670,16 @@ public class ApplicationWindow : GameWindow
     protected override void OnUpdateFrame(FrameEventArgs args)
     {
         Title =
-            $"Legendary Renderer - {(1 / args.Time).ToString("0.00")} fps - Game Objects: {Engine.GameObjects.Count} - Number of Lights in scene: {Engine.GameObjects.OfType<Light>().ToArray().Length} - Number of visible Lights in Scene: {Engine.NumberOfVisibleLights} - Shadow Casters: {Engine.NumShadowCasters} - Shadow Views {Engine.ShadowViewCount} - Total Triangles Rendered {Engine.TriangleCountRendered} - Total Triangles Culled {Engine.TriangleCountCulled} ({(Engine.TriangleCountTotal > 0 ? (int)(Math.Clamp((float)Engine.TriangleCountCulled / (float)Engine.TriangleCountTotal, 0.0f, 1.0f) * 100.0f) : 0)}%) - Draw Calls {Engine.DrawCalls}";
+            $"Legendary Renderer - {(1 / args.Time).ToString("0.00")} fps - Game Objects: {LegendaryRuntime.Engine.Engine.Engine.GameObjects.Count} - Number of Lights in scene: {LegendaryRuntime.Engine.Engine.Engine.GameObjects.OfType<Light>().ToArray().Length} - Number of visible Lights in Scene: {LegendaryRuntime.Engine.Engine.Engine.NumberOfVisibleLights} - Shadow Casters: {LegendaryRuntime.Engine.Engine.Engine.NumShadowCasters} - Shadow Views {LegendaryRuntime.Engine.Engine.Engine.ShadowViewCount} - Total Triangles Rendered {LegendaryRuntime.Engine.Engine.Engine.TriangleCountRendered} - Total Triangles Culled {LegendaryRuntime.Engine.Engine.Engine.TriangleCountCulled} ({(LegendaryRuntime.Engine.Engine.Engine.TriangleCountTotal > 0 ? (int)(Math.Clamp((float)LegendaryRuntime.Engine.Engine.Engine.TriangleCountCulled / (float)LegendaryRuntime.Engine.Engine.Engine.TriangleCountTotal, 0.0f, 1.0f) * 100.0f) : 0)}%) - Draw Calls {LegendaryRuntime.Engine.Engine.Engine.DrawCalls}";
 
         base.OnUpdateFrame(args);
         imguiController.Update(this, (float)args.Time);
-        Engine.ActiveCamera.MousePosition = MouseState.Position;
+        LegendaryRuntime.Engine.Engine.Engine.ActiveCamera.MousePosition = MouseState.Position;
 
 
         using (new ScopedProfiler("Engine.Update"))
         {
-            Engine.Update((float)args.Time);
+            LegendaryRuntime.Engine.Engine.Engine.Update((float)args.Time);
         }
 
         if (KeyboardState.IsKeyDown(Keys.Escape))
@@ -707,30 +700,30 @@ public class ApplicationWindow : GameWindow
 
         if (KeyboardState.IsKeyPressed(Keys.F1))
         {
-            Engine.ActiveCamera = camera;
+            LegendaryRuntime.Engine.Engine.Engine.ActiveCamera = camera;
         }
 
         if (KeyboardState.IsKeyPressed(Keys.F2))
         {
-            Engine.ActiveCamera = camera2;
+            LegendaryRuntime.Engine.Engine.Engine.ActiveCamera = camera2;
         }
 
         if (KeyboardState.IsKeyDown(Keys.LeftShift) || KeyboardState.IsKeyDown(Keys.RightShift))
         {
-            Engine.IsMultiSelect = true;
+            LegendaryRuntime.Engine.Engine.Engine.IsMultiSelect = true;
         }
         else
         {
-            Engine.IsMultiSelect = false;
+            LegendaryRuntime.Engine.Engine.Engine.IsMultiSelect = false;
         }
 
         if (MouseState.IsButtonPressed(0))
         {
-            Engine.ShouldDoSelectionNextFrame = true;
+            LegendaryRuntime.Engine.Engine.Engine.ShouldDoSelectionNextFrame = true;
         }
         else
         {
-            Engine.ShouldDoSelectionNextFrame = false;
+            LegendaryRuntime.Engine.Engine.Engine.ShouldDoSelectionNextFrame = false;
         }
         //l1.Transform.Position = Engine.ActiveCamera.Transform.Position;
         //model2.Transform.Rotation *= Quaternion.FromEulerAngles(0, MathHelper.DegreesToRadians(900 * (float)args.Time), 0);

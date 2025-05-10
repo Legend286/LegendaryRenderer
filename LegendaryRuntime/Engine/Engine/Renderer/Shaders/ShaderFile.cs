@@ -193,19 +193,19 @@ public class ShaderFile : IDisposable
     public void UseShader()
     {
         lastShader = ShaderHandle;
-        Application.Engine.currentShader = this;
+        LegendaryRuntime.Engine.Engine.Engine.currentShader = this;
         GL.UseProgram(ShaderHandle);
-        SetShaderMatrix4x4("view", Application.Engine.ActiveCamera.ViewMatrix); 
-        SetShaderMatrix4x4("proj", Application.Engine.ActiveCamera.ProjectionMatrix);
-        SetShaderMatrix4x4("viewProjection", IsErrorShader ? Matrix4.Identity : Application.Engine.ActiveCamera.ViewProjectionMatrix);
+        SetShaderMatrix4x4("view", LegendaryRuntime.Engine.Engine.Engine.ActiveCamera.ViewMatrix); 
+        SetShaderMatrix4x4("proj", LegendaryRuntime.Engine.Engine.Engine.ActiveCamera.ProjectionMatrix);
+        SetShaderMatrix4x4("viewProjection", IsErrorShader ? Matrix4.Identity : LegendaryRuntime.Engine.Engine.Engine.ActiveCamera.ViewProjectionMatrix);
         if (IsErrorShader)
         {
             SetShaderMatrix4x4("model", Matrix4.Identity);
         }
         // TODO: Some more robustness...
         
-        SetShaderMatrix4x4("prevViewProjection", Application.Engine.ActiveCamera.PreviousViewProjectionMatrix);
-        SetShaderVector3("cameraPosWS", Application.Engine.ActiveCamera.Transform.Position);
+        SetShaderMatrix4x4("prevViewProjection", LegendaryRuntime.Engine.Engine.Engine.ActiveCamera.PreviousViewProjectionMatrix);
+        SetShaderVector3("cameraPosWS", LegendaryRuntime.Engine.Engine.Engine.ActiveCamera.Transform.Position);
     }
 
     public int GetAttributeLocation(string attributeName)
@@ -263,7 +263,7 @@ public class ShaderFile : IDisposable
             return;
         }
         lastReloadTime = now;
-        Application.Engine.QueueOnMainThread(() =>
+        LegendaryRuntime.Engine.Engine.Engine.QueueOnMainThread(() =>
         {
             Console.WriteLine($"Detected change in shader file '{e.FullPath}'. Attempting hot reload...");
             ReloadShader();

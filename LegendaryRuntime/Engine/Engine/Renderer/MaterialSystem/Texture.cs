@@ -1,6 +1,6 @@
 using OpenTK.Graphics.OpenGL;
 
-namespace LegendaryRenderer.LegendaryRuntime.Engine.Renderer.MaterialSystem;
+namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer.MaterialSystem;
 
 public class Texture
 {

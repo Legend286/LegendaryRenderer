@@ -2,7 +2,7 @@ using System.Numerics;
 using System.Runtime.InteropServices;
 using ImGuiNET;
 
-namespace LegendaryRenderer.LegendaryRuntime.Engine.Editor;
+namespace LegendaryRenderer.LegendaryRuntime.Engine.Editor.Dockspace.Utils;
 
 public static class ImGuiDockBinding
 {

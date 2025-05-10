@@ -1,15 +1,11 @@
-using Geometry;
-using Geometry.MaterialSystem.IESProfiles;
-using LegendaryRenderer;
-using LegendaryRenderer.Application;
-using LegendaryRenderer.Engine.EngineTypes;
-using LegendaryRenderer.GameObjects;
+using LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer;
+using LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer.MaterialSystem;
 using LegendaryRenderer.LegendaryRuntime.Engine.Renderer.MaterialSystem;
 using OpenTK.Mathematics;
-using static LegendaryRenderer.Application.Engine;
-using Environment = TheLabs.LegendaryRuntime.Engine.Renderer.Environment;
+using static LegendaryRenderer.LegendaryRuntime.Engine.Engine.Engine;
+using Environment = LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer.Environment;
 
-namespace TheLabs.LegendaryRuntime.Engine.GameObjects;
+namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine.GameObjects;
 
 public class Light : GameObject
 {

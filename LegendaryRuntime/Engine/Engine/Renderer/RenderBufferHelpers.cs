@@ -1,9 +1,9 @@
 using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
 using PixelFormat = OpenTK.Graphics.OpenGL.PixelFormat;
-using TextureHandle = TheLabs.LegendaryRuntime.Engine.Utilities.GLHelpers.TextureHandle;
+using TextureHandle = LegendaryRenderer.LegendaryRuntime.Engine.Utilities.GLHelpers.TextureHandle;
 
-namespace LegendaryRenderer.Engine.EngineTypes;
+namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer;
 
 public class RenderBufferHelpers
 {

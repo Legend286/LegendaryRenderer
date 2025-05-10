@@ -1,28 +1,24 @@
 using System.Collections.Concurrent;
-using System.Diagnostics;
 using System.Drawing;
-using System.Numerics;
-using External.ImguiController;
-using Geometry;
-using Geometry.MaterialSystem;
 using ImGuiNET;
-using LegendaryRenderer.Application.SceneManagement;
-using LegendaryRenderer.Engine.EngineTypes;
-using LegendaryRenderer.GameObjects;
+using LegendaryRenderer.Application;
+using LegendaryRenderer.LegendaryRuntime.Application;
+using LegendaryRenderer.LegendaryRuntime.Application.Profiling;
 using LegendaryRenderer.LegendaryRuntime.Engine.Editor;
+using LegendaryRenderer.LegendaryRuntime.Engine.Editor.Dockspace;
 using LegendaryRenderer.LegendaryRuntime.Engine.Editor.Gizmos;
+using LegendaryRenderer.LegendaryRuntime.Engine.Editor.UserInterface;
+using LegendaryRenderer.LegendaryRuntime.Engine.Engine.GameObjects;
+using LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer;
+using LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer.MaterialSystem;
+using LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer.Systems.SceneSystem;
 using LegendaryRenderer.LegendaryRuntime.Engine.Renderer.MaterialSystem;
 using LegendaryRenderer.Shaders;
-using OpenTK.Graphics.ES11;
 using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
-using OpenTK.Windowing.GraphicsLibraryFramework;
-using TheLabs.LegendaryRuntime.Engine.GameObjects;
-using TheLabs.LegendaryRuntime.Engine.Renderer;
 using BlendingFactor = OpenTK.Graphics.OpenGL.BlendingFactor;
 using Buffer = System.Buffer;
 using ClearBufferMask = OpenTK.Graphics.OpenGL.ClearBufferMask;
-using CullFaceMode = OpenTK.Graphics.OpenGL.CullFaceMode;
 using EnableCap = OpenTK.Graphics.OpenGL.EnableCap;
 using FramebufferAttachment = OpenTK.Graphics.OpenGL.FramebufferAttachment;
 using FramebufferTarget = OpenTK.Graphics.OpenGL.FramebufferTarget;
@@ -30,17 +26,17 @@ using GL = OpenTK.Graphics.OpenGL.GL;
 using PixelFormat = OpenTK.Graphics.OpenGL.PixelFormat;
 using PixelInternalFormat = OpenTK.Graphics.OpenGL.PixelInternalFormat;
 using PixelType = OpenTK.Graphics.OpenGL.PixelType;
-using ShadingRate = OpenTK.Graphics.OpenGL.ShadingRate;
 using TextureMinFilter = OpenTK.Graphics.ES11.TextureMinFilter;
 using TextureParameterName = OpenTK.Graphics.OpenGL.TextureParameterName;
 using TextureTarget = OpenTK.Graphics.OpenGL.TextureTarget;
 using TextureWrapMode = OpenTK.Graphics.OpenGL.TextureWrapMode;
-using TextureHandle = TheLabs.LegendaryRuntime.Engine.Utilities.GLHelpers.TextureHandle;
+using TextureHandle = LegendaryRenderer.LegendaryRuntime.Engine.Utilities.GLHelpers.TextureHandle;
 using Vector2 = OpenTK.Mathematics.Vector2;
 using Vector3 = OpenTK.Mathematics.Vector3;
 using Vector4 = OpenTK.Mathematics.Vector4;
 
-namespace LegendaryRenderer.Application;
+
+namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine;
 
 public struct SSAOSettings
 {
@@ -104,9 +100,9 @@ public static class Engine
         currentShader = loaded;
         GenerateShadowMap(ShadowResolution, ShadowResolution);
         GeneratePointShadowMaps(ShadowResolution, ShadowResolution);
-        RenderBuffers = new RenderBufferHelpers(PixelInternalFormat.Rgba8, PixelInternalFormat.DepthComponent32f, Application.Width, Application.Height, "Main Buffer");
+        RenderBuffers = new RenderBufferHelpers(PixelInternalFormat.Rgba8, PixelInternalFormat.DepthComponent32f, Application.Application.Width, Application.Application.Height, "Main Buffer");
         LoadedScenes.Add(new Scene());
-        DockspaceController = new DockspaceController(Application.windowInstance);
+        DockspaceController = new DockspaceController(Application.Application.windowInstance);
         EditorViewport = new EditorViewport(RenderBufferHelpers.Instance.GetTextureHandle(TextureHandle.COPY));
         EditorSceneHierarchyPanel = new EditorSceneHierarchyPanel(LoadedScenes[0]);
         EditorSceneHierarchyPanel.OnObjectSelected += Go =>

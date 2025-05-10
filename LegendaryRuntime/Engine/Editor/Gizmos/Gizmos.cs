@@ -1,10 +1,10 @@
-using External.ImguiController;
 using ImGuiNET;
 using LegendaryRenderer.Application;
-using LegendaryRenderer.Geometry;
+using LegendaryRenderer.LegendaryRuntime.Engine.Engine.EngineTypes;
+using LegendaryRenderer.LegendaryRuntime.Engine.Engine.GameObjects;
+using LegendaryRenderer.LegendaryRuntime.Engine.Utilities;
 using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
-using TheLabs.LegendaryRuntime.Engine.GameObjects;
 
 
 namespace LegendaryRenderer.LegendaryRuntime.Engine.Editor.Gizmos;
@@ -248,7 +248,7 @@ public static class Gizmos
           
 
                 Axis hoverAxis = Axis.None;
-                if (!_dragging && Application.Engine.EditorViewport.IsHovered)
+                if (!_dragging && Engine.Engine.EditorViewport.IsHovered)
                     hoverAxis = PickAxis(originSS, endSS, mouseSS - viewportPosition);
 
                 for (int i = 0; i < 3; i++)
@@ -273,7 +273,7 @@ public static class Gizmos
                         );
                     }
                 }
-                if (Application.Engine.EditorViewport.IsHovered)
+                if (Engine.Engine.EditorViewport.IsHovered)
                 {
                     if (!_dragging && io.MouseDown[0])
                     {
@@ -339,7 +339,7 @@ public static class Gizmos
                 }
 
                 // 2) Hover detect on those rings
-                if (!_dragging && Application.Engine.EditorViewport.IsHovered)
+                if (!_dragging && Engine.Engine.EditorViewport.IsHovered)
                     hoverA = PickRingAxis(
                         originSS, mouseSS,
                         camera, initial.Position,
@@ -381,7 +381,7 @@ public static class Gizmos
 
                 // 4) Handle input + draw pie-slice
                 Vector2 centerAbs = originSS + viewportPosition;
-                if (Application.Engine.EditorViewport.IsHovered)
+                if (Engine.Engine.EditorViewport.IsHovered)
                 {
                     if (!_dragging && io.MouseDown[0] && hoverA != Axis.None)
                     {

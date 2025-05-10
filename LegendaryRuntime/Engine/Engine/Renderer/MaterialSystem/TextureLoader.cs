@@ -1,3 +1,4 @@
+using LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer.MaterialSystem;
 using OpenTK.Graphics.OpenGL;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;

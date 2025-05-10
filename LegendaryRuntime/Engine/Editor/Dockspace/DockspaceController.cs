@@ -1,10 +1,9 @@
 using System.Numerics;
 using ImGuiNET;
-using System.IO;
-using OpenTK.Windowing.Common;
+using LegendaryRenderer.LegendaryRuntime.Engine.Editor.Dockspace.Utils;
 using OpenTK.Windowing.Desktop;
 
-namespace LegendaryRenderer.LegendaryRuntime.Engine.Editor
+namespace LegendaryRenderer.LegendaryRuntime.Engine.Editor.Dockspace
 {
     public class DockspaceController
     {

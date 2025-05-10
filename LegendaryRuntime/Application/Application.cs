@@ -1,7 +1,6 @@
-
 using OpenTK.Windowing.Desktop;
 
-namespace LegendaryRenderer.Application;
+namespace LegendaryRenderer.LegendaryRuntime.Application;
 
 public static class Application
 {

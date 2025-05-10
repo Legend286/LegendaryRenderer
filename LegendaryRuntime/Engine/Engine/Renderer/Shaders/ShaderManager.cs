@@ -24,7 +24,7 @@ public static class ShaderManager
     {
         foreach (ShaderFile shader in LoadedShaders.Values)
         {
-            Application.Engine.QueueOnMainThread(() => shader.ReloadShader());
+            LegendaryRuntime.Engine.Engine.Engine.QueueOnMainThread(() => shader.ReloadShader());
         }
     }
     public static ShaderLoadStatus LoadShader(string file, out ShaderFile loadedShader)

@@ -2,7 +2,8 @@ using System.Security.Cryptography;
 using Assimp;
 using OpenTK.Graphics.ES30;
 using OpenTK.Mathematics;
-namespace TheLabs.LegendaryRuntime.Engine.Renderer;
+
+namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer;
 
 // This file has taken some effort, it has some amazing performance stuff :D
 

@@ -1,9 +1,9 @@
-using ImGuiNET;
 using System.Numerics;
-using LegendaryRenderer.Engine.EngineTypes;
-using TheLabs.LegendaryRuntime.Engine.Utilities;
+using ImGuiNET;
+using LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer;
+using LegendaryRenderer.LegendaryRuntime.Engine.Utilities;
 
-namespace LegendaryRenderer.LegendaryRuntime.Engine.Editor;
+namespace LegendaryRenderer.LegendaryRuntime.Engine.Editor.UserInterface;
 
 public class EditorViewport
 {
@@ -94,10 +94,10 @@ public class EditorViewport
             }
             if (ImGui.BeginMenu("Settings"))
             {
-                string ShadowState = Application.Engine.EnableShadows ? "Disable" : "Enable";
+                string ShadowState = Engine.Engine.EnableShadows ? "Disable" : "Enable";
                 if (ImGui.MenuItem($"{ShadowState} Shadows"))
                 {
-                    Application.Engine.EnableShadows = !Application.Engine.EnableShadows;
+                    Engine.Engine.EnableShadows = !Engine.Engine.EnableShadows;
                 }
                 if (ImGui.MenuItem("Enable Post Processing"))
                 {

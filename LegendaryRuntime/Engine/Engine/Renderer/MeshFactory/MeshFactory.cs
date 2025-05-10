@@ -1,6 +1,4 @@
-﻿using LegendaryRenderer.Application;
-
-namespace Geometry
+﻿namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer
 {
     public static class MeshFactory
     {

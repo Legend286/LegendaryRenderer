@@ -1,7 +1,7 @@
-using LegendaryRenderer.GameObjects;
+using LegendaryRenderer.LegendaryRuntime.Engine.Engine.GameObjects;
 using OpenTK.Mathematics;
 
-namespace LegendaryRenderer.Geometry;
+namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine.EngineTypes;
 
 public class Transform
 {

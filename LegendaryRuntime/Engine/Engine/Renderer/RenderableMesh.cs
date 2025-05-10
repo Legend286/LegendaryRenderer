@@ -1,20 +1,10 @@
-﻿using Geometry.MaterialSystem;
-using Geometry.MaterialSystem.IESProfiles;
-using LegendaryRenderer.Application;
-using LegendaryRenderer.GameObjects;
-using LegendaryRenderer.LegendaryRuntime.Engine.Renderer.MaterialSystem;
-using LegendaryRenderer.Shaders;
-using Microsoft.VisualBasic;
+﻿using LegendaryRenderer.LegendaryRuntime.Engine.Engine.GameObjects;
+using LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer.MaterialSystem;
 using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
-using SixLabors.ImageSharp.Processing;
-using TheLabs.LegendaryRuntime.Engine.GameObjects;
-using TheLabs.LegendaryRuntime.Engine.Renderer;
-using static LegendaryRenderer.Application.Engine;
+using static LegendaryRenderer.LegendaryRuntime.Engine.Engine.Engine;
 
-namespace Geometry
+namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer
 {
     public class RenderableMesh : GameObject
     {

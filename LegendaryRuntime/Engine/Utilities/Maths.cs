@@ -1,6 +1,6 @@
 using OpenTK.Mathematics;
 
-namespace LegendaryRenderer;
+namespace LegendaryRenderer.LegendaryRuntime.Engine.Utilities;
 
 public static class Maths
 {

@@ -1,24 +1,15 @@
-﻿// 
-//
-// MARKING NOTE: This controller was pinched from https://github.com/NogginBops/ImGui.NET_OpenTK_Sample/blob/opentk4.0/Dear%20ImGui%20Sample/ImGuiController.cs
-//
-//
-
-using ImGuiNET;
-using System;
-using System.Collections.Generic;
+﻿using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+using ImGuiNET;
+using LegendaryRenderer.LegendaryRuntime.Engine.Editor.Dockspace;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
-using System.Diagnostics;
-using System.Runtime.InteropServices;
-using LegendaryRenderer.Application;
-using LegendaryRenderer.Engine.Editor;
 using ErrorCode = OpenTK.Graphics.OpenGL4.ErrorCode;
 
-namespace External.ImguiController
+namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer
 {
     public class ImGuiController : IDisposable
     {
@@ -216,7 +207,7 @@ void main()
             if (_frameBegun)
             {
                 _frameBegun = false;
-                OpenTK.Graphics.OpenGL.GL.Viewport(0,0,Application.Width, Application.Height);
+                OpenTK.Graphics.OpenGL.GL.Viewport(0,0,Application.Application.Width, Application.Application.Height);
                 ImGui.Render();
                 RenderImDrawData(ImGui.GetDrawData());
             }

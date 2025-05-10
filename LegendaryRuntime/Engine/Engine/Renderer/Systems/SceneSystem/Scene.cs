@@ -1,6 +1,6 @@
-using LegendaryRenderer.GameObjects;
+using LegendaryRenderer.LegendaryRuntime.Engine.Engine.GameObjects;
 
-namespace LegendaryRenderer.Application.SceneManagement;
+namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer.Systems.SceneSystem;
 
 public class Scene
 {

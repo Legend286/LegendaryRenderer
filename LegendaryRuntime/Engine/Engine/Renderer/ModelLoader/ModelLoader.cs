@@ -1,15 +1,11 @@
-﻿using System.Security.Cryptography.X509Certificates;
-using Assimp;
-using Geometry;
-using LegendaryRenderer.Application;
-using LegendaryRenderer.GameObjects;
+﻿using Assimp;
+using LegendaryRenderer.LegendaryRuntime.Application.Profiling;
+using LegendaryRenderer.LegendaryRuntime.Engine.Engine.GameObjects;
 using LegendaryRenderer.LegendaryRuntime.Engine.Renderer.MaterialSystem;
-using OpenTK.Audio.OpenAL;
 using OpenTK.Mathematics;
-using TheLabs.LegendaryRuntime.Engine.Renderer;
 using Quaternion = OpenTK.Mathematics.Quaternion;
 
-namespace Geometry;
+namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer.ModelLoader;
 
 public static class ModelLoader
 {
@@ -38,7 +34,7 @@ public static class ModelLoader
                 fullFile = fileName;
             }
             
-            Scene scene = importer.ImportFile(fullFile,
+            Assimp.Scene scene = importer.ImportFile(fullFile,
                 PostProcessSteps.CalculateTangentSpace | PostProcessSteps.Triangulate |
                 PostProcessSteps.GenerateBoundingBoxes | PostProcessSteps.GenerateSmoothNormals);
 
@@ -80,7 +76,7 @@ public static class ModelLoader
         return output;
     }
 
-    static void AddMeshData(GameObject rootNode, Scene scene, Node node, Matrix4x4 parentTransform, string fileName)
+    static void AddMeshData(GameObject rootNode, Assimp.Scene scene, Node node, Matrix4x4 parentTransform, string fileName)
     {
         // Combine the parent's transform with the node's local transform.
         Matrix4x4 currentTransform =  parentTransform * node.Transform;

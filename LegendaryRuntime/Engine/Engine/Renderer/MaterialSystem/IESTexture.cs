@@ -1,7 +1,6 @@
 using OpenTK.Graphics.OpenGL4;
-using System;
 
-namespace Geometry.MaterialSystem.IESProfiles;
+namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer.MaterialSystem;
 
 public class IESTextureLoader
 {
