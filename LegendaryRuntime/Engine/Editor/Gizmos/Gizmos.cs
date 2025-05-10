@@ -244,8 +244,8 @@ public static class Gizmos
             {
                 const float baseTh = 6f;
                 Vector2[] endSS = new Vector2[3];
-                for (int i = 0; i < 3; i++)
-                    endSS[i] = Project(camera, initial.Position + worldDirs[i] * gizmoLen, viewportSizeInPoints);
+                var initialPos = initial.Position;
+          
 
                 Axis hoverAxis = Axis.None;
                 if (!_dragging && Application.Engine.EditorViewport.IsHovered)
@@ -258,16 +258,21 @@ public static class Gizmos
                     float th = isActive ? baseTh * 1.5f : isHover ? baseTh * 1.2f : baseTh;
                     uint col = isHover ? hoverCols[i] : axisCols[i];
 
-                    Vector2 p0 = originSS + viewportPosition;
-                    Vector2 p1 = endSS[i] + viewportPosition;
-                    if (ClipLineToRect(ref p0, ref p1, vpMin, vpMax))
+                    var endPos = initial.Position + worldDirs[i] * gizmoLen;
+                    if (ClipLineAgainstNearPlane(camera, ref initialPos, ref endPos))
+                    {
+                        originSS = Project(camera, initialPos, viewportSizeInPoints);
+                        endSS[i] = Project(camera, endPos, viewportSizeInPoints);
+
+                        Vector2 p0 = originSS + viewportPosition;
+                        Vector2 p1 = endSS[i] + viewportPosition;
                         drawList.AddLine(
                             Maths.ToNumericsVector2(p0),
                             Maths.ToNumericsVector2(p1),
                             col, th
                         );
+                    }
                 }
-
                 if (Application.Engine.EditorViewport.IsHovered)
                 {
                     if (!_dragging && io.MouseDown[0])
