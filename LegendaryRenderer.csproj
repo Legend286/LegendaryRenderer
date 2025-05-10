@@ -19,6 +19,7 @@
       <PackageReference Include="StirlingLabs.Assimp.Net" Version="23.4.1" />
       <PackageReference Include="System.Drawing.Common" Version="8.0.10" />
       <PackageReference Update="StirlingLabs.assimp.native.win-x64" Version="5.2.5.4" />
+      <PackageReference Update="StirlingLabs.assimp.native.osx" Version="5.2.5.4" />
     </ItemGroup>
 
     <ItemGroup>

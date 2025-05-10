@@ -1,5 +1,6 @@
 ﻿using Assimp;
 using LegendaryRenderer.LegendaryRuntime.Application.Profiling;
+using LegendaryRenderer.LegendaryRuntime.Application.ProgressReporting;
 using LegendaryRenderer.LegendaryRuntime.Engine.Engine.GameObjects;
 using LegendaryRenderer.LegendaryRuntime.Engine.Renderer.MaterialSystem;
 using OpenTK.Mathematics;
@@ -11,6 +12,7 @@ public static class ModelLoader
 {
     static float[][] SceneVertexBuffers = new float[1000][];
     static uint[][] SceneIndexBuffers = new uint[1000][];
+    private static ConsoleProgressBar LoadingProgressBar = new ConsoleProgressBar();
 
     private static int Loaded = 0;
     public static GameObject LoadModel(string fileName, Vector3 position, Quaternion rotation, Vector3 scale, bool purePath = false)
@@ -23,17 +25,17 @@ public static class ModelLoader
             // Get the absolute base directory of the executable.
             string basePath = AppContext.BaseDirectory;
             // Build your shader folder path using Path.Combine for proper platform independence.
-          
+
             string fullFile;
             if (!purePath)
             {
-                fullFile = Path.Combine(Path.Combine(Path.Combine(basePath, "LegendaryRuntime"),"Resources"), fileName);
+                fullFile = Path.Combine(Path.Combine(Path.Combine(basePath, "LegendaryRuntime"), "Resources"), fileName);
             }
             else
             {
                 fullFile = fileName;
             }
-            
+
             Assimp.Scene scene = importer.ImportFile(fullFile,
                 PostProcessSteps.CalculateTangentSpace | PostProcessSteps.Triangulate |
                 PostProcessSteps.GenerateBoundingBoxes | PostProcessSteps.GenerateSmoothNormals);
@@ -42,11 +44,15 @@ public static class ModelLoader
             Console.WriteLine($"Scene is requesting to add {scene.MeshCount} meshes to world.");
 
             rootNode.Transform.Rotation = rotation;
-            rootNode.Transform.Scale = Vector3.One;//DeriveScale(Matrix3FromMatrix4(scene.RootNode.Transform)) * scale;
+            rootNode.Transform.Scale = Vector3.One; //DeriveScale(Matrix3FromMatrix4(scene.RootNode.Transform)) * scale;
 
             int numMaterials = scene.MaterialCount;
 
-            AddMeshData(rootNode, scene, scene.RootNode, scene.RootNode.Transform, fileName);
+            using (LoadingProgressBar)
+            {
+                AddMeshData(rootNode, scene, scene.RootNode, scene.RootNode.Transform, fileName);
+            }
+            progress = 0;
         }
         return rootNode;
     }
@@ -76,8 +82,12 @@ public static class ModelLoader
         return output;
     }
 
+    private static int progress = 0;
+
     static void AddMeshData(GameObject rootNode, Assimp.Scene scene, Node node, Matrix4x4 parentTransform, string fileName)
     {
+        // Update the progress bar
+        LoadingProgressBar.Report((float)progress / scene.MeshCount, $"Processing node {node.Name} ({progress++} of {scene.MeshCount})...");
         // Combine the parent's transform with the node's local transform.
         Matrix4x4 currentTransform =  parentTransform * node.Transform;
         var obj = 0;

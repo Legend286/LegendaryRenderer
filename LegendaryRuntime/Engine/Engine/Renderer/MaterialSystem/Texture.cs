@@ -79,6 +79,18 @@ public class Texture
             return NullTextureObject.Reference();
         } 
         return NullTextureObject.Reference();
-        
+    }
+    
+    public void Dispose()
+    {
+        if (RefCount > 0)
+        {
+            RefCount--;
+        }
+        else
+        {
+            GL.DeleteTexture(GLTextureID);
+            GLTextureID = -1;
+        }
     }
 }
