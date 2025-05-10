@@ -338,6 +338,8 @@ public class ApplicationWindow : GameWindow
         RenderableMesh.TotalSceneMeshes = 0;
         RenderableMesh.LoadedMeshCount = 0;
     }
+
+    private Gizmos.GizmoMode mode = Gizmos.GizmoMode.Translate;
     protected override void OnRenderFrame(FrameEventArgs args)
     {
         base.OnRenderFrame(args);
@@ -359,7 +361,7 @@ public class ApplicationWindow : GameWindow
 
         if (Engine.SelectedRenderableObjects.Count == 1)
         {
-            Gizmos.DrawAndHandle(ref Engine.SelectedRenderableObjects[0].GetRoot().Transform, ref Engine.ActiveCamera, ref mousePosGlobal, ref size, ref viewPos);
+            Gizmos.DrawAndHandle(ref Engine.SelectedRenderableObjects[0].GetRoot().Transform, ref Engine.ActiveCamera, ref mousePosGlobal, ref size, ref viewPos, mode);
         }
 
         foreach (GameObject go in Engine.SelectedRenderableObjects)
@@ -369,6 +371,10 @@ public class ApplicationWindow : GameWindow
             if (light.Type == Light.LightType.Spot)
             {
                 Gizmos.DrawSpotLightCone(Engine.ActiveCamera, light, size, viewPos);
+            }
+            if (light.Type == Light.LightType.Point)
+            {
+                Gizmos.DrawPointLightGizmo(Engine.ActiveCamera, light, size, viewPos);
             }
         }
 
@@ -688,6 +694,15 @@ public class ApplicationWindow : GameWindow
             DockLayoutManager.SaveLayoutToDisk();
             
             Close();
+        }
+
+        if (KeyboardState.IsKeyDown(Keys.W) && !mouseState.IsButtonDown(MouseButton.Button2))
+        {
+            mode = Gizmos.GizmoMode.Translate;
+        }
+        if (KeyboardState.IsKeyDown(Keys.R) && !mouseState.IsButtonDown(MouseButton.Button2))
+        {
+            mode = Gizmos.GizmoMode.Rotate;
         }
 
         if (KeyboardState.IsKeyPressed(Keys.F1))
