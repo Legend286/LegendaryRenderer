@@ -38,73 +38,11 @@ public static class Gizmos
     private static bool ClipLineToRect(ref Vector2 a, ref Vector2 b, Vector2 min, Vector2 max)
     {
         return true;
-        // Cohen–Sutherland clipping
-        int codeA = ComputeOutCode(a, min, max);
-        int codeB = ComputeOutCode(b, min, max);
-
-        while (true)
-        {
-            if ((codeA | codeB) == 0)
-            {
-                // Trivially accepted
-                return true;
-            }
-            if ((codeA & codeB) != 0)
-            {
-                // Trivially rejected
-                return false;
-            }
-
-            int outCode = (codeA != 0) ? codeA : codeB;
-            Vector2 intersection = Vector2.Zero;
-
-            if ((outCode & 8) != 0) // Top
-            {
-                intersection.X = a.X + (b.X - a.X) * (max.Y - a.Y) / (b.Y - a.Y);
-                intersection.Y = max.Y;
-            }
-            else if ((outCode & 4) != 0) // Bottom
-            {
-                intersection.X = a.X + (b.X - a.X) * (min.Y - a.Y) / (b.Y - a.Y);
-                intersection.Y = min.Y;
-            }
-            else if ((outCode & 2) != 0) // Right
-            {
-                intersection.Y = a.Y + (b.Y - a.Y) * (max.X - a.X) / (b.X - a.X);
-                intersection.X = max.X;
-            }
-            else if ((outCode & 1) != 0) // Left
-            {
-                intersection.Y = a.Y + (b.Y - a.Y) * (min.X - a.X) / (b.X - a.X);
-                intersection.X = min.X;
-            }
-
-            if (outCode == codeA)
-            {
-                a = intersection;
-                codeA = ComputeOutCode(a, min, max);
-            }
-            else
-            {
-                b = intersection;
-                codeB = ComputeOutCode(b, min, max);
-            }
-        }
-    }
-
-    private static int ComputeOutCode(Vector2 p, Vector2 min, Vector2 max)
-    {
-        int code = 0;
-        if (p.X < min.X) code |= 1;
-        else if (p.X > max.X) code |= 2;
-        if (p.Y < min.Y) code |= 4;
-        else if (p.Y > max.Y) code |= 8;
-        return code;
     }
 
     public static void DrawPointLightGizmo(Camera camera, Light light, Vector2 viewportSizeInPoints, Vector2 viewportPosition)
     {
-        
+
         var drawList = ImGui.GetForegroundDrawList();
 
         // 1) Project the light’s center into screen space
@@ -154,12 +92,14 @@ public static class Gizmos
                 Vector3 world1 = light.Transform.Position + offset1;
 
                 // project into screen‐space
-                Vector2 screen0 = Project(camera, world0, viewportSizeInPoints) + viewportPosition;
-                Vector2 screen1 = Project(camera, world1, viewportSizeInPoints) + viewportPosition;
+                Vector2 screen0 = Vector2.Zero;
+                Vector2 screen1 = Vector2.Zero;
 
-                // clip to viewport and draw
-                if (ClipLineToRect(ref screen0, ref screen1, vpMin, vpMax))
+                if (ClipLineAgainstNearPlane(camera, ref world0, ref world1))
                 {
+                    screen0 = Project(camera, world0, viewportSizeInPoints) + viewportPosition;
+                    screen1 = Project(camera, world1, viewportSizeInPoints) + viewportPosition;
+
                     drawList.AddLine(
                         new System.Numerics.Vector2(screen0.X, screen0.Y),
                         new System.Numerics.Vector2(screen1.X, screen1.Y),
@@ -197,7 +137,7 @@ public static class Gizmos
 
         // 4) Draw several lines around the base
         const int numSegments = 16;
-        
+
         // clip & draw
         drawList.PushClipRect(
             new System.Numerics.Vector2(vpMin.X, vpMin.Y),
@@ -215,16 +155,18 @@ public static class Gizmos
             Vector3 worldPos0 = light.Transform.Position + light.Transform.Forward * light.Range + offset0;
             Vector3 worldPos1 = light.Transform.Position + light.Transform.Forward * light.Range + offset1;
 
-            Vector2 screen0 = Project(camera, worldPos0, viewportSizeInPoints);
-            Vector2 screen1 = Project(camera, worldPos1, viewportSizeInPoints);
-
-            // Offset by viewport top-left position
-            screen0 += viewportPosition;
-            screen1 += viewportPosition;
-
-            uint colour = Maths.Color4ToUint(light.Colour);
-            if (ClipLineToRect(ref screen0, ref screen1, vpMin, vpMax))
+            if (ClipLineAgainstNearPlane(camera, ref worldPos0, ref worldPos1))
             {
+
+                Vector2 screen0 = Project(camera, worldPos0, viewportSizeInPoints);
+                Vector2 screen1 = Project(camera, worldPos1, viewportSizeInPoints);
+
+                // Offset by viewport top-left position
+                screen0 += viewportPosition;
+                screen1 += viewportPosition;
+
+                uint colour = Maths.Color4ToUint(light.Colour);
+
                 // draw base circle
                 drawList.AddLine(
                     new System.Numerics.Vector2(screen0.X, screen0.Y),
@@ -232,27 +174,31 @@ public static class Gizmos
                     colour, // semi-transparent white
                     1.5f
                 );
-            }
 
 
 
-            Vector2 screenOrigin = new Vector2(originSS.X + viewportPosition.X, originSS.Y + viewportPosition.Y);
+                // draw lines from tip to base
 
-            // draw lines from tip to base
+                var lightOrigin = light.Transform.Position;
+                if (ClipLineAgainstNearPlane(camera, ref lightOrigin, ref worldPos0))
+                {
+                    originSS = Project(camera, lightOrigin, viewportSizeInPoints);
+                    screen0 = Project(camera, worldPos0, viewportSizeInPoints);
 
-            screen0 = Project(camera, worldPos0, viewportSizeInPoints);
-            // Offset by viewport top-left position
-            screen0 += viewportPosition;
+                    Vector2 screenOrigin = new Vector2(originSS.X + viewportPosition.X, originSS.Y + viewportPosition.Y);
 
-            if (ClipLineToRect(ref screenOrigin, ref screen0, vpMin, vpMax))
-            {
+                    // Offset by viewport top-left position
+                    screen0 += viewportPosition;
 
-                drawList.AddLine(
-                    new System.Numerics.Vector2(screen0.X, screen0.Y),
-                    new System.Numerics.Vector2(screenOrigin.X, screenOrigin.Y),
-                    colour,
-                    1.0f
-                );
+
+                    drawList.AddLine(
+                        new System.Numerics.Vector2(screen0.X, screen0.Y),
+                        new System.Numerics.Vector2(screenOrigin.X, screenOrigin.Y),
+                        colour,
+                        1.0f
+                    );
+                }
+
             }
         }
         drawList.PopClipRect();
@@ -265,6 +211,7 @@ public static class Gizmos
         var drawList = ImGui.GetForegroundDrawList();
         var io = ImGui.GetIO();
 
+        Vector3 last = initial.Position;
         // Common data
         Vector2 originSS = Project(camera, initial.Position, viewportSizeInPoints);
         Vector2 vpMin = viewportPosition;
@@ -371,15 +318,18 @@ public static class Gizmos
 
                         Vector3 w0 = initial.Position + a0 * radius;
                         Vector3 w1 = initial.Position + a1 * radius;
-                        Vector2 p0 = Project(camera, w0, viewportSizeInPoints) + viewportPosition;
-                        Vector2 p1 = Project(camera, w1, viewportSizeInPoints) + viewportPosition;
 
-                        if (ClipLineToRect(ref p0, ref p1, vpMin, vpMax))
+                        if (ClipLineAgainstNearPlane(camera, ref w0, ref w1))
+                        {
+                            Vector2 p0 = Project(camera, w0, viewportSizeInPoints) + viewportPosition;
+                            Vector2 p1 = Project(camera, w1, viewportSizeInPoints) + viewportPosition;
+
                             drawList.AddLine(
                                 Maths.ToNumericsVector2(p0),
                                 Maths.ToNumericsVector2(p1),
                                 col, 3f
                             );
+                        }
                     }
                 }
 
@@ -408,15 +358,19 @@ public static class Gizmos
 
                         Vector3 w0 = initial.Position + a0 * radius;
                         Vector3 w1 = initial.Position + a1 * radius;
-                        Vector2 p0 = Project(camera, w0, viewportSizeInPoints) + viewportPosition;
-                        Vector2 p1 = Project(camera, w1, viewportSizeInPoints) + viewportPosition;
+                        if (ClipLineAgainstNearPlane(camera, ref w0, ref w1))
+                        {
 
-                        if (ClipLineToRect(ref p0, ref p1, vpMin, vpMax))
+                            Vector2 p0 = Project(camera, w0, viewportSizeInPoints) + viewportPosition;
+                            Vector2 p1 = Project(camera, w1, viewportSizeInPoints) + viewportPosition;
+
+
                             drawList.AddLine(
                                 Maths.ToNumericsVector2(p0),
                                 Maths.ToNumericsVector2(p1),
                                 hc, 3f * 1.2f
                             );
+                        }
                     }
                 }
 
@@ -461,14 +415,19 @@ public static class Gizmos
                         // assemble screen-space polygon
                         var poly = new List<System.Numerics.Vector2>();
                         poly.Add(new System.Numerics.Vector2(centerAbs.X, centerAbs.Y));
+                        
                         for (int i = 0; i <= segs; i++)
                         {
                             float t = MathHelper.Lerp(0, sweep, i / (float)segs) + MathF.Atan2(_rotateStartDir.Y, _rotateStartDir.X);
+                           
                             Vector3 w = initial.Position
                                         + (plane[0] * MathF.Cos(t) + plane[1] * MathF.Sin(t))
                                         * worldScale;
-                            Vector2 ss = Project(camera, w, viewportSizeInPoints) + viewportPosition;
-                            poly.Add(new System.Numerics.Vector2(ss.X, ss.Y));
+                            if (ClipLineAgainstNearPlane(camera, ref w, ref last))
+                            {
+                                Vector2 ss = Project(camera, w, viewportSizeInPoints) + viewportPosition;
+                                poly.Add(new System.Numerics.Vector2(ss.X, ss.Y));
+                            }
                         }
                         
                         uint baseC = hoverCols[(int)_activeAxis];
@@ -581,6 +540,40 @@ public static class Gizmos
         return deltaProj / len;
     }
 
+    public static bool ClipLineAgainstNearPlane(Camera camera, ref Vector3 a, ref Vector3 b)
+    {
+        float nearZ = -camera.ZNear; // view space near plane is at -ZNear
+
+        // Transform to view space
+        Vector3 viewA = (new Vector4(a, 1.0f) * camera.ViewMatrix).Xyz;
+        Vector3 viewB = (new Vector4(b, 1.0f) * camera.ViewMatrix).Xyz;
+
+        bool aInside = viewA.Z <= nearZ;
+        bool bInside = viewB.Z <= nearZ;
+
+        // Fully outside (both behind)
+        if (!aInside && !bInside)
+            return false;
+
+        // If only one point is outside, clip it
+        if (aInside && !bInside)
+        {
+            float t = (nearZ - viewA.Z) / (viewB.Z - viewA.Z);
+            Vector3 viewClip = Vector3.Lerp(viewA, viewB, t);
+            viewB = viewClip;
+            b = (new Vector4(viewB, 1.0f) * camera.ViewMatrix.Inverted()).Xyz;
+        }
+        else if (!aInside && bInside)
+        {
+            float t = (nearZ - viewB.Z) / (viewA.Z - viewB.Z);
+            Vector3 viewClip = Vector3.Lerp(viewB, viewA, t);
+            viewA = viewClip;
+            a = (new Vector4(viewA, 1.0f) * camera.ViewMatrix.Inverted()).Xyz;
+        }
+
+        return true;
+    }
+    
     private static Vector2 Project(Camera camera, Vector3 worldPos, Vector2 viewportSize)
     {
         // Transform world-space -> view-space
