@@ -399,11 +399,20 @@ public static class Gizmos
                     }
                     else if (_dragging && io.MouseDown[0])
                     {
+                        var axis = circleAxes[(int)_activeAxis];
+
+                        var planeAxis = Vector3.Normalize(Vector3.Cross(axis[0], axis[1]));
+
+                        var dir = Vector3.Normalize(camera.Transform.Position  - initial.Position);
+
+                        var sign = Vector3.Dot(dir, planeAxis) > 0 ? 1.0f : -1.0f;
+                        
+                        
                         Vector2 curDir = Vector2.Normalize(mouseSS - centerAbs);
                         float cross = _rotateStartDir.X * curDir.Y
                                       - _rotateStartDir.Y * curDir.X;
                         float dot = Vector2.Dot(_rotateStartDir, curDir);
-                        float dAng = MathF.Atan2(cross, dot);
+                        float dAng = MathF.Atan2(cross * -sign, dot);
 
                         // apply rotation
                         var q = Quaternion.FromAxisAngle(
