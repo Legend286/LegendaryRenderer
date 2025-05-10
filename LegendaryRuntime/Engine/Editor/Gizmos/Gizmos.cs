@@ -412,22 +412,28 @@ public static class Gizmos
                         );
                         initial.Rotation = q * _rotationOnDragStart;
 
-                        // draw the filled wedge
+                        // Normalize sweep angle to [0, 2π)
                         float sweep = dAng < 0 ? dAng + ((float)Math.PI * 2) : dAng;
-                        const int segs = 32;
-                        var plane = circleAxes[(int)_activeAxis];
 
-                        // assemble screen-space polygon
+// Define start angle in radians
+                        float startAngle = MathF.Atan2(_rotateStartDir.Y, _rotateStartDir.X);
+                        float endAngle = startAngle + sweep;
+
+// Dynamically calculate segment count, but base arc strictly from start to end
+                        float segmentDensity = 512f; // segments for full circle
+                        int segs = Math.Clamp((int)(sweep / (2 * MathF.PI) * segmentDensity), 3, 512);
+
+                        var plane = circleAxes[(int)_activeAxis];
+                        
                         var poly = new List<System.Numerics.Vector2>();
                         poly.Add(new System.Numerics.Vector2(centerAbs.X, centerAbs.Y));
-                        
+
+// Build arc from startAngle to endAngle with stable sampling
                         for (int i = 0; i <= segs; i++)
                         {
-                            float t = MathHelper.Lerp(0, sweep, i / (float)segs) + MathF.Atan2(_rotateStartDir.Y, _rotateStartDir.X);
-                           
-                            Vector3 w = initial.Position
-                                        + (plane[0] * MathF.Cos(t) + plane[1] * MathF.Sin(t))
-                                        * worldScale;
+                            float t = MathHelper.Lerp(startAngle, endAngle, i / (float)segs);
+
+                            Vector3 w = initial.Position + (plane[0] * MathF.Cos(t) + plane[1] * MathF.Sin(t)) * worldScale;
                             if (ClipLineAgainstNearPlane(camera, ref w, ref last))
                             {
                                 Vector2 ss = Project(camera, w, viewportSizeInPoints) + viewportPosition;
