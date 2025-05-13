@@ -16,13 +16,13 @@
             if (!ContainsMesh(key))
             {
                 loadedMeshes.Add($"{key}", renderableMesh);
-                Console.WriteLine($"Added Mesh: '{key}' to the Mesh Factory.");
+             //   Console.WriteLine($"Added Mesh: '{key}' to the Mesh Factory.");
                 loadedMesh = renderableMesh;
                 return true;
             }
             else
             {
-                Console.WriteLine($"Mesh {renderableMesh.fileName} was already loaded. Copying buffer index to new mesh.");
+            //    Console.WriteLine($"Mesh {renderableMesh.fileName} was already loaded. Copying buffer index to new mesh.");
                 loadedMesh = loadedMeshes[key];
                 return false;
             }

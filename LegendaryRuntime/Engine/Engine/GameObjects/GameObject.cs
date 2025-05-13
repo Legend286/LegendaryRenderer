@@ -135,7 +135,7 @@ public class GameObject
         child.Transform.HasChanged = true;
         child.Parent = this;
         
-        Console.WriteLine($"Added child {child.Name} to parent {child.Parent?.Name}.");
+      //  Console.WriteLine($"Added child {child.Name} to parent {child.Parent?.Name}.");
     }
 
     public void RemoveChild(GameObject child)

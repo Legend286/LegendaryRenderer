@@ -172,4 +172,30 @@ public class Camera : GameObject
             }
         }
     }
+    
+    public Vector3 Unproject(Vector2 mousePos, Vector2 viewportSize)
+    {
+        // Normalize screen coordinates to range [-1, 1]
+        Vector2 ndc = new Vector2(
+            (mousePos.X / viewportSize.X) * 2f - 1f,
+            1f - (mousePos.Y / viewportSize.Y) * 2f // Y is flipped
+        );
+
+        // NDC coordinates at near plane (z = -1) and far plane (z = 1)
+        Vector4 nearPointNDC = new Vector4(ndc.X, ndc.Y, -1f, 1f);
+        Vector4 farPointNDC = new Vector4(ndc.X, ndc.Y, 1f, 1f);
+
+        Matrix4 invVP = Matrix4.Invert(ViewMatrix * ProjectionMatrix);
+       
+        // Unproject to world space
+        Vector4 nearWorld = nearPointNDC * invVP;
+        Vector4 farWorld = farPointNDC * invVP;
+        nearWorld /= nearWorld.W;
+        farWorld /= farWorld.W;
+
+        // Ray direction
+        Vector3 rayDir = Vector3.Normalize((farWorld.Xyz - nearWorld.Xyz));
+
+        return rayDir;
+    }
 }

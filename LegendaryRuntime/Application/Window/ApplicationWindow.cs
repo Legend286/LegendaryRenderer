@@ -80,7 +80,7 @@ public class ApplicationWindow : GameWindow
 
     void LoadModelFromDrag(string fileName)
     {
-        ModelLoader.LoadModel(fileName, LegendaryRuntime.Engine.Engine.Engine.ActiveCamera.Transform.Position, Rotation(0, 0, 0), Vector3.One, true);
+        ModelLoader.LoadModel(fileName, LegendaryRuntime.Engine.Engine.Engine.ActiveCamera.Transform.Position, Rotation(0, 0, 0), Vector3.One/100, true);
     }
 
     // Returns 0 if diffuse, 1 if normal, 2 if metallic / rough / mask
@@ -105,12 +105,12 @@ public class ApplicationWindow : GameWindow
     
     bool ContainsModel(string fileName)
     {
-        return modelExtensions.Contains(Path.GetExtension(fileName));
+        return modelExtensions.Contains(Path.GetExtension(fileName).ToLower());
     }
     
     bool ContainsTexture(string fileName)
     {
-        return textureExtensions.Contains(Path.GetExtension(fileName));
+        return textureExtensions.Contains(Path.GetExtension(fileName).ToLower());
     }
 
     private RenderableMesh? droppedMesh;

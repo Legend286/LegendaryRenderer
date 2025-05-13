@@ -50,7 +50,7 @@ namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer
             if (MeshFactory.AddMesh(this, out RenderableMesh loaded, part))
             {
                 Init();
-                Console.WriteLine($"Mesh loaded: {Name}");
+              //  Console.WriteLine($"Mesh loaded: {Name}");
                 this.Material = new Material
                 {
                 };
@@ -59,7 +59,7 @@ namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer
             else
             {
                 ReusedCounter++;
-                Console.WriteLine($"Already Loaded: {Name}. Mesh Cache has saved {ReusedCounter} duplicate GPU buffers.");
+              //Console.WriteLine($"Already Loaded: {Name}. Mesh Cache has saved {ReusedCounter} duplicate GPU buffers.");
                 this.VertexArrayObject = loaded.VertexArrayObject;
                 this.LocalBounds = loaded.LocalBounds;
                 this.Bounds = loaded.Bounds;
@@ -127,8 +127,7 @@ namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer
             ElementBufferObject = GL.GenBuffer();
             ElementBufferObjectShadows = GL.GenBuffer();
 
-            Console.WriteLine(
-                $"Initialised VBO, VAO, EBO to {VertexBufferObject}, {VertexArrayObject}, {ElementBufferObject}. Shadow Buffers EBO: {ElementBufferObjectShadows}, VAO: {VertexArrayObjectShadows} VBO: {VertexBufferObjectShadows}");
+          //  Console.WriteLine($"Initialised VBO, VAO, EBO to {VertexBufferObject}, {VertexArrayObject}, {ElementBufferObject}. Shadow Buffers EBO: {ElementBufferObjectShadows}, VAO: {VertexArrayObjectShadows} VBO: {VertexBufferObjectShadows}");
 
         }
 

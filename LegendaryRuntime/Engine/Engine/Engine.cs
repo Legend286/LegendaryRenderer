@@ -1,9 +1,11 @@
 using System.Collections.Concurrent;
 using System.Drawing;
+using System.Net.Http.Headers;
 using ImGuiNET;
 using LegendaryRenderer.Application;
 using LegendaryRenderer.LegendaryRuntime.Application;
 using LegendaryRenderer.LegendaryRuntime.Application.Profiling;
+using LegendaryRenderer.LegendaryRuntime.Application.ProgressReporting;
 using LegendaryRenderer.LegendaryRuntime.Engine.Editor;
 using LegendaryRenderer.LegendaryRuntime.Engine.Editor.Dockspace;
 using LegendaryRenderer.LegendaryRuntime.Engine.Editor.Gizmos;
@@ -94,17 +96,21 @@ public static class Engine
         Initialize();
     }
 
+    public static ConsoleProgressBar EngineProgress { get; private set; }
     public static void Initialize()
     {
-        ShaderManager.LoadShader("basepass", out ShaderFile loaded);
-        currentShader = loaded;
-        GenerateShadowMap(ShadowResolution, ShadowResolution);
-        GeneratePointShadowMaps(ShadowResolution, ShadowResolution);
-        RenderBuffers = new RenderBufferHelpers(PixelInternalFormat.Rgba8, PixelInternalFormat.DepthComponent32f, Application.Application.Width, Application.Application.Height, "Main Buffer");
-        LoadedScenes.Add(new Scene());
-        DockspaceController = new DockspaceController(Application.Application.windowInstance);
-        EditorViewport = new EditorViewport(RenderBufferHelpers.Instance.GetTextureHandle(TextureHandle.COPY));
-        EditorSceneHierarchyPanel = new EditorSceneHierarchyPanel(LoadedScenes[0]);
+        using (EngineProgress = new ConsoleProgressBar())
+        {
+            ShaderManager.LoadShader("basepass", out ShaderFile loaded);
+            currentShader = loaded;
+            GenerateShadowMap(ShadowResolution, ShadowResolution);
+            GeneratePointShadowMaps(ShadowResolution, ShadowResolution);
+            RenderBuffers = new RenderBufferHelpers(PixelInternalFormat.Rgba8, PixelInternalFormat.DepthComponent32f, Application.Application.Width, Application.Application.Height, "Main Buffer");
+            LoadedScenes.Add(new Scene());
+            DockspaceController = new DockspaceController(Application.Application.windowInstance);
+            EditorViewport = new EditorViewport(RenderBufferHelpers.Instance.GetTextureHandle(TextureHandle.COPY));
+            EditorSceneHierarchyPanel = new EditorSceneHierarchyPanel(LoadedScenes[0]);
+        }
         EditorSceneHierarchyPanel.OnObjectSelected += Go =>
         {
             if (Go is not null)
@@ -487,7 +493,7 @@ public static class Engine
         Buffer.BlockCopy(BitConverter.GetBytes(guidParts[3]), 0, guidBytes, 12, 4);
 
 
-        Console.WriteLine("Guid: " + new Guid(guidBytes));
+       // Console.WriteLine("Guid: " + new Guid(guidBytes));
         
         return new Guid(guidBytes);
     }
@@ -510,7 +516,7 @@ public static class Engine
         Buffer.BlockCopy(BitConverter.GetBytes(guidParts[3]), 0, guidBytes, 12, 4);
 
 
-        Console.WriteLine("Guid: " + new Guid(guidBytes));
+       // Console.WriteLine("Guid: " + new Guid(guidBytes));
 
         return new Guid(guidBytes);
     }
@@ -564,30 +570,35 @@ public static class Engine
 
     private static void GenerateShadowMap(int width, int height)
     {
+
         if (SpotShadowWidth != width || SpotShadowHeight != height)
         {
-            if (spotShadowMapTexture != -1)
+            using (var progress = new ConsoleProgressBar())
             {
+                if (spotShadowMapTexture != -1)
+                {
+                    GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
+                    GL.DeleteTexture(spotShadowMapTexture);
+                    GL.DeleteFramebuffers(1, ref spotLightShadowmapFBO);
+                }
+                spotLightShadowmapFBO = GL.GenFramebuffer();
+
+                SpotShadowWidth = width;
+                SpotShadowHeight = height;
+
+                GL.GenTextures(1, out spotShadowMapTexture);
+                GL.BindTexture(TextureTarget.Texture2D, spotShadowMapTexture);
+                GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.DepthComponent32f, width, height, 0, PixelFormat.DepthComponent, PixelType.Float, IntPtr.Zero);
+                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
+                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMinFilter.Linear);
+                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.ClampToEdge);
+                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.ClampToEdge);
+
+                GL.BindFramebuffer(FramebufferTarget.Framebuffer, spotLightShadowmapFBO);
+                GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.DepthAttachment, TextureTarget.Texture2D, spotShadowMapTexture, 0);
                 GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
-                GL.DeleteTexture(spotShadowMapTexture);
-                GL.DeleteFramebuffers(1, ref spotLightShadowmapFBO);
+                progress.Report((double)1, $"Generated Shadow Map");
             }
-            spotLightShadowmapFBO = GL.GenFramebuffer();
-
-            SpotShadowWidth = width;
-            SpotShadowHeight = height;
-
-            GL.GenTextures(1, out spotShadowMapTexture);
-            GL.BindTexture(TextureTarget.Texture2D, spotShadowMapTexture);
-            GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.DepthComponent32f, width, height, 0, PixelFormat.DepthComponent, PixelType.Float, IntPtr.Zero);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMinFilter.Linear);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.ClampToEdge);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.ClampToEdge);
-
-            GL.BindFramebuffer(FramebufferTarget.Framebuffer, spotLightShadowmapFBO);
-            GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.DepthAttachment, TextureTarget.Texture2D, spotShadowMapTexture, 0);
-            GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
         }
     }
 
@@ -595,30 +606,34 @@ public static class Engine
     {
         if (PointShadowWidth != width || PointShadowHeight != height || !PointShadowsCreated)
         {
-            for (int i = 0; i < 6; i++)
+            using (var progress = new ConsoleProgressBar())
             {
-                if (PointShadowsCreated)
+                for (int i = 0; i < 6; i++)
                 {
+                    if (PointShadowsCreated)
+                    {
+                        GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
+                        GL.DeleteTexture(pointShadowMapTextures[i]);
+                        GL.DeleteFramebuffers(1, ref pointShadowFBOs[i]);
+                    }
+
+                    pointShadowFBOs[i] = GL.GenFramebuffer();
+                    PointShadowWidth = width;
+                    PointShadowHeight = height;
+
+                    GL.GenTextures(1, out pointShadowMapTextures[i]);
+                    GL.BindTexture(TextureTarget.Texture2D, pointShadowMapTextures[i]);
+                    GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.DepthComponent32f, width, height, 0, PixelFormat.DepthComponent, PixelType.Float, IntPtr.Zero);
+                    GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
+                    GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMinFilter.Linear);
+                    GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.ClampToEdge);
+                    GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.ClampToEdge);
+
+                    GL.BindFramebuffer(FramebufferTarget.Framebuffer, pointShadowFBOs[i]);
+                    GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.DepthAttachment, TextureTarget.Texture2D, pointShadowMapTextures[i], 0);
                     GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
-                    GL.DeleteTexture(pointShadowMapTextures[i]);
-                    GL.DeleteFramebuffers(1, ref pointShadowFBOs[i]);
+                    progress.Report((double)i / 6.0, $"Generated Point Shadow Map {i + 1} of 6");
                 }
-
-                pointShadowFBOs[i] = GL.GenFramebuffer();
-                PointShadowWidth = width;
-                PointShadowHeight = height;
-
-                GL.GenTextures(1, out pointShadowMapTextures[i]);
-                GL.BindTexture(TextureTarget.Texture2D, pointShadowMapTextures[i]);
-                GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.DepthComponent32f, width, height, 0, PixelFormat.DepthComponent, PixelType.Float, IntPtr.Zero);
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMinFilter.Linear);
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.ClampToEdge);
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.ClampToEdge);
-
-                GL.BindFramebuffer(FramebufferTarget.Framebuffer, pointShadowFBOs[i]);
-                GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.DepthAttachment, TextureTarget.Texture2D, pointShadowMapTextures[i], 0);
-                GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
             }
 
             PointShadowsCreated = true;

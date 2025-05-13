@@ -405,14 +405,14 @@ public static class Gizmos
 
                         var dir = Vector3.Normalize(camera.Transform.Position  - initial.Position);
 
-                        var sign = Vector3.Dot(dir, planeAxis) > 0 ? 1.0f : -1.0f;
+                        var sign = Vector3.Dot(dir, planeAxis) > 0 ? -1.0f : 1.0f;
                         
                         
                         Vector2 curDir = Vector2.Normalize(mouseSS - centerAbs);
                         float cross = _rotateStartDir.X * curDir.Y
                                       - _rotateStartDir.Y * curDir.X;
                         float dot = Vector2.Dot(_rotateStartDir, curDir);
-                        float dAng = MathF.Atan2(cross * -sign, dot);
+                        float dAng = MathF.Atan2(cross * sign, dot);
 
                         // apply rotation
                         var q = Quaternion.FromAxisAngle(
@@ -423,11 +423,10 @@ public static class Gizmos
 
                         // Normalize sweep angle to [0, 2π)
                         float sweep = dAng < 0 ? dAng + ((float)Math.PI * 2) : dAng;
-
-// Define start angle in radians
+                        
                         float startAngle = MathF.Atan2(_rotateStartDir.Y, _rotateStartDir.X);
                         float endAngle = startAngle + sweep;
-
+                        
 // Dynamically calculate segment count, but base arc strictly from start to end
                         float segmentDensity = 512f; // segments for full circle
                         int segs = Math.Clamp((int)(sweep / (2 * MathF.PI) * segmentDensity), 3, 512);

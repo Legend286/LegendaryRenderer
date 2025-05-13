@@ -12,11 +12,20 @@ public static class ModelLoader
 {
     static float[][] SceneVertexBuffers = new float[1000][];
     static uint[][] SceneIndexBuffers = new uint[1000][];
-    private static ConsoleProgressBar LoadingProgressBar = new ConsoleProgressBar();
+    private static ConsoleProgressBar LoadingProgressBar;
 
     private static int Loaded = 0;
     public static GameObject LoadModel(string fileName, Vector3 position, Quaternion rotation, Vector3 scale, bool purePath = false)
     {
+        progress = 0;
+        if (LoadingProgressBar != null)
+        {
+            LoadingProgressBar.Dispose();
+        }
+        
+        // Create a new progress bar for each model load
+       
+        
         GameObject rootNode = new GameObject(position, $"Loaded Model {fileName}");
 
         using (new ScopedProfiler($"Load Model '{fileName}' ({Loaded++})."))
@@ -41,18 +50,17 @@ public static class ModelLoader
                 PostProcessSteps.GenerateBoundingBoxes | PostProcessSteps.GenerateSmoothNormals);
 
             Console.WriteLine($"Scene '{fileName}' has {scene.RootNode.ChildCount} nodes.");
-            Console.WriteLine($"Scene is requesting to add {scene.MeshCount} meshes to world.");
+            Console.WriteLine($"Scene is requesting to add {scene.MeshCount} meshes to the Scene.");
 
             rootNode.Transform.Rotation = rotation;
-            rootNode.Transform.Scale = Vector3.One; //DeriveScale(Matrix3FromMatrix4(scene.RootNode.Transform)) * scale;
+            rootNode.Transform.Scale = DeriveScale(Matrix3FromMatrix4(scene.RootNode.Transform)) * scale;
 
             int numMaterials = scene.MaterialCount;
 
-            using (LoadingProgressBar)
+            using (LoadingProgressBar = new ConsoleProgressBar())
             {
                 AddMeshData(rootNode, scene, scene.RootNode, scene.RootNode.Transform, fileName);
             }
-            progress = 0;
         }
         return rootNode;
     }
@@ -86,14 +94,16 @@ public static class ModelLoader
 
     static void AddMeshData(GameObject rootNode, Assimp.Scene scene, Node node, Matrix4x4 parentTransform, string fileName)
     {
-        // Update the progress bar
-        LoadingProgressBar.Report((float)progress / scene.MeshCount, $"Processing node {node.Name} ({progress++} of {scene.MeshCount})...");
-        // Combine the parent's transform with the node's local transform.
+         // Combine the parent's transform with the node's local transform.
         Matrix4x4 currentTransform =  parentTransform * node.Transform;
         var obj = 0;
         // For each mesh attached to this node...
         for (int i = 0; i < node.MeshCount; i++)
         {
+            progress++;
+            // Update the progress bar
+            LoadingProgressBar.Report((float)progress / scene.MeshCount, $"Processing node {node.Name} ({progress} of {scene.MeshCount})...");
+
             Mesh mesh = scene.Meshes[node.MeshIndices[i]];
 
             MeshHasher.CombinedMesh gpuMesh = MeshHasher.AddOrGetMesh(mesh);
@@ -105,12 +115,12 @@ public static class ModelLoader
 
             foreach (var material in mats)
             {
-                Console.WriteLine($"Material Textures {material.FilePath}");
+            //    Console.WriteLine($"Material Textures {material.FilePath}");
             }
 
-            Console.WriteLine($"Computing Bounds for {msh.Name}...");
+           // Console.WriteLine($"Computing Bounds for {msh.Name}...");
             SphereBounds b = ComputeMeshBounds(mesh, node.Transform);
-            Console.WriteLine($"Bounds for {msh.Name}: {b.Centre} {b.Radius}.");
+           // Console.WriteLine($"Bounds for {msh.Name}: {b.Centre} {b.Radius}.");
             // Set mesh data (VAO info, index count, etc.)
             msh.SetMeshData(gpuMesh.ShadowMesh.Vao, gpuMesh.RenderMesh.Vao, true, mesh.GetIndices().Length, mesh.VertexCount, b);
 
@@ -137,7 +147,7 @@ public static class ModelLoader
                     }
                     else
                     {
-                        Console.WriteLine($"Model {mesh.Name} has no BaseColor texture.");
+                  //      Console.WriteLine($"Model {mesh.Name} has no BaseColor texture.");
                     }
                 }
                 else
@@ -145,7 +155,7 @@ public static class ModelLoader
                     if (scene.Materials[mesh.MaterialIndex].GetMaterialTexture(TextureType.Diffuse, 0, out TextureSlot diff))
                     {
                         int diffuseTex = TextureLoader.LoadTexture(diff.FilePath, false, fileName, true).GetGLTexture();
-                        Console.WriteLine(diff.FilePath);
+                     //   Console.WriteLine(diff.FilePath);
                         msh.Material.DiffuseTexture = diffuseTex;
                     }
                     else
@@ -157,7 +167,7 @@ public static class ModelLoader
                         }
                         else
                         {
-                            Console.WriteLine($"Model {mesh.Name} has no Diffuse texture.");
+                    //        Console.WriteLine($"Model {mesh.Name} has no Diffuse texture.");
                         }
                     }
                 }
@@ -175,7 +185,7 @@ public static class ModelLoader
                     }
                     else
                     {
-                        Console.WriteLine($"Model {mesh.Name} has no Normal texture.");
+                  //      Console.WriteLine($"Model {mesh.Name} has no Normal texture.");
                     }
                 }
 
@@ -194,15 +204,15 @@ public static class ModelLoader
                     }
                     else
                     {
-                        Console.WriteLine($"Model {mesh.Name} has no Roughness texture.");
+                  //      Console.WriteLine($"Model {mesh.Name} has no Roughness texture.");
                     }
                 }
             }
 
-            Console.WriteLine("Node Transform: " + FromMatrix(node.Transform));
-            Console.WriteLine("Combined Transform: " + FromMatrix(currentTransform));
+         //   Console.WriteLine("Node Transform: " + FromMatrix(node.Transform));
+         //   Console.WriteLine("Combined Transform: " + FromMatrix(currentTransform));
         }
-
+        
         // Recurse into child nodes using the accumulated current transform.
         foreach (Node child in node.Children)
         {

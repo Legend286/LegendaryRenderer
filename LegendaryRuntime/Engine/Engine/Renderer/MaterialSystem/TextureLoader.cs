@@ -16,7 +16,7 @@ public static class TextureLoader
         if (useModelRoot)
         {
             path = Path.Combine(root, path);
-            Console.WriteLine($"Looking for Textures in {path}.");
+           // Console.WriteLine($"Looking for Textures in {path}.");
         }
         else
         {
@@ -25,7 +25,7 @@ public static class TextureLoader
         
         string uniqueKey = Path.GetFullPath(path);
 
-        Console.WriteLine($"Attempting to Load Texture {uniqueKey}...");
+       // Console.WriteLine($"Attempting to Load Texture {uniqueKey}...");
         if (File.Exists(Path.GetFullPath(path)) && !LoadedTextures.ContainsKey(uniqueKey))
         {
             if (!HDR)
@@ -69,7 +69,7 @@ public static class TextureLoader
                 GL.BindTexture(TextureTarget.Texture2D, 0);
 
                 Texture tex = new Texture(image.Width, image.Height, textureId, PF, PFI, PT);
-                Console.WriteLine($"Loaded Texture: {uniqueKey}");
+             //   Console.WriteLine($"Loaded Texture: {uniqueKey}");
                 LoadedTextures.Add(uniqueKey, tex);
                 return tex;
             }
@@ -115,19 +115,19 @@ public static class TextureLoader
                 GL.BindTexture(TextureTarget.Texture2D, 0);
 
                 Texture tex = new Texture(image.Width, image.Height, textureId, PF, PFI, PT);
-                Console.WriteLine($"Loaded Texture: {uniqueKey}");
+              //  Console.WriteLine($"Loaded Texture: {uniqueKey}");
                 LoadedTextures.Add(uniqueKey, tex);
                 return tex;
             }
         } 
         if (LoadedTextures.ContainsKey(uniqueKey))
         {
-            Console.WriteLine($"Returning loaded Texture: {uniqueKey}");
+          //  Console.WriteLine($"Returning loaded Texture: {uniqueKey}");
             return LoadedTextures[uniqueKey].Reference();
         }
         else
         {
-            Console.WriteLine($"Returning NULL texture");
+          //  Console.WriteLine($"Returning NULL texture");
             return Texture.NullTexture().Reference();
         }
     }
