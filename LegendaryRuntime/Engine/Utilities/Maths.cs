@@ -1,4 +1,8 @@
+using System.Numerics;
 using OpenTK.Mathematics;
+using Quaternion = OpenTK.Mathematics.Quaternion;
+using Vector2 = OpenTK.Mathematics.Vector2;
+using Vector3 = OpenTK.Mathematics.Vector3;
 
 namespace LegendaryRenderer.LegendaryRuntime.Engine.Utilities;
 
@@ -41,6 +45,11 @@ public static class Maths
     public static System.Numerics.Vector2 ToNumericsVector2(Vector2 vector)
     {
         return new System.Numerics.Vector2(vector.X, vector.Y);
+    }
+    
+    public static System.Numerics.Vector3 ToNumericsVector3(Vector3 vector)
+    {
+        return new System.Numerics.Vector3(vector.X, vector.Y, vector.Z);
     }
     
     public static Vector3 SnapVectorToGrid(Vector3 vector, float snapSize)

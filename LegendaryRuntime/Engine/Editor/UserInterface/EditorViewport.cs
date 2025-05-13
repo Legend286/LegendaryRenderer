@@ -1,6 +1,10 @@
 using System.Numerics;
 using ImGuiNET;
+using LegendaryRenderer.LegendaryRuntime.Engine.Editor.Helpers;
+using LegendaryRenderer.LegendaryRuntime.Engine.Editor.Systems;
+using LegendaryRenderer.LegendaryRuntime.Engine.Engine.GameObjects;
 using LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer;
+using LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer.MaterialSystem;
 using LegendaryRenderer.LegendaryRuntime.Engine.Utilities;
 
 namespace LegendaryRenderer.LegendaryRuntime.Engine.Editor.UserInterface;
@@ -53,7 +57,6 @@ public class EditorViewport
         // 1) Begin window with no padding
         ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Vector2(0, 0));
         ImGui.Begin("Viewport", ImGuiWindowFlags.MenuBar | ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse);
-     
         // ─────────────────────────────────────────────────────────────────────────────────────────────────
         
         // 2) Draw a simple menu bar
@@ -152,7 +155,8 @@ public class EditorViewport
             );
         
         ImGui.PopStyleVar(2); // pop FramePadding + ItemSpacing
-
+        
+        
         // 6) Capture the exact image bounds in screen coords
         Vector2 imgMin = ImGui.GetItemRectMin();
         Vector2 imgMax = ImGui.GetItemRectMax();
@@ -162,6 +166,19 @@ public class EditorViewport
         // 7) Expose viewport position & size (in points)
         ViewportPosition = imgMin;
         ViewportSize = new Vector2(imgMax.X - imgMin.X, imgMax.Y - imgMin.Y);
+        
+        if (EditorSystem.EditorTextures.TryGetValue("light_bulb", out Texture Tex))
+        {
+            int textureID = Tex.GetGLTexture();
+            foreach (Light light in Engine.Engine.GameObjects.OfType<Light>())
+            {
+                if (light.Type != Light.LightType.Directional && light.WasRenderedLastFrame)
+                {
+                    EditorWorldIconManager.Draw(Engine.Engine.ActiveCamera, light, textureID);
+                }
+            }
+        }
+
         
         ImGui.End();
 

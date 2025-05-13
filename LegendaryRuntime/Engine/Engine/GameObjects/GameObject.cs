@@ -16,6 +16,8 @@ public class GameObject
 
     public bool IsVisible = true;
 
+    public bool WasRenderedLastFrame = false;
+
     public GameObject GetRoot()
     {
         return Parent != null ? Parent.GetRoot() : this;

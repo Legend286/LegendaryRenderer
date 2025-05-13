@@ -9,6 +9,8 @@ using LegendaryRenderer.LegendaryRuntime.Application.ProgressReporting;
 using LegendaryRenderer.LegendaryRuntime.Engine.Editor;
 using LegendaryRenderer.LegendaryRuntime.Engine.Editor.Dockspace;
 using LegendaryRenderer.LegendaryRuntime.Engine.Editor.Gizmos;
+using LegendaryRenderer.LegendaryRuntime.Engine.Editor.Helpers;
+using LegendaryRenderer.LegendaryRuntime.Engine.Editor.Systems;
 using LegendaryRenderer.LegendaryRuntime.Engine.Editor.UserInterface;
 using LegendaryRenderer.LegendaryRuntime.Engine.Engine.GameObjects;
 using LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer;
@@ -72,6 +74,8 @@ public static class Engine
     
     public static bool ShouldDoSelectionNextFrame = false;
 
+    public static bool CanSelect = true;
+
     public static SSAOSettings SSAOSettings = new SSAOSettings();
 
     public static bool EnableShadows = true;
@@ -101,15 +105,28 @@ public static class Engine
     {
         using (EngineProgress = new ConsoleProgressBar())
         {
+            EngineProgress.Report(0, "Initialising Engine...");
+            
+            // Load editor textures
+            EngineProgress.Report(0.1, "Initialising EditorSystem...");
+            EditorSystem.Initialise();
+            
+            EngineProgress.Report(0.2, "Initialising Shaders...");
             ShaderManager.LoadShader("basepass", out ShaderFile loaded);
             currentShader = loaded;
+            
             GenerateShadowMap(ShadowResolution, ShadowResolution);
             GeneratePointShadowMaps(ShadowResolution, ShadowResolution);
+            
+            EngineProgress.Report(0.3, "Initialising RenderBuffers...");
             RenderBuffers = new RenderBufferHelpers(PixelInternalFormat.Rgba8, PixelInternalFormat.DepthComponent32f, Application.Application.Width, Application.Application.Height, "Main Buffer");
+            EngineProgress.Report(0.5, "Initialising SceneSystem...");
             LoadedScenes.Add(new Scene());
+            EngineProgress.Report(0.7, "Initialising DockSpace...");
             DockspaceController = new DockspaceController(Application.Application.windowInstance);
             EditorViewport = new EditorViewport(RenderBufferHelpers.Instance.GetTextureHandle(TextureHandle.COPY));
             EditorSceneHierarchyPanel = new EditorSceneHierarchyPanel(LoadedScenes[0]);
+            EngineProgress.Report(1.0f, "Initialising Engine Complete...");
         }
         EditorSceneHierarchyPanel.OnObjectSelected += Go =>
         {
@@ -272,7 +289,7 @@ public static class Engine
 
     public static void DoSelection()
     {
-        if(ShouldDoSelectionNextFrame && !Gizmos.isGizmoActive && EditorViewport.IsHovered)
+        if(ShouldDoSelectionNextFrame && !Gizmos.isGizmoActive && EditorViewport.IsHovered && CanSelect)
         {
             ShouldDoSelectionNextFrame = false;
             Engine.RenderSelectionBufferOnce();
@@ -1005,6 +1022,8 @@ public static class Engine
     
     public static void RenderLights()
     {
+        EditorWorldIconManager.ResetCounter();
+        
         // this is the old light rendering code
         foreach (GameObject go in GameObjects)
         {
@@ -1068,7 +1087,12 @@ public static class Engine
                     if (shouldRender)
                     {
                         go.Render();
+                        go.WasRenderedLastFrame = true;
                         Engine.NumberOfVisibleLights++;
+                    }
+                    else
+                    {
+                        go.WasRenderedLastFrame = false;
                     }
                 }
             }

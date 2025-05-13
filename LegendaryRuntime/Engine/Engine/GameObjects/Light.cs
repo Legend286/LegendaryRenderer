@@ -207,6 +207,7 @@ private Matrix4 Projection;
     private bool first = true;
     public override void Render(RenderMode mode = RenderMode.Default)
     {
+        
         if (!IsVisible)
         {
             return;

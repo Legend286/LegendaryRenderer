@@ -146,15 +146,6 @@ vec2 EquirectangularUVFromReflectionVector(vec3 direction)
     return vec2(u, v);
 }
 
-
-
-
-//
-//
-// MARKING NOTE FOR SIMON OR DAVID: CODE BELOW IS CHAT GPT GENERATED, ALL CODE OUTSIDE OF THIS COMMENT AND THE END CHATGPT ONE BELOW THIS CODE IS MY OWN.
-//
-//
-
 // Computes radical inverse of bits for Hammersley sequence.
 float RadicalInverse_VdC(uint bits) {
     bits = (bits << 16u) | (bits >> 16u);
@@ -296,11 +287,6 @@ vec3 PBR(vec3 N, vec3 V, vec3 L, vec3 albedo, float metallic, float roughness, v
 
     return lighting;
 }
-//
-//
-// MARKING NOTE FOR SIMON OR DAVID: THE CODE ABOVE THIS COMMENT IS CHAT GPT GENERATED PHYSICALLY BASED LIGHTING, THE CODE BELOW THIS COMMENT IS MY OWN
-//
-//
 
 float linearizeDepth(float depth)
 {

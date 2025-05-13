@@ -19,6 +19,7 @@ public static class EditorSystem
     public static Dictionary<string, Texture> EditorTextures = new Dictionary<string, Texture>();
     public static void Initialise()
     {
+        Console.WriteLine("Mapping EditorTextures");
         EditorTexturePaths.Clear();
         EditorTextures.Clear();
 
@@ -49,7 +50,10 @@ public static class EditorSystem
                 Texture texture = TextureLoader.LoadTexture(texturePath, false);
                 if (texture != null)
                 {
-                    EditorTextures.Add(texturePath, texture);
+                    var split = texturePath.Split('/');
+                    var name = split[1].Split('.')[0];
+                    Console.WriteLine($"Processing item {i} '{name}' of {EditorTexturePaths.Count}");
+                    EditorTextures.Add(name, texture);
                     i++;
                 }
                 else
