@@ -21,26 +21,7 @@ public class EditorSceneHierarchyPanel
     {
         ImGui.Begin("Scene Hierarchy");
 
-        if (ImGui.Button("Create Light"))
-        {
-            var newLight = new Light(Engine.Engine.ActiveCamera.Transform.Position, "Light");
-            newLight.Transform.Rotation = Engine.Engine.ActiveCamera.Transform.Rotation;
-            newLight.Type = Light.LightType.Spot;
-            newLight.EnableShadows = true;
-            float step = (Light.GetCount % 20);
-            step = step / 20.0f;
-            newLight.Colour = Color4.FromHsv(new Vector4(step, 0.8f, 1.0f, 1.0f));
-            newLight.Intensity = 120.0f;
-            newLight.Range = 40.0f;
-            CurrentScene.AddGameObject(newLight);
-        }
-
-        ImGui.Separator();
-
-        foreach (var gameObject in Engine.Engine.GameObjects)
-        {
-            DrawGameObjectNode(gameObject);
-        }
+        DrawGameObjectNode(Engine.Engine.LoadedScenes[0].RootNode);
         
         foreach (var go in MarkedForDeletion)
         {

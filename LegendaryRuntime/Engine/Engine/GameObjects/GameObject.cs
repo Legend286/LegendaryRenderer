@@ -48,7 +48,7 @@ public class GameObject
     
     public List<GameObject> Children;
 
-    public GameObject(Vector3 position, string name = "")
+    public GameObject(Vector3 position, string name = "", bool root = false)
     {
         GUID = Guid.NewGuid();
 
@@ -67,9 +67,14 @@ public class GameObject
         
         Transform = new Transform(position, this);
         Transform.LocalPosition = position;
-        
-        LegendaryRuntime.Engine.Engine.Engine.AddGameObject(this);
+
+        if (!root)
+        {
+            Engine.AddGameObject(this);
+        }
     }
+    
+    
 
     public Component? AddComponent<T>() where T : Component
     {

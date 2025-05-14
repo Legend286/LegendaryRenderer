@@ -214,20 +214,22 @@ private Matrix4 Projection;
         }
 
         var cam = ActiveCamera;
-        
-        for (int i = 0; i < cascadeCount; i++)
-        {
-            if (first)
-            { 
-                Frustum fr = new Frustum(CSMMatrices[i]);
-                frustums[i] = fr;
-            }
-            frustums[i].first = true;
-            frustums[i].UpdateFrustum(CSMMatrices[i]);
-            frustums[i].DrawFrustum(Frustum.FrustumDrawMode.Debug);
-        }
-        first = false;
 
+        if (Type == LightType.Directional)
+        {
+            for (int i = 0; i < cascadeCount; i++)
+            {
+                if (first)
+                {
+                    Frustum fr = new Frustum(CSMMatrices[i]);
+                    frustums[i] = fr;
+                }
+                frustums[i].first = true;
+                frustums[i].UpdateFrustum(CSMMatrices[i]);
+                frustums[i].DrawFrustum(Frustum.FrustumDrawMode.Debug);
+            }
+            first = false;
+        }
         if (noiseTex == -1)
         {
             noiseTex = TextureLoader.LoadTexture("ssao_noise.png", false).Reference().GetGLTexture();

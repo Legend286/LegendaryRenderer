@@ -68,7 +68,6 @@ public class ApplicationWindow : GameWindow
     RenderableMesh[] instances = new RenderableMesh[100];
 
     private Camera camera;
-    private Camera camera2;
     private GameObject model;
     private GameObject model2;
     private GameObject model3;
@@ -80,7 +79,7 @@ public class ApplicationWindow : GameWindow
 
     void LoadModelFromDrag(string fileName)
     {
-        ModelLoader.LoadModel(fileName, LegendaryRuntime.Engine.Engine.Engine.ActiveCamera.Transform.Position, Rotation(0, 0, 0), Vector3.One/100, true);
+        ModelLoader.LoadModel(fileName, LegendaryRuntime.Engine.Engine.Engine.ActiveCamera.Transform.Position, Rotation(0, 0, 0), Vector3.One, true);
     }
 
     // Returns 0 if diffuse, 1 if normal, 2 if metallic / rough / mask
@@ -191,7 +190,7 @@ public class ApplicationWindow : GameWindow
     {
         var loading = new ScopedProfiler("Loading Phase");
 
-        Light l3 = new Light(Vector3.Zero, "Light Test");
+        /*Light l3 = new Light(Vector3.Zero, "Light Test");
         l3.Type = Light.LightType.Directional;
         l3.EnableShadows = true;
         l3.Colour = Color4.Yellow;
@@ -200,7 +199,7 @@ public class ApplicationWindow : GameWindow
         l3.InnerCone = 50.0f;
         l3.OuterCone = 65.0f;
         l3.CascadeCount = 4;
-        lights.Add(l3);
+        lights.Add(l3);*/
         loading.StartTimingCPU();
 
         base.OnLoad();
@@ -214,7 +213,7 @@ public class ApplicationWindow : GameWindow
         GL.Disable(EnableCap.FramebufferSrgb);
         GL.DepthFunc(DepthFunction.Lequal);
 
-        model2 = ModelLoader.LoadModel("Models/dragon.fbx", new Vector3(0, 0.1f, 0), Rotation(0, 0, 0), Vector3.One);
+        model2 = ModelLoader.LoadModel("Models/dragon.fbx", new Vector3(0, 0.1f, 0), Rotation(0, 0, 0), Vector3.One/20);
         
         RenderableMesh? mdl = model2.Children[0] as RenderableMesh;
         mdl.Material.Roughness = 0.9f;
@@ -226,9 +225,7 @@ public class ApplicationWindow : GameWindow
         GL.CullFace(CullFaceMode.Back);
 
         camera = new Camera(Vector3.Zero, Vector3.Zero, 45.0f);
-
-        camera2 = new Camera(new Vector3(0, 0, 0), Vector3.Zero, 90.0f);
-
+        
         Color4[] colours = new[]
         {
             Color4.Red,
@@ -257,25 +254,24 @@ public class ApplicationWindow : GameWindow
             lights.Add(light);
         }
 
-        l1 = new Light(new Vector3(0, 0, 0), "Camera Light");
+        l1 = new Light(new Vector3(0, 0, -0.25f), "Camera Light");
 
         l1.Colour = Color4.White;
-        l1.Intensity = 0.0f;
+        l1.Intensity = 50.0f;
         l1.Range = 1000.0f;
-        l1.OuterCone = 120;
-        l1.InnerCone = 90;
-        l1.EnableShadows = false;
-        l1.Type = Light.LightType.Projector;
+        l1.OuterCone = 80;
+        l1.InnerCone = 60;
+        l1.EnableShadows = true;
+        l1.Type = Light.LightType.Spot;
         l1.LightIESProfile = profile;
-        l1.Transform.Rotation = Rotation(-40, 20, 0);
-       
+      
         // light2.Colour = Color.Green;
         // light3.Colour = Color.Blue;
         //   light3.Transform.Rotation = Quaternion.FromEulerAngles(MathHelper.DegreesToRadians(-35), 0, 0);
         //  var light4 = new Light(new Vector3(0, 5, 5), "Light QRT");
         // light4.Transform.Rotation = Quaternion.FromEulerAngles(MathHelper.DegreesToRadians(-90), 0, 0);
 
-        //camera.AddChild(light);
+        //camera.AddChild(l1);
 
 
 
@@ -702,11 +698,7 @@ public class ApplicationWindow : GameWindow
         {
             LegendaryRuntime.Engine.Engine.Engine.ActiveCamera = camera;
         }
-
-        if (KeyboardState.IsKeyPressed(Keys.F2))
-        {
-            LegendaryRuntime.Engine.Engine.Engine.ActiveCamera = camera2;
-        }
+        
 
         if (KeyboardState.IsKeyDown(Keys.LeftShift) || KeyboardState.IsKeyDown(Keys.RightShift))
         {

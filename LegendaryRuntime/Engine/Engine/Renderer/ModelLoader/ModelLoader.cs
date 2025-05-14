@@ -27,6 +27,7 @@ public static class ModelLoader
        
         
         GameObject rootNode = new GameObject(position, $"Loaded Model {fileName}");
+        rootNode.Transform.Rotation = rotation;
 
         using (new ScopedProfiler($"Load Model '{fileName}' ({Loaded++})."))
         {
@@ -95,7 +96,7 @@ public static class ModelLoader
     static void AddMeshData(GameObject rootNode, Assimp.Scene scene, Node node, Matrix4x4 parentTransform, string fileName)
     {
          // Combine the parent's transform with the node's local transform.
-        Matrix4x4 currentTransform =  parentTransform * node.Transform;
+        Matrix4x4 currentTransform = parentTransform * node.Transform;
         var obj = 0;
         // For each mesh attached to this node...
         for (int i = 0; i < node.MeshCount; i++)
@@ -126,6 +127,7 @@ public static class ModelLoader
 
             // Add this mesh as a child of the current root node.
             rootNode.AddChild(msh);
+            rootNode = msh;
             
             // Use the combined transform for this mesh.
             // The combined transform is the world transform from the hierarchy.

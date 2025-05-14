@@ -121,7 +121,7 @@ public static class Engine
             EngineProgress.Report(0.3, "Initialising RenderBuffers...");
             RenderBuffers = new RenderBufferHelpers(PixelInternalFormat.Rgba8, PixelInternalFormat.DepthComponent32f, Application.Application.Width, Application.Application.Height, "Main Buffer");
             EngineProgress.Report(0.5, "Initialising SceneSystem...");
-            LoadedScenes.Add(new Scene());
+            LoadedScenes.Add(new Scene(ref GameObjects));
             EngineProgress.Report(0.7, "Initialising DockSpace...");
             DockspaceController = new DockspaceController(Application.Application.windowInstance);
             EditorViewport = new EditorViewport(RenderBufferHelpers.Instance.GetTextureHandle(TextureHandle.COPY));
@@ -191,7 +191,7 @@ public static class Engine
         {
             ActiveCamera = camera;
         }
-
+        LoadedScenes[0].RootNode.Children.Add(gameObject);
         GameObjects.Add(gameObject);
         GameObjectToGUIDMap.Add(ConvertValueToGuid(GuidToUIntArray(gameObject.GUID)), gameObject);
         
@@ -242,6 +242,7 @@ public static class Engine
     public static void RemoveGameObject(GameObject gameObject)
     {
         GameObjects.Remove(gameObject);
+        LoadedScenes[0].RootNode.Children.Remove(gameObject);
 
         if (gameObject is RenderableMesh)
         {

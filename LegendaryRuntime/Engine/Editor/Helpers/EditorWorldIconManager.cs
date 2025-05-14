@@ -55,7 +55,7 @@ public class EditorWorldIconManager
             ImGui.PushStyleVar(ImGuiStyleVar.ChildRounding, 32.0f);
             ImGui.PushStyleVar(ImGuiStyleVar.ChildBorderSize, 0.0f);
 
-            ImGui.Image(textureID, new Vector2(icon_size), Vector2.Zero, Vector2.One, new System.Numerics.Vector4(Colour.R, Colour.G, Colour.B, 0.75f));
+            ImGui.Image(textureID, new Vector2(icon_size), Vector2.One, Vector2.Zero, new System.Numerics.Vector4(Colour.R, Colour.G, Colour.B, 0.75f));
             
             ImGui.PopStyleVar(2);
             if(ImGui.IsItemClicked(ImGuiMouseButton.Left))
