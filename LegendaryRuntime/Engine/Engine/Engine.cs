@@ -319,6 +319,7 @@ public static class Engine
 
                 if ((hit is RenderableMesh renderable || hit is Camera))
                 {
+                  /*  if (IsMultiSelect)
                     {
                         SelectedRenderableObjects.Add(hit);
                     }
