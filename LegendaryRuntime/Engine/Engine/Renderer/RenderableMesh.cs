@@ -1,5 +1,6 @@
 ﻿using LegendaryRenderer.LegendaryRuntime.Engine.Engine.GameObjects;
 using LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer.MaterialSystem;
+using LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer.MeshInstancing;
 using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
 using static LegendaryRenderer.LegendaryRuntime.Engine.Engine.Engine;

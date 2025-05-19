@@ -13,14 +13,16 @@ public class Light : GameObject
 
     public Color4 Colour { get; set; } = Color4.White;
     public float Range { get; set; } = 10.0f;
-
+    
     public static int GetCount => LightCount;
 
     public bool EnableShadows { get; set; } = false;
 
     public bool EnableCookie = false;
 
-    private int cascadeCount = 1;
+    private int cascadeCount = 4;
+    
+    public float CascadeSplitFactor = 0.996f;
 
     private int cookieTexID = Texture.NullTexture().Reference().GetGLTexture();
 
@@ -53,8 +55,8 @@ public class Light : GameObject
 
     public float NearPlane { get; set; } = 0.05f;
 
-    public float Bias { get; set; } = 0.000125f;
-    public float NormalBias { get; set; } = 1.0f;
+    public float Bias { get; set; } = 0.0000125f;
+    public float NormalBias { get; set; } = 0.0f;
     public float Intensity { get; set; } = 3.0f;
 
     private IESProfile? lightProfile;
@@ -268,8 +270,8 @@ private Matrix4 Projection;
         }
     }
 
-    public static float lambda = 0.992f;
-    public static float[] GetCascadeSplits(int cascadeCount, float nearPlane, float farPlane)
+    
+    public static float[] GetCascadeSplits(int cascadeCount, float nearPlane, float farPlane, float CascadeSplitFactor)
     {
         float[] splits = new float[cascadeCount + 1];
         splits[0] = nearPlane;
@@ -278,7 +280,7 @@ private Matrix4 Projection;
             float p = i / (float)cascadeCount;
             float log = nearPlane * MathF.Pow(farPlane / nearPlane, p);
             float uniform = nearPlane + (farPlane - nearPlane) * p;
-            splits[i] = MathHelper.Lerp(uniform, log, lambda);
+            splits[i] = MathHelper.Lerp(uniform, log, CascadeSplitFactor);
         }
         return splits;
     }
@@ -383,7 +385,7 @@ private static Matrix4 GetLightViewProjection(
     /// </summary>
     public static Matrix4[] GenerateCascadedShadowMatrices(Camera camera, Light light, int shadowMapResolution)
     {
-        var splits = GetCascadeSplits(light.CascadeCount, camera.ZNear, camera.ZFar);
+        var splits = GetCascadeSplits(light.CascadeCount, camera.ZNear, camera.ZFar, light.CascadeSplitFactor);
         Matrix4 proj = camera.ProjectionMatrix;
         Matrix4 invViewProj = camera.ViewProjectionMatrix.Inverted(); 
 

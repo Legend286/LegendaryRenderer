@@ -60,8 +60,6 @@ public class GameObject
         {
             Name = name;
         }
-
-//        Parent = Application.Engine.RootObject;
         
         Children = new List<GameObject>();
         

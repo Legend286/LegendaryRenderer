@@ -1,5 +1,6 @@
 using ImGuiNET;
 using LegendaryRenderer.LegendaryRuntime.Engine.Engine.GameObjects;
+using LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer;
 using LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer.Systems.SceneSystem;
 using OpenTK.Mathematics;
 
@@ -8,7 +9,7 @@ namespace LegendaryRenderer.LegendaryRuntime.Engine.Editor.UserInterface;
 public class EditorSceneHierarchyPanel
 {
     private Scene CurrentScene;
-    private GameObject SelectedObject;
+    public GameObject Selection;
 
     public Action<GameObject?>? OnObjectSelected;
 
@@ -26,6 +27,11 @@ public class EditorSceneHierarchyPanel
         foreach (var go in MarkedForDeletion)
         {
             CurrentScene.RemoveGameObject(go);
+            Engine.Engine.GameObjects.Remove(go);
+            if (go is RenderableMesh mesh)
+            {
+                Engine.Engine.RenderableMeshes.Remove(mesh);
+            }
         }
         ImGui.End();
     }
@@ -35,7 +41,7 @@ public class EditorSceneHierarchyPanel
     private void DrawGameObjectNode(GameObject gameObject)
     {
         ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags.OpenOnArrow | ImGuiTreeNodeFlags.SpanAvailWidth;
-        if (SelectedObject == gameObject)
+        if (Selection == gameObject)
         {
             flags |= ImGuiTreeNodeFlags.Selected;
         }
@@ -44,16 +50,22 @@ public class EditorSceneHierarchyPanel
 
         if (ImGui.IsItemClicked())
         {
-            SelectedObject = gameObject;
+            Selection = gameObject;
             OnObjectSelected?.Invoke(gameObject);
         }
-
-        // 👇👇👇 FIXED: Popup per *this* GameObject, not the whole scene!
+        
         if (ImGui.BeginPopupContextItem())
         {
+            if (gameObject is Camera camera)
+            {
+                if (ImGui.MenuItem("Set Active Camera"))
+                {
+                    Engine.Engine.ActiveCamera = camera;
+                }
+            }
+            
             if (ImGui.MenuItem("Delete"))
             {
-                // 👇 Mark THIS object for deletion
                 MarkedForDeletion.Add(gameObject);
             }
 

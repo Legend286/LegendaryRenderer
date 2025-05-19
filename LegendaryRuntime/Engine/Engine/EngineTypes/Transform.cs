@@ -1,4 +1,5 @@
 using LegendaryRenderer.LegendaryRuntime.Engine.Engine.GameObjects;
+using LegendaryRenderer.LegendaryRuntime.Engine.Utilities;
 using OpenTK.Mathematics;
 
 namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine.EngineTypes;
@@ -105,30 +106,24 @@ public class Transform
         }
     }
 
+    public Vector3 EulerAngles;                                           // In degrees, editable from UI
     public Quaternion Rotation
     {
         get
         {
-            if (parent != null)
-            {
-                // Combine parent's rotation with local rotation
-                return Quaternion.Normalize(parent.Rotation * localRotation);
-            }
+            rotation = Maths.Rotation(EulerAngles.X, EulerAngles.Y, EulerAngles.Z).Normalized();
             return rotation;
         }
         set
         {
-            HasChanged = true;
-            if (parent != null)
-            {
-                // Calculate local rotation based on world rotation and parent's rotation
-                localRotation = Quaternion.Normalize(Quaternion.Invert(parent.Rotation) * value);
-            }
-            else
-            {
-                rotation = value;
-                localRotation = value;
-            }
+            // Optional: only call this during deserialization or external assignment
+            rotation = Quaternion.Normalize(value);
+            var rotRadEuler = rotation.ToEulerAngles();
+            EulerAngles = new Vector3(
+                MathHelper.RadiansToDegrees(rotRadEuler.X),
+                MathHelper.RadiansToDegrees(rotRadEuler.Y),
+                MathHelper.RadiansToDegrees(rotRadEuler.Z)
+            );
         }
     }
 
@@ -195,16 +190,7 @@ public class Transform
         
         HasChanged = true;
     }
-
-    public Transform(Vector3 position, Quaternion rotation, Vector3 scale)
-    {
-        this.position = position;
-        this.rotation = rotation;
-        this.scale = scale;
-       
-        HasChanged = true;
-    }
-
+    
     public Transform(Vector3 position, Vector3 rotationEuler, Vector3 scale)
     {
         this.position = position;
@@ -243,7 +229,9 @@ public class Transform
         if (HasChanged)
         {
             Matrix4 localTranslation = Matrix4.CreateTranslation(localPosition);
-            Matrix4 localRotationMatrix = Matrix4.CreateFromQuaternion(localRotation);
+
+            LocalRotation = Maths.Rotation(EulerAngles.X, EulerAngles.Y, EulerAngles.Z).Normalized();
+            Matrix4 localRotationMatrix = Matrix4.CreateFromQuaternion(LocalRotation); // now always reflects UI
             Matrix4 localScaleMatrix = Matrix4.CreateScale(localScale);
             
             

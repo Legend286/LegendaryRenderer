@@ -3,7 +3,7 @@ using Assimp;
 using OpenTK.Graphics.ES30;
 using OpenTK.Mathematics;
 
-namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer;
+namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer.MeshInstancing;
 
 // This file has taken some effort, it has some amazing performance stuff :D
 
@@ -39,6 +39,20 @@ public static class MeshInstancing
 
 public static class MeshHasher
 {
+    // Helper to read quantized float
+    public static float ReadBinaryQuantizedFloat(BinaryReader reader)
+    {
+        return reader.ReadInt32() / 10000.0f;
+    }
+
+    // Helper to read Vector3 from quantized floats
+    public static Vector3 ReadBinaryVector3(BinaryReader reader)
+    {
+        float x = ReadBinaryQuantizedFloat(reader);
+        float y = ReadBinaryQuantizedFloat(reader);
+        float z = ReadBinaryQuantizedFloat(reader);
+        return new Vector3(x, y, z);
+    }
     
     public static void WriteBinaryQuantized(BinaryWriter writer, float value)
     {
@@ -57,52 +71,58 @@ public static class MeshHasher
         using var stream = new MemoryStream();
         using var writer = new BinaryWriter(stream);
 
+        // Header
+        writer.Write(mesh.VertexCount);
+        var indices = mesh.GetIndices();
+        writer.Write(indices.Length);
+        bool hasNormals = mesh.HasNormals;
+        bool hasUVs = mesh.HasTextureCoords(0);
+        bool hasTangents = mesh.HasTangentBasis;
+        writer.Write(hasNormals);
+        writer.Write(hasUVs);
+        writer.Write(hasTangents);
 
+        // Vertex Data
         for (int i = 0; i < mesh.VertexCount; i++)
         {
             var v = mesh.Vertices[i];
-
             WriteBinaryVector(writer, new Vector3(v.X, v.Y, v.Z));
 
-            if (mesh.HasNormals)
+            if (hasNormals)
             {
                 var n = mesh.Normals[i];
                 WriteBinaryVector(writer, new Vector3(n.X, n.Y, n.Z));
-
             }
 
-            if (mesh.HasTextureCoords(0))
+            if (hasTangents)
+            {
+                Vector3 normal = new Vector3(mesh.Normals[i].X, mesh.Normals[i].Y, mesh.Normals[i].Z).Normalized();
+                Vector3 tangent = new Vector3(mesh.Tangents[i].X, mesh.Tangents[i].Y, mesh.Tangents[i].Z).Normalized();
+                Vector3 bitangent = new Vector3(mesh.BiTangents[i].X, mesh.BiTangents[i].Y, mesh.BiTangents[i].Z).Normalized();
+                
+                tangent = (tangent - normal * Vector3.Dot(normal, tangent)).Normalized();
+                
+                float tangentW = Vector3.Dot(Vector3.Cross(tangent, normal), bitangent) < 0.0f ? -1.0f : 1.0f;
+                
+                WriteBinaryVector(writer, tangent);
+                WriteBinaryQuantized(writer, tangentW);
+            }
+
+            if (hasUVs)
             {
                 var uv = mesh.TextureCoordinateChannels[0][i];
-
                 WriteBinaryQuantized(writer, uv.X);
                 WriteBinaryQuantized(writer, uv.Y);
-                
             }
-
-            if (mesh.HasTangentBasis)
-            {
-                var tangent = mesh.Tangents[i];
-                WriteBinaryVector(writer, new Vector3(tangent.X, tangent.Y, tangent.Z));
-
-                
-                var bitangent = mesh.BiTangents[i];
-                WriteBinaryVector(writer, new Vector3(bitangent.X, bitangent.Y, bitangent.Z));
-
-            }
-            
         }
 
-        foreach (var face in mesh.Faces)
+        // Index Data
+        foreach (var index in indices) // Use the pre-fetched indices
         {
-            foreach (var index in face.Indices)
-            {
-                writer.Write(index);
-            }
+            writer.Write(index);
         }
         
         writer.Flush();
-
         return stream.ToArray();
     }
 
@@ -141,17 +161,18 @@ public static class MeshHasher
         
         if (!MeshHashMap.TryGetValue(hash, out CombinedMesh hashedMesh))
         {
-            MeshHashMap.Add(hash, new CombinedMesh
-                { 
-                    RenderMesh = UploadMeshToGPU(mesh), 
-                    ShadowMesh = BuildShadowMesh(mesh), 
-                });
+            // Original path
+            hashedMesh = new CombinedMesh
+            { 
+                RenderMesh = UploadMeshToGPU(mesh), 
+                ShadowMesh = BuildShadowMesh(mesh),
+                // numVertices and numShadowVertices could be set here if needed by CombinedMesh directly
+            };
+            MeshHashMap.Add(hash, hashedMesh);
             numMeshesHashed++;
-
-            return MeshHashMap[hash];
+            return hashedMesh;
         }
         numMeshesInstanced++;
-        
         return hashedMesh;
     }
 
@@ -218,83 +239,89 @@ public static class MeshHasher
     private static GpuMesh UploadMeshToGPU(Mesh mesh)
     {
         int vao = GL.GenVertexArray();
-
         GL.BindVertexArray(vao);
 
         int vbo = GL.GenBuffer();
         GL.BindBuffer(BufferTarget.ArrayBuffer, vbo);
 
-        float[] vertices = new float[mesh.VertexCount * 12];
+        // New standardized layout: Pos (3), Norm (3), Tangent (4), UV (2) -> 12 floats total
+        List<float> vertexList = new List<float>();
 
         for (int i = 0; i < mesh.VertexCount; i++)
         {
-            vertices[i * 12 + 0] = mesh.Vertices[i].X;
-            vertices[i * 12 + 1] = mesh.Vertices[i].Y;
-            vertices[i * 12 + 2] = mesh.Vertices[i].Z;
+            // Position
+            vertexList.Add(mesh.Vertices[i].X);
+            vertexList.Add(mesh.Vertices[i].Y);
+            vertexList.Add(mesh.Vertices[i].Z);
 
+            // Normal
             if (mesh.HasNormals)
             {
-                vertices[i * 12 + 3] = mesh.Normals[i].X;
-                vertices[i * 12 + 4] = mesh.Normals[i].Y;
-                vertices[i * 12 + 5] = mesh.Normals[i].Z;
+                vertexList.Add(mesh.Normals[i].X);
+                vertexList.Add(mesh.Normals[i].Y);
+                vertexList.Add(mesh.Normals[i].Z);
             }
             else
             {
-                vertices[i * 12 + 3] = 0;
-                vertices[i * 12 + 4] = 0;
-                vertices[i * 12 + 5] = 1;
+                vertexList.AddRange(new[] { 0f, 0f, 1f }); // Default normal
             }
 
-            if (mesh.HasTangentBasis)
+            // Tangent (XYZ) and Tangent Sign (W)
+            if (mesh.HasTangentBasis && mesh.HasNormals) // Need normals to calculate tangent sign accurately
             {
                 Vector3 normal = new Vector3(mesh.Normals[i].X, mesh.Normals[i].Y, mesh.Normals[i].Z).Normalized();
                 Vector3 tangent = new Vector3(mesh.Tangents[i].X, mesh.Tangents[i].Y, mesh.Tangents[i].Z).Normalized();
                 Vector3 bitangent = new Vector3(mesh.BiTangents[i].X, mesh.BiTangents[i].Y, mesh.BiTangents[i].Z).Normalized();
 
-                // orthonormalize
-
+                // Orthogonalize tangent
                 tangent = (tangent - normal * Vector3.Dot(normal, tangent)).Normalized();
+                
+                float tangentW = Vector3.Dot(Vector3.Cross(normal, tangent), bitangent) > 0.0f ? 1.0f : -1.0f; // Corrected cross product order for sign
 
-                vertices[i * 12 + 6] = tangent.X;
-                vertices[i * 12 + 7] = tangent.Y;
-                vertices[i * 12 + 8] = tangent.Z;
-
-                // tangent sign to optimise vertex size :)
-                vertices[i * 12 + 9] = Vector3.Dot(Vector3.Cross(tangent, normal), bitangent) < 0.0f ? -1.0f : 1.0f;
+                vertexList.Add(tangent.X);
+                vertexList.Add(tangent.Y);
+                vertexList.Add(tangent.Z);
+                vertexList.Add(tangentW);
             }
             else
             {
-                vertices[i * 12 + 6] = 0;
-                vertices[i * 12 + 7] = 0;
-                vertices[i * 12 + 8] = 0;
-                // force normalmapping off here :)
-                vertices[i * 12 + 9] = 10;
+                // Default Tangent (X,Y,Z) and Sign (W)
+                vertexList.AddRange(new[] { 1f, 0f, 0f, 1f }); 
             }
-
+            
+            // UV Coordinates
             if (mesh.HasTextureCoords(0))
             {
                 var uv = mesh.TextureCoordinateChannels[0][i];
-                vertices[i * 12 + 10] = uv.X;
-                vertices[i * 12 + 11] = uv.Y;
+                vertexList.Add(uv.X);
+                vertexList.Add(uv.Y);
             }
             else
             {
-                vertices[i * 12 + 10] = 0;
-                vertices[i * 12 + 11] = 0;
+                vertexList.AddRange(new[] { 0f, 0f }); // Default UVs
             }
         }
+        float[] verticesArray = vertexList.ToArray();
+        GL.BufferData(BufferTarget.ArrayBuffer, verticesArray.Length * sizeof(float), verticesArray, BufferUsageHint.StaticDraw);
 
-        GL.BufferData(BufferTarget.ArrayBuffer, vertices.Length * sizeof(float), vertices, BufferUsageHint.StaticDraw);
+        int stride = (3 + 3 + 4 + 2) * sizeof(float); // 12 floats: Pos(3), Norm(3), Tan(4), UV(2)
 
+        // Position attribute (location 0)
         GL.EnableVertexAttribArray(0);
-        GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 12 * sizeof(float), 0 * sizeof(float));
+        GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, stride, 0);
+        
+        // Normal attribute (location 1)
         GL.EnableVertexAttribArray(1);
-        GL.VertexAttribPointer(1, 3, VertexAttribPointerType.Float, false, 12 * sizeof(float), 3 * sizeof(float));
+        GL.VertexAttribPointer(1, 3, VertexAttribPointerType.Float, false, stride, 3 * sizeof(float));
+        
+        // Tangent attribute (location 2) - Vec4
         GL.EnableVertexAttribArray(2);
-        GL.VertexAttribPointer(2, 4, VertexAttribPointerType.Float, false, 12 * sizeof(float), 6 * sizeof(float));
+        GL.VertexAttribPointer(2, 4, VertexAttribPointerType.Float, false, stride, (3 + 3) * sizeof(float));
+        
+        // UV attribute (location 3)
         GL.EnableVertexAttribArray(3);
-        GL.VertexAttribPointer(3, 2, VertexAttribPointerType.Float, false, 12 * sizeof(float), 10 * sizeof(float));
-
+        GL.VertexAttribPointer(3, 2, VertexAttribPointerType.Float, false, stride, (3 + 3 + 4) * sizeof(float));
+        
         int ebo = GL.GenBuffer();
         
         GL.BindBuffer(BufferTarget.ElementArrayBuffer, ebo);
@@ -314,7 +341,191 @@ public static class MeshHasher
         return new GpuMesh { Vao = vao, IndexCount = indices.Count };
     }
     
-    
-    
+    public static CombinedMesh GetOrAddMeshFromBinary(int precomputedMeshHash, byte[] serializedMeshData)
+    {
+        if (MeshHashMap.TryGetValue(precomputedMeshHash, out CombinedMesh existingMesh))
+        {
+            numMeshesInstanced++; // Count as instanced if loaded from cache and found in memory
+            return existingMesh;
+        }
+
+        // Deserialize and upload
+        using var stream = new MemoryStream(serializedMeshData);
+        using var reader = new BinaryReader(stream);
+
+        // Header
+        int vertexCount = reader.ReadInt32();
+        int indexCount = reader.ReadInt32();
+        bool hasNormals = reader.ReadBoolean();
+        bool hasUVs = reader.ReadBoolean();
+        bool hasTangents = reader.ReadBoolean();
+
+        // Temporary lists to hold data
+        List<Vector3> vertices = new List<Vector3>(vertexCount);
+        List<Vector3> normals = hasNormals ? new List<Vector3>(vertexCount) : null;
+        List<OpenTK.Mathematics.Vector2> uvs = hasUVs ? new List<OpenTK.Mathematics.Vector2>(vertexCount) : null; // Changed to OpenTK.Mathematics.Vector2
+        List<Vector3> tangents = hasTangents ? new List<Vector3>(vertexCount) : null;
+        List<float> tangentSigns = hasTangents ? new List<float>(vertexCount) : null;
+        
+        List<float> rawShadowVertices = new List<float>(); // For BuildShadowMeshFromData
+
+
+        for (int i = 0; i < vertexCount; i++)
+        {
+            Vector3 pos = ReadBinaryVector3(reader);
+            vertices.Add(pos);
+            rawShadowVertices.AddRange(new[] { pos.X, pos.Y, pos.Z });
+
+
+            if (hasNormals)
+            {
+                Vector3 norm = ReadBinaryVector3(reader);
+                normals.Add(norm);
+            }
+
+            if (hasTangents) // Tangent (vec3) and Tangent Sign (float W)
+            {
+                Vector3 tan = ReadBinaryVector3(reader);
+                tangents.Add(tan);
+                float tangentW = ReadBinaryQuantizedFloat(reader);
+                tangentSigns.Add(tangentW);
+            }
+
+            if (hasUVs)
+            {
+                float u = ReadBinaryQuantizedFloat(reader);
+                float v = ReadBinaryQuantizedFloat(reader);
+                uvs.Add(new OpenTK.Mathematics.Vector2(u,v)); // Changed to OpenTK.Mathematics.Vector2
+                rawShadowVertices.AddRange(new[] { u, v }); // Shadow mesh also uses UVs if available
+            }
+        }
+        
+        List<int> indicesList = new List<int>(indexCount);
+        for (int i = 0; i < indexCount; i++)
+        {
+            indicesList.Add(reader.ReadInt32());
+        }
+
+        // Create GpuMeshes using new private methods that take raw data
+        GpuMesh renderMesh = _UploadRenderMeshFromRawData(vertexCount, vertices, normals, uvs, tangents, tangentSigns, indicesList, hasNormals, hasUVs, hasTangents);
+        GpuMesh shadowMesh = _BuildShadowMeshFromRawData(vertexCount, vertices, uvs, indicesList, hasUVs);
+
+
+        CombinedMesh newCombinedMesh = new CombinedMesh 
+        { 
+            RenderMesh = renderMesh, 
+            ShadowMesh = shadowMesh,
+            // numVertices = vertexCount, // if needed
+        };
+        
+        MeshHashMap.Add(precomputedMeshHash, newCombinedMesh);
+        numMeshesHashed++; // Count as a "new" mesh processed from binary
+        return newCombinedMesh;
+    }
+
+    // New private method for render mesh from raw data
+    private static GpuMesh _UploadRenderMeshFromRawData(int vertexCount, List<Vector3> poss, List<Vector3> norms, List<OpenTK.Mathematics.Vector2> texCoards, List<Vector3> tans, List<float> tangentSigns, List<int> indices, bool hasNormals, bool hasUVs, bool hasTangents)
+    {
+        int vao = GL.GenVertexArray();
+        GL.BindVertexArray(vao);
+
+        int vbo = GL.GenBuffer();
+        GL.BindBuffer(BufferTarget.ArrayBuffer, vbo);
+
+        // Vertex layout: Pos (3), Norm (3), Tangent (4), UV (2) -> Stride 12 floats
+        List<float> vboData = new List<float>();
+        for (int i = 0; i < vertexCount; i++)
+        {
+            // Position
+            vboData.Add(poss[i].X); vboData.Add(poss[i].Y); vboData.Add(poss[i].Z);
+
+            // Normal
+            if (hasNormals && norms != null) { vboData.Add(norms[i].X); vboData.Add(norms[i].Y); vboData.Add(norms[i].Z); }
+            else { vboData.AddRange(new[] { 0f, 0f, 1f }); } // Default normal
+
+            // Tangent (XYZ) and Tangent Sign (W)
+            if (hasTangents && tans != null && tangentSigns != null) 
+            { 
+                vboData.Add(tans[i].X); vboData.Add(tans[i].Y); vboData.Add(tans[i].Z);
+                vboData.Add(tangentSigns[i]);
+            }
+            else // Default Tangent XYZ and Sign W
+            {
+                 vboData.AddRange(new[] { 1f, 0f, 0f, 1.0f }); 
+            }
+
+            // UV
+            if (hasUVs && texCoards != null) { vboData.Add(texCoards[i].X); vboData.Add(texCoards[i].Y); }
+            else { vboData.AddRange(new[] { 0f, 0f }); } // Default UV
+        }
+        GL.BufferData(BufferTarget.ArrayBuffer, vboData.Count * sizeof(float), vboData.ToArray(), BufferUsageHint.StaticDraw);
+
+        int stride = (3 + 3 + 4 + 2) * sizeof(float); // Pos(3), Norm(3), Tan(4), UV(2)
+        
+        // Position attribute (location 0)
+        GL.EnableVertexAttribArray(0);
+        GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, stride, 0);
+        
+        // Normal attribute (location 1)
+        GL.EnableVertexAttribArray(1);
+        GL.VertexAttribPointer(1, 3, VertexAttribPointerType.Float, false, stride, 3 * sizeof(float));
+        
+        // Tangent attribute (location 2) - Vec4
+        GL.EnableVertexAttribArray(2);
+        GL.VertexAttribPointer(2, 4, VertexAttribPointerType.Float, false, stride, (3 + 3) * sizeof(float));
+        
+        // UV attribute (location 3)
+        GL.EnableVertexAttribArray(3);
+        GL.VertexAttribPointer(3, 2, VertexAttribPointerType.Float, false, stride, (3 + 3 + 4) * sizeof(float));
+        
+        int ebo = GL.GenBuffer();
+        GL.BindBuffer(BufferTarget.ElementArrayBuffer, ebo);
+        GL.BufferData(BufferTarget.ElementArrayBuffer, indices.Count * sizeof(int), indices.ToArray(), BufferUsageHint.StaticDraw);
+
+        GL.BindVertexArray(0);
+        return new GpuMesh { Vao = vao, IndexCount = indices.Count };
+    }
+
+    // New private method for shadow mesh from raw data
+    private static GpuMesh _BuildShadowMeshFromRawData(int vertexCount, List<Vector3> poss, List<OpenTK.Mathematics.Vector2> uvs, List<int> indices, bool hasUVs)
+    {
+        int vao = GL.GenVertexArray();
+        GL.BindVertexArray(vao);
+
+        int vbo = GL.GenBuffer();
+        GL.BindBuffer(BufferTarget.ArrayBuffer, vbo);
+
+        List<float> vboData = new List<float>();
+        int components = 3; // Pos
+        if (hasUVs) components += 2; // UV
+
+        for (int i = 0; i < vertexCount; i++)
+        {
+            vboData.Add(poss[i].X); vboData.Add(poss[i].Y); vboData.Add(poss[i].Z);
+            if (hasUVs)
+            {
+                vboData.Add(uvs[i].X); vboData.Add(uvs[i].Y);
+            }
+        }
+        GL.BufferData(BufferTarget.ArrayBuffer, vboData.Count * sizeof(float), vboData.ToArray(), BufferUsageHint.StaticDraw);
+
+        int stride = components * sizeof(float);
+        // Position
+        GL.EnableVertexAttribArray(0);
+        GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, stride, 0);
+        // UV (if present)
+        if (hasUVs)
+        {
+            GL.EnableVertexAttribArray(1);
+            GL.VertexAttribPointer(1, 2, VertexAttribPointerType.Float, false, stride, 3 * sizeof(float));
+        }
+        
+        int ebo = GL.GenBuffer();
+        GL.BindBuffer(BufferTarget.ElementArrayBuffer, ebo);
+        GL.BufferData(BufferTarget.ElementArrayBuffer, indices.Count * sizeof(int), indices.ToArray(), BufferUsageHint.StaticDraw);
+
+        GL.BindVertexArray(0);
+        return new GpuMesh { Vao = vao, IndexCount = indices.Count };
+    }
 }
 

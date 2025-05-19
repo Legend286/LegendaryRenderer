@@ -1,4 +1,3 @@
-using System.Numerics;
 using ImGuiNET;
 using LegendaryRenderer.LegendaryRuntime.Engine.Editor.Helpers;
 using LegendaryRenderer.LegendaryRuntime.Engine.Editor.Systems;
@@ -6,6 +5,12 @@ using LegendaryRenderer.LegendaryRuntime.Engine.Engine.GameObjects;
 using LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer;
 using LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer.MaterialSystem;
 using LegendaryRenderer.LegendaryRuntime.Engine.Utilities;
+using OpenTK.Mathematics;
+using System.Collections.Generic;
+using LegendaryRenderer.LegendaryRuntime.Engine.Engine.EngineTypes;
+using Vector2 = System.Numerics.Vector2;
+using Vector3 = System.Numerics.Vector3;
+using Matrix4x4 = System.Numerics.Matrix4x4;
 
 namespace LegendaryRenderer.LegendaryRuntime.Engine.Editor.UserInterface;
 
@@ -25,6 +30,10 @@ public class EditorViewport
     
     public int FramebufferID { get; private set; }
     
+    private bool showGrid = true;
+    private float editorGridSpacing = 1.0f;
+    private string currentGridSpacingLabel = "1.0m";
+
     public void SetFramebufferID(int framebufferID)
     {
         FramebufferID = framebufferID;
@@ -47,51 +56,126 @@ public class EditorViewport
         lastWidth = -1;
         lastHeight = -1;
     }
-
+    private int cycle = 0;
     private bool resizingThisFrame = false;
     public void Draw()
     {
         // 0) Reset resize flag
         resizingThisFrame = false;
-       
+
         // 1) Begin window with no padding
         ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Vector2(0, 0));
         ImGui.Begin("Viewport", ImGuiWindowFlags.MenuBar | ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse);
         // ─────────────────────────────────────────────────────────────────────────────────────────────────
-        
+
         // 2) Draw a simple menu bar
         if (ImGui.BeginMenuBar())
         {
             if (ImGui.BeginMenu("Create"))
             {
+                if (ImGui.MenuItem("Camera"))
+                {
+                    var camera = new Camera(Engine.Engine.ActiveCamera.Transform.Position, Engine.Engine.ActiveCamera.Transform.Position + Engine.Engine.ActiveCamera.Transform.Forward * 10, 90.0f);
+                    camera.Transform.Rotation = Engine.Engine.ActiveCamera.Transform.Rotation;
+                }
+                    
                 if (ImGui.BeginMenu("Lights"))
                 {
                     if (ImGui.MenuItem("Point Light"))
                     {
-                        // your light creation logic
+                        var light = new Light(Engine.Engine.ActiveCamera.Transform.Position, "Point Light");
+                        light.Transform.Rotation = Engine.Engine.ActiveCamera.Transform.Rotation;
+                        light.Type = Light.LightType.Point;
+                        light.OuterCone = 75.0f;
+                        light.InnerCone = 60.0f;
+                        light.EnableShadows = true;
+                        light.Intensity = 100.0f;
+                        light.Bias = 0.0002f;
+                        light.NormalBias = 0.0001f;
+                        light.Colour = Color4.FromHsv(new Vector4((((float)cycle++ / 16.0f) % 16.0f, 0.5f, 1.0f, 1.0f)));
                     }
                     if (ImGui.MenuItem("Spot Light"))
                     {
-                        // your spot light creation logic
+                        var light = new Light(Engine.Engine.ActiveCamera.Transform.Position, "Spot Light");
+                        light.Transform.Rotation = Engine.Engine.ActiveCamera.Transform.Rotation;
+                        light.Type = Light.LightType.Spot;
+                        light.OuterCone = 75.0f;
+                        light.InnerCone = 60.0f;
+                        light.EnableShadows = true;
+                        light.Intensity = 100.0f;
+                        light.Bias = 0.00001f;
+                        light.NormalBias = 0.0001f;
+                        light.Colour = Color4.FromHsv(new Vector4((((float)cycle++ / 16.0f) % 16.0f, 0.5f, 1.0f, 1.0f)));
                     }
                     if (ImGui.MenuItem("Directional Light"))
                     {
-                        // directional light
+                        var light = new Light(Engine.Engine.ActiveCamera.Transform.Position, "Directional Light");
+                        light.Transform.Rotation = Engine.Engine.ActiveCamera.Transform.Rotation;
+                        light.Type = Light.LightType.Directional;
+                        light.OuterCone = 75.0f;
+                        light.InnerCone = 60.0f;
+                        light.EnableShadows = true;
+                        light.Intensity = 100.0f;
+                        light.Bias = 0.00001f;
+                        light.NormalBias = 0.001f;
+                        light.Colour = Color4.LightYellow;
+                        light.CascadeCount = 4;
                     }
                     ImGui.EndMenu();
                 }
                 ImGui.EndMenu();
             }
-            
+
             if (ImGui.BeginMenu("View"))
             {
-                if (ImGui.MenuItem("Show Grid"))
+                if (ImGui.MenuItem("Show Grid", "", ref showGrid))
                 {
-                    // your grid toggle logic
+                    // Logic is handled by ref bool in MenuItem, or manually: showGrid = !showGrid;
                 }
+
+                if (ImGui.BeginMenu($"Grid Spacing {currentGridSpacingLabel}"))
+                {
+                    if (ImGui.MenuItem("0.1m"))
+                    {
+                        editorGridSpacing = 0.1f;
+                        currentGridSpacingLabel = "0.1m";
+                    }
+                    if (ImGui.MenuItem("0.25m"))
+                    {
+                        editorGridSpacing = 0.25f;
+                        currentGridSpacingLabel = "0.25m";
+                    }
+                    if (ImGui.MenuItem("0.5m"))
+                    {
+                        editorGridSpacing = 0.5f;
+                        currentGridSpacingLabel = "0.5m";
+                    }
+                    if (ImGui.MenuItem("1.0m"))
+                    {
+                        editorGridSpacing = 1.0f;
+                        currentGridSpacingLabel = "1.0m";
+                    }
+                    if (ImGui.MenuItem("2.0m"))
+                    {
+                        editorGridSpacing = 2.0f;
+                        currentGridSpacingLabel = "2.0m";
+                    }
+                    if (ImGui.MenuItem("5.0m"))
+                    {
+                        editorGridSpacing = 5.0f;
+                        currentGridSpacingLabel = "5.0m";
+                    }
+                    if (ImGui.MenuItem("10.0m"))
+                    {
+                        editorGridSpacing = 10.0f;
+                        currentGridSpacingLabel = "10.0m";
+                    }
+                    ImGui.EndMenu();
+                }
+
                 if (ImGui.MenuItem("Show Gizmos"))
                 {
-                    // your gizmo toggle logic
+                    Gizmos.Gizmos.DrawGizmos = !Gizmos.Gizmos.DrawGizmos;
                 }
                 ImGui.EndMenu();
             }
@@ -108,7 +192,7 @@ public class EditorViewport
                 }
                 ImGui.EndMenu();
             }
-            
+
             if (ImGui.BeginMenu("Camera"))
             {
                 if (ImGui.MenuItem("Reset View"))
@@ -119,8 +203,8 @@ public class EditorViewport
             }
             ImGui.EndMenuBar();
         }
-        
-        // 2) Compute how big the content area is (in ImGui “points”)
+
+        // 2) Compute how big the content area is (in ImGui "points")
         Vector2 contentAvail = ImGui.GetContentRegionAvail();
         int viewW = (int)Math.Max(contentAvail.X, 1);
         int viewH = (int)Math.Max(contentAvail.Y, 1);
@@ -153,23 +237,29 @@ public class EditorViewport
                 new Vector2(0, 1),
                 new Vector2(1, 0)
             );
-        
+
         ImGui.PopStyleVar(2); // pop FramePadding + ItemSpacing
-        
-        
+
+
         // 6) Capture the exact image bounds in screen coords
         Vector2 imgMin = ImGui.GetItemRectMin();
         Vector2 imgMax = ImGui.GetItemRectMax();
         Min = new Vector2(imgMin.X, imgMin.Y);
         Max = new Vector2(imgMax.X, imgMax.Y);
 
+        // Draw Infinite Grid if enabled
+        if (showGrid && Engine.Engine.ActiveCamera != null)
+        {
+            Gizmos.Gizmos.DrawInfiniteGrid(Maths.FromNumericsVector2(imgMin), Maths.FromNumericsVector2(imgMax), Engine.Engine.ActiveCamera, editorGridSpacing);
+        }
+
         // 7) Expose viewport position & size (in points)
         ViewportPosition = imgMin;
         ViewportSize = new Vector2(imgMax.X - imgMin.X, imgMax.Y - imgMin.Y);
-        
-        if (EditorSystem.EditorTextures.TryGetValue("light_bulb", out Texture Tex))
+
+        if (EditorSystem.EditorTextures.TryGetValue("light_bulb", out Texture bulbTexture))
         {
-            int textureID = Tex.GetGLTexture();
+            int textureID = bulbTexture.GetGLTexture();
             foreach (Light light in Engine.Engine.GameObjects.OfType<Light>())
             {
                 if (light.Type != Light.LightType.Directional && light.WasRenderedLastFrame)
@@ -178,8 +268,19 @@ public class EditorViewport
                 }
             }
         }
+        if (EditorSystem.EditorTextures.TryGetValue("object", out Texture objectTexture))
+        {
+            int textureID = objectTexture.GetGLTexture();
+            foreach (RenderableMesh mesh in Engine.Engine.RenderableMeshes)
+            {
+                if (mesh.WasRenderedLastFrame)
+                {
+                    EditorWorldIconManager.Draw(Engine.Engine.ActiveCamera, mesh, textureID);
+                }
+            }
+        }
 
-        
+
         ImGui.End();
 
         // 8) Compute mouse‐in‐viewport (points)
@@ -192,7 +293,7 @@ public class EditorViewport
         local.Y = Math.Clamp(local.Y, 0, ViewportSize.Y);
         MouseViewportPosition = io.MousePos - ViewportPosition;
 
-        // 9) Convert to *pixel* coords using ImGui’s framebuffer scale
+        // 9) Convert to *pixel* coords using ImGui's framebuffer scale
         Vector2 scale = io.DisplayFramebufferScale; // e.g. (2,2) on Retina
         float px = local.X * scale.X;
         float py = local.Y * scale.Y;

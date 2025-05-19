@@ -197,6 +197,27 @@
       <None Update="LegendaryRuntime\Resources\Editor\worklight_on.png">
         <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       </None>
+      <None Update="LegendaryRuntime\Resources\Editor\object.png">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="LegendaryRuntime\Resources\Editor\default_file_icon.png">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="LegendaryRuntime\Resources\Editor\default_folder_icon.png">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="LegendaryRuntime\Resources\Shaders\Editor\mesh_icon_pbr.frag">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="LegendaryRuntime\Resources\Shaders\Editor\mesh_icon_pbr.vert">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="LegendaryRuntime\Engine\Engine\Renderer\Shaders\glsl\mesh_icon_pbr.frag">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="LegendaryRuntime\Engine\Engine\Renderer\Shaders\glsl\mesh_icon_pbr.vert">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
     </ItemGroup>
 
 </Project>

@@ -39,6 +39,7 @@ public static class EditorSystem
         EditorTexturePaths.Add("Editor/weather.png");
         EditorTexturePaths.Add("Editor/worklight_off.png");
         EditorTexturePaths.Add("Editor/worklight_on.png");
+        EditorTexturePaths.Add("Editor/object.png");
 
         using (var progressBar = new ConsoleProgressBar())
         {

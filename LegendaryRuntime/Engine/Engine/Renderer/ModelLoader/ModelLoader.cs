@@ -2,6 +2,7 @@
 using LegendaryRenderer.LegendaryRuntime.Application.Profiling;
 using LegendaryRenderer.LegendaryRuntime.Application.ProgressReporting;
 using LegendaryRenderer.LegendaryRuntime.Engine.Engine.GameObjects;
+using LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer.MeshInstancing;
 using LegendaryRenderer.LegendaryRuntime.Engine.Renderer.MaterialSystem;
 using OpenTK.Mathematics;
 using Quaternion = OpenTK.Mathematics.Quaternion;
@@ -144,7 +145,8 @@ public static class ModelLoader
                 {
                     if (scene.Materials[mesh.MaterialIndex].GetMaterialTexture(TextureType.BaseColor, 0, out TextureSlot diff))
                     {
-                        int diffuseTex = TextureLoader.LoadTexture(diff.FilePath, false, fileName, true).GetGLTexture();
+                        string modelDirectory = Path.GetDirectoryName(fileName);
+                        int diffuseTex = TextureLoader.LoadTexture(diff.FilePath, false, modelDirectory, true).GetGLTexture();
                         msh.Material.DiffuseTexture = diffuseTex;
                     }
                     else
@@ -156,7 +158,8 @@ public static class ModelLoader
                 {
                     if (scene.Materials[mesh.MaterialIndex].GetMaterialTexture(TextureType.Diffuse, 0, out TextureSlot diff))
                     {
-                        int diffuseTex = TextureLoader.LoadTexture(diff.FilePath, false, fileName, true).GetGLTexture();
+                        string modelDirectory = Path.GetDirectoryName(fileName);
+                        int diffuseTex = TextureLoader.LoadTexture(diff.FilePath, false, modelDirectory, true).GetGLTexture();
                      //   Console.WriteLine(diff.FilePath);
                         msh.Material.DiffuseTexture = diffuseTex;
                     }
@@ -164,7 +167,8 @@ public static class ModelLoader
                     {
                         if (scene.Materials[mesh.MaterialIndex].HasTextureDiffuse)
                         {
-                            int diffuseTex = TextureLoader.LoadTexture(scene.Materials[mesh.MaterialIndex].TextureDiffuse.FilePath, false, fileName, true).GetGLTexture();
+                            string modelDirectory = Path.GetDirectoryName(fileName);
+                            int diffuseTex = TextureLoader.LoadTexture(scene.Materials[mesh.MaterialIndex].TextureDiffuse.FilePath, false, modelDirectory, true).GetGLTexture();
                             msh.Material.DiffuseTexture = diffuseTex;
                         }
                         else
@@ -175,14 +179,16 @@ public static class ModelLoader
                 }
                 if (scene.Materials[mesh.MaterialIndex].GetMaterialTexture(TextureType.NormalCamera, 0, out TextureSlot norm))
                 {
-                    int normalTex = TextureLoader.LoadTexture(norm.FilePath, false, fileName, true).GetGLTexture();
+                    string modelDirectory = Path.GetDirectoryName(fileName);
+                    int normalTex = TextureLoader.LoadTexture(norm.FilePath, false, modelDirectory, true).GetGLTexture();
                     msh.Material.NormalTexture = normalTex;
                 }
                 else
                 { 
                     if (scene.Materials[mesh.MaterialIndex].HasTextureNormal)
                     {
-                        int normalTex = TextureLoader.LoadTexture(scene.Materials[mesh.MaterialIndex].TextureNormal.FilePath, false, fileName, true).GetGLTexture();
+                        string modelDirectory = Path.GetDirectoryName(fileName);
+                        int normalTex = TextureLoader.LoadTexture(scene.Materials[mesh.MaterialIndex].TextureNormal.FilePath, false, modelDirectory, true).GetGLTexture();
                         msh.Material.NormalTexture = normalTex;
                     }
                     else
@@ -194,14 +200,16 @@ public static class ModelLoader
                 if (scene.Materials[mesh.MaterialIndex]
                     .GetMaterialTexture(TextureType.Roughness, 0, out TextureSlot rough))
                 {
-                    int roughnessTex = TextureLoader.LoadTexture(rough.FilePath, false, fileName, true).GetGLTexture();
+                    string modelDirectory = Path.GetDirectoryName(fileName);
+                    int roughnessTex = TextureLoader.LoadTexture(rough.FilePath, false, modelDirectory, true).GetGLTexture();
                     msh.Material.RoughnessTexture = roughnessTex;
                 }
                 else
                 {
                     if (scene.Materials[mesh.MaterialIndex].HasTextureSpecular)
                     {
-                        int roughnessTex = TextureLoader.LoadTexture(scene.Materials[mesh.MaterialIndex].TextureSpecular.FilePath, false, fileName, true).GetGLTexture();
+                        string modelDirectory = Path.GetDirectoryName(fileName);
+                        int roughnessTex = TextureLoader.LoadTexture(scene.Materials[mesh.MaterialIndex].TextureSpecular.FilePath, false, modelDirectory, true).GetGLTexture();
                         msh.Material.RoughnessTexture = roughnessTex;
                     }
                     else

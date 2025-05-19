@@ -60,8 +60,7 @@ public class EditorWorldIconManager
             ImGui.PopStyleVar(2);
             if(ImGui.IsItemClicked(ImGuiMouseButton.Left))
             {
-                Engine.Engine.SelectedRenderableObjects.Clear();
-                Engine.Engine.SelectedRenderableObjects.Add(gameObject);
+                Engine.Engine.EditorSceneHierarchyPanel.OnObjectSelected.Invoke(gameObject);
                 Console.WriteLine("Selection");
             }
             

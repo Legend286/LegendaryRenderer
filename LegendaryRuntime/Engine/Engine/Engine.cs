@@ -15,6 +15,7 @@ using LegendaryRenderer.LegendaryRuntime.Engine.Editor.UserInterface;
 using LegendaryRenderer.LegendaryRuntime.Engine.Engine.GameObjects;
 using LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer;
 using LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer.MaterialSystem;
+using LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer.MeshInstancing;
 using LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer.Systems.SceneSystem;
 using LegendaryRenderer.LegendaryRuntime.Engine.Renderer.MaterialSystem;
 using LegendaryRenderer.Shaders;
@@ -79,11 +80,7 @@ public static class Engine
     public static SSAOSettings SSAOSettings = new SSAOSettings();
 
     public static bool EnableShadows = true;
-    
-    public static DockspaceController DockspaceController;
-    public static EditorViewport EditorViewport;
-    public static EditorSceneHierarchyPanel EditorSceneHierarchyPanel;
-
+ 
     // counters for statistics :)
     public static int
         TriangleCountRendered = 0,
@@ -126,6 +123,9 @@ public static class Engine
             DockspaceController = new DockspaceController(Application.Application.windowInstance);
             EditorViewport = new EditorViewport(RenderBufferHelpers.Instance.GetTextureHandle(TextureHandle.COPY));
             EditorSceneHierarchyPanel = new EditorSceneHierarchyPanel(LoadedScenes[0]);
+            EditorInspector = new EditorInspector();
+            ContentBrowserWindow = new ContentBrowserWindow();
+            ContentBrowserWindow.InitializeDefaultIcons();
             EngineProgress.Report(1.0f, "Initialising Engine Complete...");
         }
         EditorSceneHierarchyPanel.OnObjectSelected += Go =>
@@ -319,11 +319,10 @@ public static class Engine
 
                 if ((hit is RenderableMesh renderable || hit is Camera))
                 {
-                    if (IsMultiSelect)
                     {
                         SelectedRenderableObjects.Add(hit);
                     }
-                    else
+                    else*/
                     {
                         SelectedRenderableObjects.Clear();
                         SelectedRenderableObjects.Add(hit);
@@ -464,6 +463,13 @@ public static class Engine
         }
     }
 
+       
+    public static DockspaceController DockspaceController;
+    public static EditorViewport EditorViewport;
+    public static EditorSceneHierarchyPanel EditorSceneHierarchyPanel;
+    public static EditorInspector EditorInspector;
+    public static ContentBrowserWindow ContentBrowserWindow;
+    
     public static void RenderImGui()
     {
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
@@ -471,6 +477,8 @@ public static class Engine
         EditorViewport.Draw();
         EditorViewport.ApplyPendingResize();
         EditorSceneHierarchyPanel.Draw();
+        ContentBrowserWindow.Draw();
+        EditorInspector.Draw();
         DockspaceController.EndDockspace();
     }
 

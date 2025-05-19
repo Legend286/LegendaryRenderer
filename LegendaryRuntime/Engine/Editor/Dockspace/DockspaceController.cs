@@ -66,12 +66,14 @@ namespace LegendaryRenderer.LegendaryRuntime.Engine.Editor.Dockspace
             ImGuiDockBinding.igDockBuilderSetNodeSize(dockspaceID, viewport.Size);
 
             uint dockMain = dockspaceID;
-            uint dockLeft = ImGuiDockBinding.igDockBuilderSplitNode(dockMain, ImGuiDir.Left, 0.2f, out _, out dockMain);
-            uint dockRight = ImGuiDockBinding.igDockBuilderSplitNode(dockMain, ImGuiDir.Right, 0.25f, out dockMain, out _);
-            uint dockBottom = ImGuiDockBinding.igDockBuilderSplitNode(dockMain, ImGuiDir.Down, 0.25f, out dockMain, out _);
+            uint dockLeft = ImGuiDockBinding.igDockBuilderSplitNode(dockMain, ImGuiDir.Left, 0.1f, out dockMain, out dockMain);
+            uint dockRight = ImGuiDockBinding.igDockBuilderSplitNode(dockMain, ImGuiDir.Right, 0.1f, out dockMain, out dockMain);
+            uint dockBottom = ImGuiDockBinding.igDockBuilderSplitNode(dockMain, ImGuiDir.Down, 0.1f, out dockMain, out dockMain);
 
             ImGuiDockBinding.DockWindow("Viewport", dockMain);
-            ImGuiDockBinding.DockWindow("Scene Hierarchy", dockLeft);
+            ImGuiDockBinding.DockWindow("SceneHierarchy", dockLeft);
+            ImGuiDockBinding.DockWindow("Inspector", dockRight);
+            ImGuiDockBinding.DockWindow("ContentBrowser", dockBottom);
 
             ImGuiDockBinding.igDockBuilderFinish(dockspaceID);
         }

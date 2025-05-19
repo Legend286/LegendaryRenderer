@@ -31,6 +31,16 @@ public static class Maths
 
         return (uint)(r) | ((uint)(g) << 8) | ((uint)(b) << 16) | ((uint)(a) << 24);
     }
+
+    public static Vector3 Color4ToVector3(Color4 color)
+    {
+        return new Vector3(color.R, color.G, color.B);
+    }
+
+    public static Color4 Vector3ToColor4(Vector3 vector)
+    {
+        return new Color4(vector.X, vector.Y, vector.Z, 1f);
+    }
     
     public static Vector3 FloorVector(Vector3 vector)
     {
@@ -42,6 +52,26 @@ public static class Maths
         return new Vector2(vector.X, vector.Y);
     }
 
+    public static Vector3 FromNumericsVector3(System.Numerics.Vector3 vector)
+    {
+        return new Vector3(vector.X, vector.Y, vector.Z);
+    }
+
+    public static Matrix3 ToRotationMatrix(Matrix4 matrix4)
+    {
+        Vector3 x = new Vector3(matrix4.M11, matrix4.M12, matrix4.M13).Normalized();
+        Vector3 y = new Vector3(matrix4.M21, matrix4.M22, matrix4.M23).Normalized();
+        Vector3 z = new Vector3(matrix4.M31, matrix4.M32, matrix4.M33).Normalized();
+
+        Matrix3 rotationOnly = new Matrix3(
+            x.X, x.Y, x.Z,
+            y.X, y.Y, y.Z,
+            z.X, z.Y, z.Z
+        );
+        
+        return rotationOnly;
+    }
+
     public static System.Numerics.Vector2 ToNumericsVector2(Vector2 vector)
     {
         return new System.Numerics.Vector2(vector.X, vector.Y);
@@ -50,6 +80,28 @@ public static class Maths
     public static System.Numerics.Vector3 ToNumericsVector3(Vector3 vector)
     {
         return new System.Numerics.Vector3(vector.X, vector.Y, vector.Z);
+    }
+
+    public static System.Numerics.Matrix4x4 ToNumericsMatrix4x4(Matrix4 matrix)
+    {
+        Matrix4x4 m = new Matrix4x4();
+        m.M11 = matrix.M11;
+        m.M12 = matrix.M12;
+        m.M13 = matrix.M13;
+        m.M14 = matrix.M14;
+        m.M21 = matrix.M21;
+        m.M22 = matrix.M22;
+        m.M23 = matrix.M23;
+        m.M24 = matrix.M24;
+        m.M31 = matrix.M31;
+        m.M32 = matrix.M32;
+        m.M33 = matrix.M33;
+        m.M34 = matrix.M34;
+        m.M41 = matrix.M41;
+        m.M42 = matrix.M42;
+        m.M43 = matrix.M43;
+        m.M44 = matrix.M44;
+        return m;
     }
     
     public static Vector3 SnapVectorToGrid(Vector3 vector, float snapSize)

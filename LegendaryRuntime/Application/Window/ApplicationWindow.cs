@@ -15,6 +15,14 @@ using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 using static LegendaryRenderer.LegendaryRuntime.Engine.Utilities.Maths;
+using LegendaryRenderer.LegendaryRuntime.Engine.AssetManagement;
+using Assimp;
+using LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer.MeshInstancing;
+using Camera = LegendaryRenderer.LegendaryRuntime.Engine.Engine.GameObjects.Camera;
+using Light = LegendaryRenderer.LegendaryRuntime.Engine.Engine.GameObjects.Light;
+using Quaternion = OpenTK.Mathematics.Quaternion;
+using LegendaryRenderer.LegendaryRuntime.Engine.Editor;
+using LegendaryRenderer.LegendaryRuntime.Engine.Editor.Dockspace; // Assuming DockLayoutManager might be relevant for menu
 
 // Imgui controller (see ImGuiController.cs for notice //
 using Vector2 = System.Numerics.Vector2;
@@ -28,7 +36,7 @@ public class ApplicationWindow : GameWindow
     public static KeyboardState keyboardState;
     public static MouseState mouseState;
     private ImGuiController imguiController;
-    
+   
     Vector2 DPIScale = new Vector2(1, 1);
 
     public ApplicationWindow(GameWindowSettings gameWindowSettings, NativeWindowSettings nativeWindowSettings) : base(gameWindowSettings, nativeWindowSettings)
@@ -77,11 +85,6 @@ public class ApplicationWindow : GameWindow
     string[] modelExtensions = new string[] { ".fbx", ".gltf", ".glb", ".obj", ".objc", ".objd" };
     string[] textureExtensions = new string[] { ".png", ".jpg", ".jpeg", ".tif" };
 
-    void LoadModelFromDrag(string fileName)
-    {
-        ModelLoader.LoadModel(fileName, LegendaryRuntime.Engine.Engine.Engine.ActiveCamera.Transform.Position, Rotation(0, 0, 0), Vector3.One, true);
-    }
-
     // Returns 0 if diffuse, 1 if normal, 2 if metallic / rough / mask
     public int GetTargetFromFile(string fileName)
     {
@@ -119,6 +122,9 @@ public class ApplicationWindow : GameWindow
     protected override void OnFileDrop(FileDropEventArgs e)
     {
         var fileName = e.FileNames[0];
+        // Ensure AssetCacheManager is initialized (might be better in OnLoad, but here for safety)
+        AssetCacheManager.EnsureInitialized(); 
+
         var mouseState = ApplicationWindow.mouseState;
 
         var pos = new Vector2(mouseState.Position.X, Application.Height - mouseState.Position.Y);
@@ -140,7 +146,8 @@ public class ApplicationWindow : GameWindow
         {
             if (ContainsModel(fileName))
             {
-                LoadModelFromDrag(fileName);
+                // Modified model loading path
+                LoadModelFromDragWithCaching(fileName);
             }
             else if (ImGui.IsAnyItemHovered())
             {
@@ -188,6 +195,9 @@ public class ApplicationWindow : GameWindow
     
     protected override void OnLoad()
     {
+        AssetCacheManager.EnsureInitialized(); // Initialize AssetCacheManager on load
+        IconGenerator.Initialize(); // Initialize IconGenerator
+      
         var loading = new ScopedProfiler("Loading Phase");
 
         /*Light l3 = new Light(Vector3.Zero, "Light Test");
@@ -212,19 +222,14 @@ public class ApplicationWindow : GameWindow
         GL.DepthRange(1, 0);
         GL.Disable(EnableCap.FramebufferSrgb);
         GL.DepthFunc(DepthFunction.Lequal);
-
-        model2 = ModelLoader.LoadModel("Models/dragon.fbx", new Vector3(0, 0.1f, 0), Rotation(0, 0, 0), Vector3.One/20);
         
-        RenderableMesh? mdl = model2.Children[0] as RenderableMesh;
-        mdl.Material.Roughness = 0.9f;
-        mdl.Material.Colour = Color4.Cornsilk;
-        //model3 = ModelLoader.LoadModel("Models/diorama.fbx", new Vector3(0, 0, 6), Rotation(90, 0, 0), Vector3.One);
-
+        
         GL.Enable(EnableCap.DepthTest);
         GL.Enable(EnableCap.CullFace);
         GL.CullFace(CullFaceMode.Back);
 
-        camera = new Camera(Vector3.Zero, Vector3.Zero, 45.0f);
+        camera = new Camera(Vector3.One, Vector3.Zero, 45.0f);
+        camera.Transform.LocalRotation = Rotation(-45, 45, 0);
         
         Color4[] colours = new[]
         {
@@ -241,7 +246,7 @@ public class ApplicationWindow : GameWindow
         for (int i = 0; i < numLights; i++)
         {
             var light = new Light(new Vector3(MathF.Cos((float)i / numLights) * 4, 1, MathF.Sin((float)i / numLights) * 4), "Light DEF");
-            light.Transform.Rotation *= Quaternion.FromEulerAngles(MathHelper.DegreesToRadians(0), MathHelper.DegreesToRadians((360 / numLights) * i), 0);
+            light.Transform.LocalRotation *= Quaternion.FromEulerAngles(MathHelper.DegreesToRadians(0), MathHelper.DegreesToRadians((360 / numLights) * i), 0);
             light.Transform.Position = light.Transform.Forward * 2;
             light.Colour = colours[i % 6];
             light.Range = 10.0f;
@@ -273,7 +278,8 @@ public class ApplicationWindow : GameWindow
 
         //camera.AddChild(l1);
 
-
+        // Set the main camera as the active camera for the engine
+        LegendaryRuntime.Engine.Engine.Engine.ActiveCamera = camera;
 
         // HACK
         var time = loading.StopTimingCPU() / 1000;
@@ -338,7 +344,8 @@ public class ApplicationWindow : GameWindow
         ResetCounters();
         
         LegendaryRuntime.Engine.Engine.Engine.EngineRenderLoop();
-
+        
+       
         var size = FromNumericsVector2(LegendaryRuntime.Engine.Engine.Engine.EditorViewport.ViewportSize);
         var vpPos = LegendaryRuntime.Engine.Engine.Engine.EditorViewport.ViewportPosition;
         // Mouse inside viewport, relative to ViewportPosition
@@ -367,9 +374,10 @@ public class ApplicationWindow : GameWindow
             }
         }
 
-        LegendaryRuntime.Engine.Engine.Engine.DoSelection();
+      //  LegendaryRuntime.Engine.Engine.Engine.DoSelection();
         
-        imguiController.Render();
+        // Render ImGui draw data
+        imguiController.Render(); // This should be after all ImGui window definitions
         ImGuiController.CheckGLError("End of Frame");
         RenderBufferHelpers.Instance.ApplyPendingResize();
         
@@ -448,213 +456,7 @@ public class ApplicationWindow : GameWindow
             ImGui.TreePop();
         }
     }
-    private float lambda = 0.971f;
-    private void DoImGui()
-    {
-        if (shouldShowPopup)
-        {
-            ShowMaterialSelectionPopup();
-        }
-
-        ImGui.SetNextWindowSize(new System.Numerics.Vector2((float)Application.Width / 3, (float)Application.Height / 2));
-        
-        ImGui.Begin("Settings", ImGuiWindowFlags.NoResize);
-        ImGui.DragFloat("Shadow Cascade Split Ratio", ref Light.lambda, 0.001f, 0.05f, 1.0f);
-
-        if (ImGui.Button("Add Shadowed Spotlight"))
-        {
-            Light light = new Light(LegendaryRuntime.Engine.Engine.Engine.ActiveCamera.Transform.Position + LegendaryRuntime.Engine.Engine.Engine.ActiveCamera.Transform.Forward * 0.25f);
-            light.Type = Light.LightType.Spot;
-            light.EnableShadows = true;
-            light.Transform.Rotation = LegendaryRuntime.Engine.Engine.Engine.ActiveCamera.Transform.Rotation;
-            light.Colour = Color4.White;
-            light.Intensity = 80.0f;
-            light.Range = 100.0f;
-            light.InnerCone = 60.0f;
-            light.OuterCone = 90.0f;
-            light.ProjectorSize = 5.0f;
-            lights.Add(light);
-        }
-        
-        if (ImGui.Button("Reload all shaders"))
-        {
-            ShaderManager.ReloadAllShaders();
-        }
-        
-      //  ImGui.DragFloat("SSAO - Radius", ref Engine.SSAOSettings.Radius, 0.01f, 0.05f, 10.0f);
-      //  ImGui.DragInt("SSAO - Number of Samples", ref Engine.SSAOSettings.NumberOfSamples, 1, 1, 32);
-      //  ImGui.Spacing();
-    
-
-        DrawLightHierarchy();
-   
-        
-        if (LegendaryRuntime.Engine.Engine.Engine.SelectedRenderableObjects.Count == 1)
-        {
-            Light? light = LegendaryRuntime.Engine.Engine.Engine.SelectedRenderableObjects[0] as Light;
-            
-            if (light != null)
-            {
-                if (light.Type == Light.LightType.Directional)
-                {
-                    ImGui.Text($"Shadowmaps for {light.Name}");
-                    ImGui.BeginChild("Shadows", new System.Numerics.Vector2(80 * light.CascadeCount, 96));
-                    //ImGui.Text("Materials");
-                    ImGui.Columns(light.CascadeCount, "ShadowColumns");
-                   
-                    for (int i = 0; i < light.CascadeCount; i++)
-                    {
-                        ImGui.SetColumnWidth(i, 80);
-                        DrawTexture($"Cascade {i+1}", LegendaryRuntime.Engine.Engine.Engine.PointShadowMapTextures[i], 64);
-                        ImGui.NextColumn();
-                    }
-                    ImGui.EndChild();
-                }
-                
-                DrawTexture("Light Cookie", light.CookieTextureID, 64, light);
-                
-                if (ImGui.Button($"Light Cast Shadows {light.EnableShadows}"))
-                {
-                    light.EnableShadows = !light.EnableShadows;
-                }
-                
-                float tmpBias = light.Bias;
-                if (ImGui.DragFloat("Light Shadow Bias", ref tmpBias, 0.00001f, 0.000001f, 1.0f))
-                {
-                    light.Bias = tmpBias;
-                }
-                
-                System.Numerics.Vector3 colVec = new System.Numerics.Vector3(light.Colour.R, light.Colour.G, light.Colour.B);
-                if (ImGui.ColorEdit3("Light Colour", ref colVec, ImGuiColorEditFlags.Float))
-                {
-                    light.Colour = new Color4(colVec.X, colVec.Y, colVec.Z, 1.0f);
-                }
-                
-                float tmpIntensity = light.Intensity;
-                if (ImGui.DragFloat("Light Intensity", ref tmpIntensity, 0.01f, 0.0f, 100.0f))
-                {
-                    light.Intensity = tmpIntensity;
-                }
-                
-                if (light.Type == Light.LightType.Spot || light.Type == Light.LightType.Projector || light.Type == Light.LightType.Point)
-                {
-                    float tmpRange = light.Range;
-                    if (ImGui.DragFloat("Light Range", ref tmpRange, 0.25f, 0.2f, 1000.0f))
-                    {
-                        light.Range = tmpRange;
-                    }
-
-                    if (light.Type == Light.LightType.Projector)
-                    {
-                        float tmpSize = light.ProjectorSize;
-                        if (ImGui.DragFloat("Light Projector Size", ref tmpSize, 0.5f, 0.5f, 100.0f))
-                        {
-                            light.ProjectorSize = tmpSize;
-                        }
-                    }
-                    
-                    if (light.Type == Light.LightType.Spot)
-                    {
-                        float tmpInnerCone = light.InnerCone;
-                        if (ImGui.DragFloat("Light Inner Cone", ref tmpInnerCone, 0.1f, 1.0f, 179.0f))
-                        {
-                            light.InnerCone = tmpInnerCone;
-                            light.OuterCone = MathF.Max(tmpInnerCone, light.OuterCone);
-                        }
-                        
-                        float tmpOuterCone = light.OuterCone;
-                        if (ImGui.DragFloat("Light Outer Cone", ref tmpOuterCone, 0.1f, 1.0f, 179.0f))
-                        {
-                            light.OuterCone = tmpOuterCone;
-                            light.InnerCone = MathF.Min(tmpOuterCone, light.InnerCone);
-                        }
-                    }
-                }
-            }
-
-            GameObject target = LegendaryRuntime.Engine.Engine.Engine.SelectedRenderableObjects[0];
-            
-            Vector3 pos = target.GetRoot().Transform.LocalPosition;
-            Vector3 scale = target.GetRoot().Transform.Scale;
-            Vector3 rotation = Vector3.Zero;
-            target.Transform.Rotation.ToEulerAngles(out rotation);
-            System.Numerics.Vector3 newPosition = new System.Numerics.Vector3(pos.X, pos.Y, pos.Z);
-            System.Numerics.Vector3 newScale = new System.Numerics.Vector3(scale.X, scale.Y, scale.Z);
-
-            ImGui.Text("Snap Size");
-
-            ImGui.Text($"Selected Object: {target.GetRoot().Name.Split(':').Last()}");
-            ImGui.Text("Transform Settings");
-
-            if (first)
-            {
-                rot = new System.Numerics.Vector3(MathHelper.RadiansToDegrees(rotation.X), MathHelper.RadiansToDegrees(rotation.Y), MathHelper.RadiansToDegrees(rotation.Z));
-                first = false;
-            }
-            if (ImGui.DragFloat3($"Position Object", ref newPosition))
-            {
-                target.GetRoot().Transform.Position = new Vector3(newPosition.X, newPosition.Y, newPosition.Z);
-            }
-
-            if (ImGui.DragFloat3($"Rotate Object", ref rot, snapSize))
-            {
-                newRotation = new System.Numerics.Vector3((rot.X), (rot.Y), (rot.Z));
-                target.GetRoot().Transform.Rotation = Rotation(newRotation.X, 0,0) * Rotation(0,newRotation.Y,0) * Rotation(0,0, newRotation.Z);
-            }
-
-            if (ImGui.DragFloat3($"Scale Object", ref newScale))
-            {
-                target.GetRoot().Transform.Scale = new Vector3(newScale.X, newScale.Y, newScale.Z);
-            }
-            
-            RenderableMesh? targetRenderable = (LegendaryRuntime.Engine.Engine.Engine.SelectedRenderableObjects[0] as RenderableMesh);
-            
-            if (targetRenderable != null)
-            {
-                if (ImGui.Button($"Spinning ({targetRenderable.Spinning})"))
-                {
-                    targetRenderable.Spinning = !targetRenderable.Spinning;
-                }
-
-                ImGui.Text($"Materials for {targetRenderable.Name.Split(':').Last()}:");
-                ImGui.BeginChild("Materials", new System.Numerics.Vector2(128 * 3 + 24, 165));
-                //ImGui.Text("Materials");
-                ImGui.Columns(3, "tables");
-                if (targetRenderable.Material.DiffuseTexture != -1)
-                {
-                    ImGui.SetColumnWidth(0, 128 + 4);
-                    DrawTexture("Diffuse", targetRenderable.Material.DiffuseTexture);
-                    ImGui.NextColumn();
-                }
-                if (targetRenderable.Material.NormalTexture != -1)
-                {
-                    ImGui.SetColumnWidth(1, 128 + 4);
-                    DrawTexture("Normal", targetRenderable.Material.NormalTexture);
-                    ImGui.NextColumn();
-                }
-                if (targetRenderable.Material.RoughnessTexture != -1)
-                {
-                    ImGui.SetColumnWidth(2, 128 + 4);
-                    DrawTexture("Mask", targetRenderable.Material.RoughnessTexture);
-                }
-                ImGui.EndChild();
-            }
-            else if (LegendaryRuntime.Engine.Engine.Engine.SelectedRenderableObjects.Count == 0)
-            {
-                first = true;
-            }
-
-            if (ImGui.Button("Show / Hide"))
-            {
-
-                target.GetRoot().IsVisible = !target.GetRoot().IsVisible;
-
-            }
-
-
-        }
-        ImGui.End();
-    }
+    private float lambda = 0.98f;
 
     protected override void OnTextInput(TextInputEventArgs e)
     {
@@ -722,7 +524,7 @@ public class ApplicationWindow : GameWindow
 
         for (int i = 0; i < numLights; i++)
         {
-            lights[i].Transform.Rotation *= Quaternion.FromEulerAngles(0, MathHelper.DegreesToRadians(90) * (float)args.Time, 0);
+            lights[i].Transform.LocalRotation *= Quaternion.FromEulerAngles(0, MathHelper.DegreesToRadians(90) * (float)args.Time, 0);
             lights[i].Transform.Position = new Vector3(-8,2,3) + lights[i].Transform.Forward * 2;
         }
     }
@@ -734,5 +536,85 @@ public class ApplicationWindow : GameWindow
         GL.GetInteger(GetPName.MaxVertexAttribs, out nrAttributes);
         Console.WriteLine("Maximum number of vertex attributes supported: " + nrAttributes);
 
+    }
+
+    // New method to handle model loading with caching logic
+    void LoadModelFromDragWithCaching(string originalModelFilePath)
+    {
+        Console.WriteLine($"Attempting to load model with caching: {originalModelFilePath}");
+        AssetCacheManager.EnsureInitialized(); // Ensure it's initialized
+
+        try
+        {
+            AssimpContext importer = new AssimpContext();
+            PostProcessSteps processSteps = PostProcessSteps.CalculateTangentSpace | PostProcessSteps.Triangulate |
+                                          PostProcessSteps.GenerateBoundingBoxes | PostProcessSteps.GenerateSmoothNormals |
+                                          PostProcessSteps.JoinIdenticalVertices | PostProcessSteps.ImproveCacheLocality;
+            
+            Assimp.Scene scene = importer.ImportFile(originalModelFilePath, processSteps);
+
+            if (scene == null || scene.RootNode == null)
+            {
+                Console.WriteLine($"Failed to import scene or scene has no root node: {originalModelFilePath}");
+                return;
+            }
+            if (!scene.HasMeshes)
+            {
+                 Console.WriteLine($"Scene has no meshes: {originalModelFilePath}. Creating empty hierarchy from nodes if any.");
+                 // Still proceed to create hierarchy if nodes exist, even without meshes.
+            }
+
+            if (scene.HasMeshes)
+            {
+                Console.WriteLine($"Scene '{originalModelFilePath}' has {scene.MeshCount} meshes. Processing with cache...");
+                for (int i = 0; i < scene.MeshCount; i++)
+                {
+                    Assimp.Mesh assimpMesh = scene.Meshes[i];
+                    int meshContentHash = MeshHasher.HashMesh(assimpMesh);
+
+                    // Attempt to generate mesh icon (will only run if icon doesn't exist)
+                    // modelFilePath here is originalModelFilePath, which is the full path to the .fbx, .gltf etc.
+                    IconGenerator.GenerateMeshIcon(scene, assimpMesh, originalModelFilePath, meshContentHash);
+
+                    if (AssetCacheManager.TryGetCachedMeshData(meshContentHash, originalModelFilePath, out byte[] cachedData))
+                    {
+                        Console.WriteLine($"Cache hit for mesh {i} (hash {meshContentHash}). Loading from binary.");
+                        MeshHasher.GetOrAddMeshFromBinary(meshContentHash, cachedData); // Ensures it's in MeshHasher's map
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Cache miss for mesh {i} (hash {meshContentHash}). Processing and caching.");
+                        MeshHasher.AddOrGetMesh(assimpMesh); // Process and add to MeshHasher's internal dictionary
+                        
+                        byte[] binaryData = MeshHasher.SerializeMeshData(assimpMesh); // Serialize the mesh
+                        AssetCacheManager.StoreCompiledMesh(meshContentHash, originalModelFilePath, binaryData); // Store it
+                    }
+                }
+            }
+            
+            Console.WriteLine($"Ensured all meshes from {originalModelFilePath} are processed/cached. Calling ModelLoader.LoadModel.");
+
+            // Define position, rotation, scale for the new model
+            Vector3 position = LegendaryRuntime.Engine.Engine.Engine.ActiveCamera.Transform.Position + Engine.Engine.Engine.ActiveCamera.Transform.Forward * 5; // Example position
+            Quaternion rotation = Rotation(0, 0, 0); // Example rotation
+            Vector3 scale = Vector3.One; // Example scale
+
+            // Now call the standard ModelLoader method. It will use the meshes already processed into MeshHasher.
+            GameObject loadedGameObject = ModelLoader.LoadModel(originalModelFilePath, position, rotation, scale, true);
+            
+            // Optionally, add the loadedGameObject to the main scene or manage it as needed
+            // For example, if you have a list of top-level game objects in your engine:
+            // LegendaryRuntime.Engine.Engine.Engine.GameObjects.Add(loadedGameObject);
+            // Or if your scene manager handles this:
+            // LegendaryRuntime.Engine.Engine.Engine.LoadedScenes[0].AddGameObject(loadedGameObject);
+            // This part depends on your engine's scene management.
+          //  Engine.Engine.Engine.AddGameObject(loadedGameObject); // Add the loaded model to the engine's scene
+            Console.WriteLine($"Model {loadedGameObject.Name} created by LoadModel and added to scene.");
+
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error during cached model loading for {originalModelFilePath}: {ex.Message}\n{ex.StackTrace}");
+        }
     }
 }

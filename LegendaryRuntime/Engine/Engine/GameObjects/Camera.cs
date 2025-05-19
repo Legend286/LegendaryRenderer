@@ -1,6 +1,8 @@
 using LegendaryRenderer.Application;
 using LegendaryRenderer.LegendaryRuntime.Application;
+using LegendaryRenderer.LegendaryRuntime.Engine.Editor.UserInterface;
 using LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer;
+using LegendaryRenderer.LegendaryRuntime.Engine.Utilities;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 using App = LegendaryRenderer.LegendaryRuntime.Application.Application;
@@ -41,16 +43,21 @@ public class Camera : GameObject
         AspectRatio = ((float)App.Width / (float)App.Height);
         
         ViewMatrix = Matrix4.LookAt(position, lookAt, Vector3.UnitY);
-        Matrix4.CreatePerspectiveFieldOfView(MathHelper.DegreesToRadians(FieldOfView),
-                                            AspectRatio, ZNear, ZFar, out Matrix4 projection);
+        Matrix4.CreatePerspectiveFieldOfView(MathHelper.DegreesToRadians(FieldOfView), AspectRatio, ZNear, ZFar, out Matrix4 projection);
+        
         ProjectionMatrix = projection;
         ViewProjectionMatrix = ViewMatrix * ProjectionMatrix;
         Frustum = new Frustum(this);
         
     }
+
+    public void SetViewMatrix(Vector3 position, Vector3 lookAt)
+    {
+        ViewMatrix = Matrix4.LookAt(position, lookAt, Vector3.UnitY);
+    }
+    
     Vector2 LastMousePosition = Vector2.Zero;
     
-    private bool previousFrame = true;
     private Vector2 AccumDelta;
     public override void Update(float deltaTime)
     {
@@ -58,43 +65,51 @@ public class Camera : GameObject
         
         bool MovingCamera = false;
         PreviousViewProjectionMatrix = ViewProjectionMatrix;
+        
 
-       
 
-        if (ApplicationWindow.mouseState.IsButtonDown(MouseButton.Right))
+        if (Engine.EditorViewport.IsHovered)
         {
-            App.SetCursorVisible(false);
-
-            if (Eng.ActiveCamera == this)
+            if (ApplicationWindow.mouseState.IsButtonDown(MouseButton.Right))
             {
-                MovingCamera = true;
+                App.SetCursorVisible(false);
+
+                if (Eng.ActiveCamera == this)
+                {
+                    MovingCamera = true;
+                }
+                else
+                {
+                    MovingCamera = false;
+                }
+
             }
             else
             {
+                App.SetCursorVisible(true);
                 MovingCamera = false;
             }
-
         }
         else
         {
             App.SetCursorVisible(true);
             MovingCamera = false;
         }
-
-
+        
         if (MovingCamera)
         {
             Vector2 delta = LastMousePosition - MousePosition;
 
             AccumDelta += delta * 0.1f;
-
             AccumDelta.Y = Math.Clamp(AccumDelta.Y, -89.0f, 89.0f);
-
+            
             Quaternion pitch = Quaternion.FromAxisAngle(Vector3.UnitX, MathHelper.DegreesToRadians(AccumDelta.Y));
             Quaternion yaw = Quaternion.FromAxisAngle(Vector3.UnitY, MathHelper.DegreesToRadians(AccumDelta.X));
 
-            Transform.Rotation = yaw * pitch;
+            Quaternion rotation = yaw * pitch;
+            Transform.Rotation = rotation;
         }
+      
 
         if (ApplicationWindow.keyboardState.IsKeyDown(Keys.W) && MovingCamera)
         {

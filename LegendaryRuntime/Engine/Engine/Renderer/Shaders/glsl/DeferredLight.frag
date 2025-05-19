@@ -50,6 +50,7 @@ uniform vec3 lightColour; // light colour
 uniform int lightType; // int for light type, 0 = spot, 1 = point, 2 = directional
 uniform int lightShadowsEnabled; // enable shadows or not for this light
 uniform float lightShadowBias; // shadow bias for this light
+uniform float lightNormalBias; // shadow normal bias
 uniform int enableIESProfile; // enable IES profile 
 uniform sampler2D IESProfileTexture;  // IES texture sampler
 
@@ -388,7 +389,7 @@ float NormalOrientedAmbientOcclusion(vec2 UV, vec3 vsNormal)
     return 1-occlusion;
 }
 
-float GetShadowAttenuation(mat4 shadowViewProj, sampler2D shadowMapTex, vec3 pos, vec3 normal, vec3 lightDir)
+float GetShadowAttenuation(mat4 shadowViewProj, sampler2D shadowMapTex, vec3 pos, vec3 normal, vec3 lightDir, float biasMultiplier)
 {
     if(lightShadowsEnabled == 1)
     {
@@ -441,15 +442,16 @@ float GetShadowAttenuation(mat4 shadowViewProj, sampler2D shadowMapTex, vec3 pos
 
         float biasAdjustment = pow(distance(cameraPosWS, pos), 1.0f) / MAX_BIAS_DISTANCE;
         biasAdjustment = clamp(biasAdjustment, 1, MAX_BIAS_DISTANCE);
-        biasAdjustment *= MAX_BIAS_DISTANCE_MUL;
+        biasAdjustment += MAX_BIAS_DISTANCE_MUL;
 
         // Adaptive bias based on normal and light direction
-        float normalBiasFactor = clamp(dot(normal, lightDir), 0.0, 1.0);
-        float bias = lightShadowBias * normalBiasFactor; // Lower the bias multiplier
+        float normalBiasFactor = clamp(dot(normal, -lightDir), 0.0, 1.0);
+        float bias = lightNormalBias * normalBiasFactor; // Lower the bias multiplier
+        bias += lightShadowBias * biasMultiplier;
 
         // Loop over Poisson disk samples
         for (int i = 0; i < pcfSamples; i++) {
-            vec2 offset = rotationMatrix * ((poissonDisk[i] * (4 / shadowResolution)));
+            vec2 offset = rotationMatrix * ((poissonDisk[i] * (1 / shadowResolution)));
 
             vec2 samplePos = shadowPos.xy + offset;
             
@@ -497,35 +499,34 @@ float GetShadowAttenuationCSM(vec3 pos, vec3 normal, vec3 lightDir)
     if(cascadeCount > 5)
     {
         float mixCascade = CalculateAttenuationFactor(shadowViewProjection5, pos);
-        shadowFactor = mix(shadowFactor, GetShadowAttenuation(shadowViewProjection5, shadowMap5, pos, normal, -lightDir), 1-mixCascade);
+        shadowFactor = mix(shadowFactor, GetShadowAttenuation(shadowViewProjection5, shadowMap5, pos, normal, -lightDir, 50.0f), 1-mixCascade);
     }
 
     if(cascadeCount > 4)
     {
         float mixCascade = CalculateAttenuationFactor(shadowViewProjection4, pos);
-        shadowFactor = mix(shadowFactor, GetShadowAttenuation(shadowViewProjection4, shadowMap4, pos, normal, -lightDir), 1-mixCascade);
+        shadowFactor = mix(shadowFactor, GetShadowAttenuation(shadowViewProjection4, shadowMap4, pos, normal, -lightDir, 40.0f), 1-mixCascade);
     }
     if(cascadeCount > 3)
     {
         float mixCascade = CalculateAttenuationFactor(shadowViewProjection3, pos);
-        shadowFactor = mix(shadowFactor, GetShadowAttenuation(shadowViewProjection3, shadowMap3, pos, normal, -lightDir), 1-mixCascade);
+        shadowFactor = mix(shadowFactor, GetShadowAttenuation(shadowViewProjection3, shadowMap3, pos, normal, -lightDir, 30.0f), 1-mixCascade);
     }
     if(cascadeCount > 2)
     {
         float mixCascade = CalculateAttenuationFactor(shadowViewProjection2, pos);
-        shadowFactor = mix(shadowFactor, GetShadowAttenuation(shadowViewProjection2, shadowMap2, pos, normal, -lightDir), 1-mixCascade);
+        shadowFactor = mix(shadowFactor, GetShadowAttenuation(shadowViewProjection2, shadowMap2, pos, normal, -lightDir, 20.0f), 1-mixCascade);
     }
     if(cascadeCount > 1)
     {
         float mixCascade = CalculateAttenuationFactor(shadowViewProjection1, pos);
-        shadowFactor = mix(shadowFactor, GetShadowAttenuation(shadowViewProjection1, shadowMap1, pos, normal, -lightDir), 1-mixCascade);
+        shadowFactor = mix(shadowFactor, GetShadowAttenuation(shadowViewProjection1, shadowMap1, pos, normal, -lightDir, 10.0f), 1-mixCascade);
     }
-
     if (cascadeCount > 0)
     {
         float mixCascade = CalculateAttenuationFactor(shadowViewProjection0, pos);
 
-        shadowFactor = mix(shadowFactor, GetShadowAttenuation(shadowViewProjection0, shadowMap0, pos, normal, -lightDir), 1-mixCascade);
+        shadowFactor = mix(shadowFactor, GetShadowAttenuation(shadowViewProjection0, shadowMap0, pos, normal, -lightDir, 1.0f), 1-mixCascade);
     }
 
     return shadowFactor;
@@ -560,7 +561,7 @@ void main()
     
     if (lightType == 0 || lightType == 4)
     {
-        shadowFactor = GetShadowAttenuation(shadowViewProjection, shadowMap, pos, normal, lightDir);
+        shadowFactor = GetShadowAttenuation(shadowViewProjection, shadowMap, pos, normal, lightDir, 1.0f);
         if (lightType == 4)
         {
             lightDir = -spotLightDir;
@@ -577,12 +578,12 @@ void main()
     }
     else if (lightType == 1)
     {
-        shadowFactor = shadowFactor * GetShadowAttenuation(shadowViewProjection0, shadowMap0, pos, normal, lightDir);
-        shadowFactor = shadowFactor * GetShadowAttenuation(shadowViewProjection1, shadowMap1, pos, normal, lightDir);
-        shadowFactor = shadowFactor * GetShadowAttenuation(shadowViewProjection2, shadowMap2, pos, normal, lightDir);
-        shadowFactor = shadowFactor * GetShadowAttenuation(shadowViewProjection3, shadowMap3, pos, normal, lightDir);
-        shadowFactor = shadowFactor * GetShadowAttenuation(shadowViewProjection4, shadowMap4, pos, normal, lightDir);
-        shadowFactor = shadowFactor * GetShadowAttenuation(shadowViewProjection5, shadowMap5, pos, normal, lightDir);
+        shadowFactor = shadowFactor * GetShadowAttenuation(shadowViewProjection0, shadowMap0, pos, normal, lightDir, 1.0f);
+        shadowFactor = shadowFactor * GetShadowAttenuation(shadowViewProjection1, shadowMap1, pos, normal, lightDir, 1.0f);
+        shadowFactor = shadowFactor * GetShadowAttenuation(shadowViewProjection2, shadowMap2, pos, normal, lightDir, 1.0f);
+        shadowFactor = shadowFactor * GetShadowAttenuation(shadowViewProjection3, shadowMap3, pos, normal, lightDir, 1.0f);
+        shadowFactor = shadowFactor * GetShadowAttenuation(shadowViewProjection4, shadowMap4, pos, normal, lightDir, 1.0f);
+        shadowFactor = shadowFactor * GetShadowAttenuation(shadowViewProjection5, shadowMap5, pos, normal, lightDir, 1.0f);
     }
     else if (lightType == 2)
     {
@@ -604,15 +605,18 @@ void main()
     //float ao = NormalOrientedAmbientOcclusion(texCoord, normalize(vsNormal));
     
    
+   
+    FragColor = vec4(((light * (1-(shadowFactor)))) + 0.015f * ((dot(normal, lightDir)*0.5+0.5)*(((lightColour*lightCookie.rgb)*albedo))),1.0f);
+
+    /*
     vec3 ReflectionVector = viewDir;
     vec2 reflectionUV = EquirectangularUVFromReflectionVector(ReflectionVector);
     vec3 refl = texture(cubemap, reflectionUV).rgb;
-    
-    FragColor = vec4(((light * (1-(shadowFactor)))) + 0.015f * ((dot(normal, lightDir)*0.5+0.5)*(((lightColour*lightCookie.rgb)*albedo))),1.0f);
-    
+
     if(texture(screenDepth, texCoord).r >= 0.9999999f)
     {
         FragColor = vec4(refl, 1.0f);
     }
-
+*/
+    
 }

@@ -14,7 +14,8 @@ public static class Gizmos
     // add up here in Gizmos:
     private static Vector2 _rotateStartDir;         // screen‐space unit vector at drag start
     private static Quaternion _rotationOnDragStart; // the object's rotation at drag start
-
+    public static bool DrawGizmos;
+    
     private enum Axis
     {
         None = -1,
@@ -42,7 +43,10 @@ public static class Gizmos
 
     public static void DrawPointLightGizmo(Camera camera, Light light, Vector2 viewportSizeInPoints, Vector2 viewportPosition)
     {
-
+        if (!DrawGizmos)
+        {
+            return;
+        }
         var drawList = ImGui.GetForegroundDrawList();
 
         // 1) Project the light’s center into screen space
@@ -114,6 +118,10 @@ public static class Gizmos
 
     public static void DrawSpotLightCone(Camera camera, Light light, Vector2 viewportSizeInPoints, Vector2 viewportPosition)
     {
+        if (!DrawGizmos)
+        {
+            return;
+        }
         var drawList = ImGui.GetForegroundDrawList();
 
         // 1) Project light origin to screen-space
@@ -176,30 +184,42 @@ public static class Gizmos
                 );
 
 
-
-                // draw lines from tip to base
-
-                var lightOrigin = light.Transform.Position;
-                if (ClipLineAgainstNearPlane(camera, ref lightOrigin, ref worldPos0))
-                {
-                    originSS = Project(camera, lightOrigin, viewportSizeInPoints);
-                    screen0 = Project(camera, worldPos0, viewportSizeInPoints);
-
-                    Vector2 screenOrigin = new Vector2(originSS.X + viewportPosition.X, originSS.Y + viewportPosition.Y);
-
-                    // Offset by viewport top-left position
-                    screen0 += viewportPosition;
-
-
-                    drawList.AddLine(
-                        new System.Numerics.Vector2(screen0.X, screen0.Y),
-                        new System.Numerics.Vector2(screenOrigin.X, screenOrigin.Y),
-                        colour,
-                        1.0f
-                    );
-                }
-
             }
+
+            // draw lines from tip to base
+
+            worldPos0 = light.Transform.Position + light.Transform.Forward * light.Range + offset0;
+
+            var lightOrigin = light.Transform.Position;
+            if (ClipLineAgainstNearPlane(camera, ref lightOrigin, ref worldPos0))
+            {
+
+                Vector2 screen0 = Project(camera, worldPos0, viewportSizeInPoints);
+                Vector2 screen1 = Project(camera, worldPos1, viewportSizeInPoints);
+
+                // Offset by viewport top-left position
+                screen0 += viewportPosition;
+                screen1 += viewportPosition;
+
+                originSS = Project(camera, lightOrigin, viewportSizeInPoints);
+                screen0 = Project(camera, worldPos0, viewportSizeInPoints);
+
+                Vector2 screenOrigin = new Vector2(originSS.X + viewportPosition.X, originSS.Y + viewportPosition.Y);
+
+                // Offset by viewport top-left position
+                screen0 += viewportPosition;
+
+
+                uint colour = Maths.Color4ToUint(light.Colour);
+
+                drawList.AddLine(
+                    new System.Numerics.Vector2(screen0.X, screen0.Y),
+                    new System.Numerics.Vector2(screenOrigin.X, screenOrigin.Y),
+                    colour,
+                    1.0f
+                );
+            }
+
         }
         drawList.PopClipRect();
     }
@@ -557,6 +577,90 @@ public static class Gizmos
         float   deltaProj = Vector2.Dot(mouseDelta, tangent);
         // scale so that moving one circle‐radius in screen‐space == 1 radian
         return deltaProj / len;
+    }
+
+    public static void DrawInfiniteGrid(Vector2 viewportMin, Vector2 viewportMax, Camera camera, float baseGridSize)
+    {
+        var drawList = ImGui.GetWindowDrawList();
+        var viewportSize = viewportMax - viewportMin;
+
+        if (camera.Transform == null) return;
+
+        // Use System.Numerics for matrix calculations
+        // Assuming Maths.ToNumericsMatrix4x4 correctly converts OpenTK.Mathematics.Matrix4 to System.Numerics.Matrix4x4
+        System.Numerics.Matrix4x4 viewMatrixNumerics = Maths.ToNumericsMatrix4x4(camera.ViewMatrix);
+        // Use GetProjectionMatrix to ensure it's for the current viewport aspect ratio
+        System.Numerics.Matrix4x4 projectionMatrixNumerics = Maths.ToNumericsMatrix4x4(camera.ProjectionMatrix);
+        
+        uint gridColorU = ImGui.GetColorU32(new System.Numerics.Vector4(0.5f, 0.5f, 0.5f, 0.4f));
+        uint thickerLineColorU = ImGui.GetColorU32(new System.Numerics.Vector4(0.6f, 0.6f, 0.6f, 0.6f));
+        uint xAxisColorU = ImGui.GetColorU32(new System.Numerics.Vector4(0.8f, 0.2f, 0.2f, 0.7f)); // Red for X
+        uint zAxisColorU = ImGui.GetColorU32(new System.Numerics.Vector4(0.2f, 0.2f, 0.8f, 0.7f)); // Blue for Z
+
+        System.Numerics.Vector3 cameraPositionNumerics = Maths.ToNumericsVector3(camera.Transform.Position);
+        float cameraHeight = cameraPositionNumerics.Y;
+
+        // Dynamic grid size based on camera height.
+        float dynamicGridSpacing = baseGridSize;
+       
+        dynamicGridSpacing = MathF.Max(0.05f, dynamicGridSpacing); // Ensure a minimum spacing
+
+        System.Numerics.Vector3 gridPatchCenter = new System.Numerics.Vector3(cameraPositionNumerics.X, 0, cameraPositionNumerics.Z);
+
+        const int linesPerSide = 250; // Draw 50 lines from the center in each direction.
+        float drawExtent = linesPerSide;
+        var lines = new List<(System.Numerics.Vector3 start, System.Numerics.Vector3 end, uint color)>();
+
+        // Lines parallel to Z-axis (X lines)
+        float startX = (float)Math.Floor((gridPatchCenter.X - drawExtent) / dynamicGridSpacing) * dynamicGridSpacing;
+        float endX = (float)Math.Ceiling((gridPatchCenter.X + drawExtent) / dynamicGridSpacing) * dynamicGridSpacing;
+
+        for (float x = startX; x <= endX; x += dynamicGridSpacing)
+        {
+            if (dynamicGridSpacing < 0.001f) break; // Safety break if spacing becomes too small
+            uint color = gridColorU;
+            float xRelative = x / dynamicGridSpacing;
+            if (Math.Abs(xRelative - MathF.Round(xRelative / 10.0f) * 10.0f) < 0.1f)
+                color = thickerLineColorU;
+            if (Math.Abs(x) < dynamicGridSpacing * 0.5f) // Check if 'x' is close to 0 for Z-axis
+                color = zAxisColorU;
+
+            lines.Add((new System.Numerics.Vector3(x, 0, gridPatchCenter.Z - drawExtent),
+                new System.Numerics.Vector3(x, 0, gridPatchCenter.Z + drawExtent),
+                color));
+        }
+
+        // Lines parallel to X-axis (Z lines)
+        float startZ = (float)Math.Floor((gridPatchCenter.Z - drawExtent) / dynamicGridSpacing) * dynamicGridSpacing;
+        float endZ = (float)Math.Ceiling((gridPatchCenter.Z + drawExtent) / dynamicGridSpacing) * dynamicGridSpacing;
+
+        for (float z = startZ; z <= endZ; z += dynamicGridSpacing)
+        {
+            if (dynamicGridSpacing < 0.001f) break; // Safety break
+            uint color = gridColorU;
+            float zRelative = z / dynamicGridSpacing;
+            if (Math.Abs(zRelative - MathF.Round(zRelative / 10.0f) * 10.0f) < 0.1f)
+                color = thickerLineColorU;
+            if (Math.Abs(z) < dynamicGridSpacing * 0.5f) // Check if 'z' is close to 0 for X-axis
+                color = xAxisColorU;
+
+            lines.Add((new System.Numerics.Vector3(gridPatchCenter.X - drawExtent, 0, z),
+                new System.Numerics.Vector3(gridPatchCenter.X + drawExtent, 0, z),
+                color));
+        }
+
+        foreach (var line in lines)
+        {
+            var start = Maths.FromNumericsVector3(line.start);
+            var end = Maths.FromNumericsVector3(line.end);
+            
+            if (ClipLineAgainstNearPlane(camera, ref start, ref end))
+            {
+                var screenP1 = Maths.ToNumericsVector2(Project(camera, start, viewportSize)) + Engine.Engine.EditorViewport.ViewportPosition;
+                var screenP2 = Maths.ToNumericsVector2(Project(camera, end, viewportSize)) + Engine.Engine.EditorViewport.ViewportPosition;
+                drawList.AddLine(screenP1, screenP2, line.color, 1.0f);
+            }
+        }
     }
 
     public static bool ClipLineAgainstNearPlane(Camera camera, ref Vector3 a, ref Vector3 b)
