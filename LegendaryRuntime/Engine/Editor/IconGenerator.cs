@@ -230,10 +230,10 @@ namespace LegendaryRenderer.LegendaryRuntime.Engine.Editor
                 Matrix4 modelMatrix = Matrix4.CreateTranslation(-center); // Center the mesh at origin first
                 
                 // Simple orthographic view for icons
-                float orthoSize = size * 0.75f; // Zoom out a bit to frame it
+                float orthoSize = size * 1.0f; // Zoom out a bit to frame it
                 Matrix4 projectionMatrix = Matrix4.CreateOrthographic(orthoSize * ((float)iconSize / iconSize), orthoSize, 0.01f, size * 2.0f + 10f);
 
-                Vector3 camPos = new Vector3(0, 0, size + 1.0f); // Place camera in front, looking at origin (where mesh is now centered)
+                Vector3 camPos = new Vector3(0, size + 5.0f, size + 1.0f); // Place camera in front, looking at origin (where mesh is now centered)
                 Matrix4 viewMatrix = Matrix4.LookAt(camPos, Vector3.Zero, Vector3.UnitY);
 
 
@@ -242,8 +242,8 @@ namespace LegendaryRenderer.LegendaryRuntime.Engine.Editor
                 GL.Viewport(0, 0, iconSize, iconSize);
                 GL.ClearColor(0.2f, 0.2f, 0.2f, 0.0f); // Transparent background with grey tint for visibility
                 GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
-                GL.Enable(EnableCap.DepthTest);
-                // GL.Enable(EnableCap.CullFace); // Optional: depends if you want to see backfaces for thin meshes
+                GL.Enable(EnableCap.DepthTest); 
+                GL.Enable(EnableCap.CullFace); // Optional: depends if you want to see backfaces for thin meshes
 
                 pbrIconShaderFile.UseShader(); // Use ShaderFile's method
                 pbrIconShaderFile.SetShaderMatrix4x4("model", modelMatrix, false); // Model matrix centers the mesh

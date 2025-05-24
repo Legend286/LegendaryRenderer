@@ -38,7 +38,7 @@ namespace LegendaryRenderer.LegendaryRuntime.Engine.Editor
             // Create Depth Renderbuffer
             depthRenderbufferHandle = GL.GenRenderbuffer();
             GL.BindRenderbuffer(RenderbufferTarget.Renderbuffer, depthRenderbufferHandle);
-            GL.RenderbufferStorage(RenderbufferTarget.Renderbuffer, OpenTK.Graphics.OpenGL.RenderbufferStorage.DepthComponent24,
+            GL.RenderbufferStorage(RenderbufferTarget.Renderbuffer, RenderbufferStorage.DepthComponent32,
                                    width, height); // Or DepthComponent16 if preferred
             GL.FramebufferRenderbuffer(FramebufferTarget.Framebuffer, FramebufferAttachment.DepthAttachment,
                                      RenderbufferTarget.Renderbuffer, depthRenderbufferHandle);
@@ -50,7 +50,7 @@ namespace LegendaryRenderer.LegendaryRuntime.Engine.Editor
                 throw new Exception($"Framebuffer not complete: {status}");
             }
 
-          //  GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0); // Unbind
+            GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0); // Unbind
         }
 
         public void Bind()

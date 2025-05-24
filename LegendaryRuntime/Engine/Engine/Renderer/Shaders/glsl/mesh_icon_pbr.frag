@@ -85,7 +85,7 @@ void main()
 
     // Lighting vectors
     vec3 V = normalize(u_CameraPosWorld - FragPos_World);
-    vec3 L = normalize(u_LightDirWorld); // Already normalized uniform
+    vec3 L = normalize(V); // Already normalized uniform
     vec3 H = normalize(L + V);
 
     // PBR Calculations
@@ -110,7 +110,7 @@ void main()
     vec3 specular     = numerator / denominator;
 
     // Radiance (incoming light color * intensity * NdotL)
-    vec3 radiance = u_LightColor * NdotL; // Assuming u_LightColor already includes intensity
+    vec3 radiance = u_LightColor * NdotL * 4.0f; // Assuming u_LightColor already includes intensity
     
     // Combine diffuse and specular for direct lighting
     vec3 directLighting = (kD * albedo / PI + specular) * radiance;
