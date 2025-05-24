@@ -126,7 +126,7 @@ public class EditorViewport
             }
             {
                 buf.AddToRollingBuffer(KVP.Value);
-                ImGui.PlotHistogram($"{KVP.Key}", ref buf.buffer[0], buf.bufferTotal);
+                ImGui.PlotHistogram($"{KVP.Key}", ref buf.buffer[0], buf.bufferTotal, 0, $"{buf.buffer[buf.bufferTotal-1]} milliseconds");
             }
         }
         ImGui.End();
