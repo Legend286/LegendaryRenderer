@@ -14,6 +14,7 @@ using Matrix4x4 = OpenTK.Mathematics.Matrix4;
 using System.IO;
 using LegendaryRenderer.LegendaryRuntime.Application;
 using LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer.ModelLoader;
+using OpenTK.Graphics.ES30;
 
 namespace LegendaryRenderer.LegendaryRuntime.Engine.Editor.UserInterface;
 
@@ -65,7 +66,7 @@ public class EditorViewport
     {
         // 0) Reset resize flag
         resizingThisFrame = false;
-
+        
         // 1) Begin window with no padding
         ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Vector2(0, 0));
         ImGui.Begin("Viewport", ImGuiWindowFlags.MenuBar | ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse);
@@ -131,7 +132,8 @@ public class EditorViewport
 
             if (ImGui.BeginMenu("View"))
             {
-                if (ImGui.MenuItem("Show Grid", "", ref showGrid))
+                string GridState = showGrid ? "Hide" : "Show";
+                if (ImGui.MenuItem($"{GridState} Grid", "", ref showGrid))
                 {
                     // Logic is handled by ref bool in MenuItem, or manually: showGrid = !showGrid;
                 }
@@ -175,8 +177,9 @@ public class EditorViewport
                     }
                     ImGui.EndMenu();
                 }
-
-                if (ImGui.MenuItem("Show Gizmos"))
+                
+                string GizmoState = Gizmos.Gizmos.DrawGizmos ? "Disable" : "Enable";
+                if (ImGui.MenuItem($"{GizmoState} Gizmos"))
                 {
                     Gizmos.Gizmos.DrawGizmos = !Gizmos.Gizmos.DrawGizmos;
                 }

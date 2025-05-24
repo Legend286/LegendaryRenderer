@@ -231,7 +231,7 @@ public class Transform
             Matrix4 localTranslation = Matrix4.CreateTranslation(localPosition);
 
             LocalRotation = Maths.Rotation(EulerAngles.X, EulerAngles.Y, EulerAngles.Z).Normalized();
-            Matrix4 localRotationMatrix = Matrix4.CreateFromQuaternion(LocalRotation); // now always reflects UI
+            Matrix4 localRotationMatrix = Matrix4.CreateFromQuaternion(Maths.Rotation(EulerAngles.X, EulerAngles.Y, EulerAngles.Z)); // now always reflects UI
             Matrix4 localScaleMatrix = Matrix4.CreateScale(localScale);
             
             

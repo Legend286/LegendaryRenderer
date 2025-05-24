@@ -234,7 +234,7 @@ namespace LegendaryRenderer.LegendaryRuntime.Engine.Editor
                 Matrix4 projectionMatrix = Matrix4.CreateOrthographic(orthoSize * ((float)iconSize / iconSize), orthoSize, 0.01f, size * 2.0f + 10f);
 
                 Vector3 camPos = new Vector3(0, size + 5.0f, size + 1.0f); // Place camera in front, looking at origin (where mesh is now centered)
-                Matrix4 viewMatrix = Matrix4.LookAt(camPos, Vector3.Zero, Vector3.UnitY);
+                Matrix4 viewMatrix = Matrix4.LookAt(camPos, Vector3.Zero, -Vector3.UnitY);
 
 
                 // --- 5. Rendering ---

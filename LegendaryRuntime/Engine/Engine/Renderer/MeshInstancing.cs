@@ -162,11 +162,17 @@ public static class MeshHasher
         
         if (!MeshHashMap.TryGetValue(hash, out CombinedMesh hashedMesh))
         {
+            Vector3D center = (mesh.BoundingBox.Min + mesh.BoundingBox.Max) * 0.5f;
+            Vector3D mb = mesh.BoundingBox.Max;
             // Original path
             hashedMesh = new CombinedMesh
             { 
                 RenderMesh = UploadMeshToGPU(mesh), 
                 ShadowMesh = BuildShadowMesh(mesh),
+                VertexCount = mesh.VertexCount,
+                numShadowVertices = mesh.VertexCount,
+               
+                LocalBounds = new SphereBounds(new Vector3(center.X, center.Y, center.Z), Vector3.Distance(new Vector3(center.X, center.Y, center.Z), new Vector3(mb.X, mb.Y, mb.Z))),
                 // numVertices and numShadowVertices could be set here if needed by CombinedMesh directly
             };
             MeshHashMap.Add(hash, hashedMesh);

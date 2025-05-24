@@ -14,7 +14,7 @@ public static class Gizmos
     // add up here in Gizmos:
     private static Vector2 _rotateStartDir;         // screen‐space unit vector at drag start
     private static Quaternion _rotationOnDragStart; // the object's rotation at drag start
-    public static bool DrawGizmos;
+    public static bool DrawGizmos = true;
     
     private enum Axis
     {

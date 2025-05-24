@@ -17,8 +17,7 @@ namespace LegendaryRenderer.LegendaryRuntime.Engine.Editor.Dockspace
                 return;
 
             string iniData = File.ReadAllText(layoutFilename);
-            ImGui.LoadIniSettingsFromMemory(iniData, (uint)iniData.Length * sizeof(char));
-
+            ImGui.LoadIniSettingsFromDisk(layoutFilename);
             Console.WriteLine($"[DockLayoutManager] Loaded layout from '{layoutFilename}'.");
         }
 

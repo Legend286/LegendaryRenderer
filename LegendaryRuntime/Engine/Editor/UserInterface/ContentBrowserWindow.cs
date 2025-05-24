@@ -335,7 +335,7 @@ namespace LegendaryRenderer.LegendaryRuntime.Engine.Editor.UserInterface
                     }
 
                     // Add drag and drop source for models (moved outside the if/else blocks)
-                    if (item.ItemType == BrowserItemType.Model || item.ItemType == BrowserItemType.CompiledMesh)
+                    if (item.ItemType == BrowserItemType.CompiledMesh || item.ItemType == BrowserItemType.Model)
                     {
                         // Check if FullPath is valid before starting drag-drop
                         if (!string.IsNullOrEmpty(item.FullPath) && ImGui.BeginDragDropSource())

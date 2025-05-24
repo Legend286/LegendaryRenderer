@@ -100,6 +100,7 @@ namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer
             VertexCount = mesh.VertexCount;
 
             LocalBounds = mesh.LocalBounds ?? new SphereBounds(Vector3.Zero, 10.0f);
+            Loaded = true;
         }
         public void SetMeshData(int shadowVao = -1, int vao = -1, bool instanced = false, int indexCount = 0, int vertexCount = 0, SphereBounds? localBounds = null)
         {
