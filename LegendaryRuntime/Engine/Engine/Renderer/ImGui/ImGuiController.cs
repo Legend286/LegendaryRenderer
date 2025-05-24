@@ -2,7 +2,10 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using ImGuiNET;
+using LegendaryRenderer.Application;
+using LegendaryRenderer.LegendaryRuntime.Application;
 using LegendaryRenderer.LegendaryRuntime.Engine.Editor.Dockspace;
+using LegendaryRenderer.LegendaryRuntime.Engine.Utilities;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.Desktop;
@@ -31,7 +34,7 @@ namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer
         private int _windowWidth;
         private int _windowHeight;
 
-        private System.Numerics.Vector2 _scaleFactor = System.Numerics.Vector2.One;
+        private System.Numerics.Vector2 _scaleFactor = Maths.ToNumericsVector2(DPI.GetDPIScale());
 
         private static bool KHRDebugAvailable = false;
 
@@ -385,7 +388,7 @@ void main()
             io.MouseDown[3] = MouseState[MouseButton.Button4];
             io.MouseDown[4] = MouseState[MouseButton.Button5];
 
-            var screenPoint = new Vector2i((int)MouseState.X, (int)MouseState.Y);
+            var screenPoint = new Vector2(MouseState.X, MouseState.Y) / DPI.GetDPIScale();
             var point = screenPoint;
             io.MousePos = new System.Numerics.Vector2(point.X, point.Y);
 
@@ -520,7 +523,7 @@ void main()
             GL.BindVertexArray(_vertexArray);
             CheckGLError("VAO");
 
-            draw_data.ScaleClipRects(io.DisplayFramebufferScale);
+            draw_data.ScaleClipRects(io.DisplayFramebufferScale * Maths.ToNumericsVector2(DPI.GetDPIScale()));
 
             GL.Enable(EnableCap.Blend);
             GL.Enable(EnableCap.ScissorTest);

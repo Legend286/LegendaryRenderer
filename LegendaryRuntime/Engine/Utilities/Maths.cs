@@ -8,6 +8,15 @@ namespace LegendaryRenderer.LegendaryRuntime.Engine.Utilities;
 
 public static class Maths
 {
+    public static Vector2 Min2(Vector2 v1, Vector2 v2)
+    {
+        return new Vector2(MathF.Min(v1.X, v2.X), MathF.Min(v1.Y, v2.Y));
+    }
+
+    public static Vector2 Max2(Vector2 v1, Vector2 v2)
+    {
+        return new Vector2(MathF.Max(v1.X, v2.X), MathF.Max(v1.Y, v2.Y));
+    }
     public static Vector3 Min3(Vector3 a, Vector3 b)
     {
         return new Vector3(MathF.Min(a.X, b.X), MathF.Min(a.Y, b.Y), MathF.Min(a.Z, b.Z));

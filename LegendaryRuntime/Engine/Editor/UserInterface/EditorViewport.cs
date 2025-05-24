@@ -401,13 +401,13 @@ public class EditorViewport
 
         // 8) Compute mouse‐in‐viewport (points)
         var io = ImGui.GetIO();
-        Vector2 ms = io.MousePos;    // mouse in screen‐space points
+        Vector2 ms = Application.ApplicationWindow.GetMousePosition();    // mouse in screen‐space points
         Vector2 local = ms - imgMin; // point‐local
 
         // clamp into [0, viewW/viewH]
         local.X = Math.Clamp(local.X, 0, ViewportSize.X);
         local.Y = Math.Clamp(local.Y, 0, ViewportSize.Y);
-        MouseViewportPosition = io.MousePos - ViewportPosition;
+        MouseViewportPosition = Application.ApplicationWindow.GetMousePosition() - ViewportPosition;
 
         // 9) Convert to *pixel* coords using ImGui's framebuffer scale
         Vector2 scale = io.DisplayFramebufferScale; // e.g. (2,2) on Retina

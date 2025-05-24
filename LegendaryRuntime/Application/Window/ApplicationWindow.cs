@@ -22,7 +22,8 @@ using Camera = LegendaryRenderer.LegendaryRuntime.Engine.Engine.GameObjects.Came
 using Light = LegendaryRenderer.LegendaryRuntime.Engine.Engine.GameObjects.Light;
 using Quaternion = OpenTK.Mathematics.Quaternion;
 using LegendaryRenderer.LegendaryRuntime.Engine.Editor;
-using LegendaryRenderer.LegendaryRuntime.Engine.Editor.Dockspace; // Assuming DockLayoutManager might be relevant for menu
+using LegendaryRenderer.LegendaryRuntime.Engine.Editor.Dockspace;
+using LegendaryRenderer.LegendaryRuntime.Engine.Utilities; // Assuming DockLayoutManager might be relevant for menu
 
 // Imgui controller (see ImGuiController.cs for notice //
 using Vector2 = System.Numerics.Vector2;
@@ -37,8 +38,13 @@ public class ApplicationWindow : GameWindow
     public static MouseState mouseState;
     private ImGuiController imguiController;
    
-    Vector2 DPIScale = new Vector2(1, 1);
+    public static Vector2 DPIScale = new Vector2(1, 1);
 
+    public static Vector2 GetMousePosition()
+    {
+        var io = ImGui.GetIO();
+        return new Vector2(io.MousePos.X, io.MousePos.Y);
+    }
     public ApplicationWindow(GameWindowSettings gameWindowSettings, NativeWindowSettings nativeWindowSettings) : base(gameWindowSettings, nativeWindowSettings)
     {
         imguiController = new ImGuiController(Application.Width, Application.Height);
@@ -51,7 +57,7 @@ public class ApplicationWindow : GameWindow
         var windowSizeInPoints      = new Vector2(Size.X, Size.Y);           // ImGui points
         var framebufferSizeInPixels = new Vector2(Application.Width, Application.Height);
 
-        var dpiScale =  framebufferSizeInPixels / windowSizeInPoints;
+        var dpiScale = framebufferSizeInPixels / windowSizeInPoints;
         Console.WriteLine($"DPI Scale = {dpiScale}");
 
         DPI.SetDPIScale(FromNumericsVector2(dpiScale));
@@ -62,7 +68,6 @@ public class ApplicationWindow : GameWindow
         io.DisplayFramebufferScale = dpiScale;
         // 🛠 NEW: scale fonts down if needed
         io.FontGlobalScale = 1.0f / dpiScale.Y;
-
     }
 
     public bool IsMouseVisible
@@ -305,17 +310,19 @@ public class ApplicationWindow : GameWindow
         var windowSizeInPoints      = new Vector2(Size.X, Size.Y);           // ImGui points
         var framebufferSizeInPixels = new Vector2(Application.Width, Application.Height);
 
-        var dpiScale =  framebufferSizeInPixels / windowSizeInPoints;
+        var dpiScale = Maths.Max2(Maths.FromNumericsVector2(framebufferSizeInPixels / windowSizeInPoints), new OpenTK.Mathematics.Vector2(0.01f));
+        
         Console.WriteLine($"DPI Scale = {dpiScale}");
 
-        DPI.SetDPIScale(FromNumericsVector2(dpiScale));
+        DPI.SetDPIScale((dpiScale));
 
 
         var io = ImGui.GetIO();
         io.DisplaySize             = windowSizeInPoints;
-        io.DisplayFramebufferScale = dpiScale;
-        // 🛠 NEW: scale fonts down if needed
+        io.DisplayFramebufferScale =  ToNumericsVector2(OpenTK.Mathematics.Vector2.One / dpiScale);
+        
         io.FontGlobalScale = 1.0f / dpiScale.Y;
+        
     }
 
     void ResetCounters()
@@ -351,13 +358,14 @@ public class ApplicationWindow : GameWindow
         // Mouse inside viewport, relative to ViewportPosition
         var io = ImGui.GetIO();
 
-        var mousePosGlobal = FromNumericsVector2(io.MousePos);
+        var mousePosGlobal = GetMousePosition();
+        var mouse = FromNumericsVector2(mousePosGlobal);
 
         var viewPos = FromNumericsVector2(new Vector2(vpPos.X, vpPos.Y));
 
         if (LegendaryRuntime.Engine.Engine.Engine.SelectedRenderableObjects.Count == 1)
         {
-            Gizmos.DrawAndHandle(ref LegendaryRuntime.Engine.Engine.Engine.SelectedRenderableObjects[0].GetRoot().Transform, ref LegendaryRuntime.Engine.Engine.Engine.ActiveCamera, ref mousePosGlobal, ref size, ref viewPos, mode);
+            Gizmos.DrawAndHandle(ref LegendaryRuntime.Engine.Engine.Engine.SelectedRenderableObjects[0].GetRoot().Transform, ref LegendaryRuntime.Engine.Engine.Engine.ActiveCamera, ref mouse, ref size, ref viewPos, mode);
         }
 
         foreach (GameObject go in LegendaryRuntime.Engine.Engine.Engine.SelectedRenderableObjects)

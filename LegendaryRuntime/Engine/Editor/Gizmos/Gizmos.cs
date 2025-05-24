@@ -236,8 +236,7 @@ public static class Gizmos
         Vector2 originSS = Project(camera, initial.Position, viewportSizeInPoints);
         Vector2 vpMin = viewportPosition;
         Vector2 vpMax = viewportPosition + viewportSizeInPoints;
-        Vector2 scale = DPI.GetDPIScale();
-        Vector2 mouseSS = new Vector2(rawMousePos.X / scale.X, rawMousePos.Y / scale.Y);
+        Vector2 mouseSS = new Vector2(rawMousePos.X, rawMousePos.Y);
 
         // Compute a world‐space scale so the gizmo stays ~250px tall
         const float desiredPix = 250f;

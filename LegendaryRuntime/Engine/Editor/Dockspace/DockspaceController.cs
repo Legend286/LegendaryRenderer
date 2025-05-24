@@ -26,9 +26,10 @@ namespace LegendaryRenderer.LegendaryRuntime.Engine.Editor.Dockspace
             ImGuiWindowFlags windowFlags = ImGuiWindowFlags.MenuBar | ImGuiWindowFlags.NoDocking;
             ImGuiViewportPtr viewport = ImGui.GetMainViewport();
 
-            ImGui.SetNextWindowPos(viewport.Pos);
-            ImGui.SetNextWindowSize(new Vector2(_window.Size.X, _window.Size.Y));
-            ImGui.SetNextWindowViewport(viewport.ID);
+            ImGuiViewportPtr mainViewport = ImGui.GetMainViewport();
+            ImGui.SetNextWindowPos(mainViewport.Pos);
+            ImGui.SetNextWindowSize(mainViewport.Size);
+            ImGui.SetNextWindowViewport(mainViewport.ID);
             ImGui.PushStyleVar(ImGuiStyleVar.WindowRounding, 0.0f);
             ImGui.PushStyleVar(ImGuiStyleVar.WindowBorderSize, 0.0f);
             windowFlags |= ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoMove;
