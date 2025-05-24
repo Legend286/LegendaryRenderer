@@ -107,7 +107,7 @@ public class EditorViewport
         ImGui.Begin("Viewport", ImGuiWindowFlags.MenuBar | ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse);
         // ─────────────────────────────────────────────────────────────────────────────────────────────────
 
-        ImGui.Begin("Panel");
+        ImGui.Begin("Statistics");
 
         foreach (var KVP in ScopedProfiler.Statistics)
         {
@@ -126,7 +126,7 @@ public class EditorViewport
             }
             {
                 buf.AddToRollingBuffer(KVP.Value);
-                ImGui.PlotHistogram($"{KVP.Key}", ref buf.buffer[0], buf.bufferTotal, 0, $"{buf.buffer[buf.bufferTotal-1]} milliseconds");
+                ImGui.PlotHistogram($"{KVP.Key}", ref buf.buffer[0], buf.bufferTotal, 0, $"{buf.buffer[buf.bufferTotal-1]} milliseconds", 0.001f, 32.0f);
             }
         }
         ImGui.End();
