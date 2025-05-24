@@ -21,8 +21,6 @@ namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer
         private int _indexBuffer;
         private int _indexBufferSize;
 
-        //private Texture _fontTexture;
-
         private int _fontTexture;
 
         private static int _shader;
@@ -46,7 +44,7 @@ namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer
         public ImGuiController(int width, int height)
         {
             _windowWidth = width;
-            _windowHeight = height; 
+            _windowHeight = height;
             int major = GL.GetInteger(GetPName.MajorVersion);
             int minor = GL.GetInteger(GetPName.MinorVersion);
 
@@ -62,8 +60,9 @@ namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer
             io.Fonts.AddFontDefault();
 
             io.BackendFlags |= ImGuiBackendFlags.RendererHasVtxOffset;
-            // Enable Docking
             io.ConfigFlags |= ImGuiConfigFlags.DockingEnable;
+
+            SetCatppuccinMochaTheme();
 
             CreateDeviceResources();
 
@@ -73,6 +72,133 @@ namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer
             ImGui.NewFrame();
             _frameBegun = true;
         }
+
+        private void SetCatppuccinMochaTheme()
+        {
+            ImGuiStylePtr style = ImGui.GetStyle();
+
+            System.Numerics.Vector4 Rgb(int r, int g, int b, int a = 255)
+            {
+                return new System.Numerics.Vector4(r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f);
+            }
+
+            var Rosewater = Rgb(245, 224, 220);
+            var Flamingo = Rgb(242, 205, 205);
+            var Pink = Rgb(245, 194, 231);
+            var Mauve = Rgb(203, 166, 247);
+            var Red = Rgb(243, 139, 168);
+            var Maroon = Rgb(235, 160, 172);
+            var Peach = Rgb(250, 179, 135);
+            var Yellow = Rgb(249, 226, 175);
+            var Green = Rgb(166, 227, 161);
+            var Teal = Rgb(148, 226, 213);
+            var Sky = Rgb(137, 220, 235);
+            var Sapphire = Rgb(116, 199, 236);
+            var Blue = Rgb(137, 180, 250);
+            var Lavender = Rgb(180, 190, 254);
+
+            var CatText = Rgb(205, 214, 244);
+            var Subtext1 = Rgb(186, 194, 222);
+            var Subtext0 = Rgb(166, 173, 200);
+            var Overlay2 = Rgb(147, 153, 178);
+            var Overlay1 = Rgb(127, 132, 156);
+            var Overlay0 = Rgb(108, 112, 134);
+            var Surface2 = Rgb(88, 91, 112);
+            var Surface1 = Rgb(69, 71, 90);
+            var Surface0 = Rgb(49, 50, 68);
+
+            var CatBase = Rgb(30, 30, 46);
+            var Mantle = Rgb(24, 24, 36);
+            var Crust = Rgb(17, 17, 27);
+
+            style.Colors[(int)ImGuiCol.Text] = CatText;
+            style.Colors[(int)ImGuiCol.TextDisabled] = Subtext0;
+            style.Colors[(int)ImGuiCol.WindowBg] = CatBase;
+            style.Colors[(int)ImGuiCol.ChildBg] = Mantle;
+            style.Colors[(int)ImGuiCol.PopupBg] = Mantle;
+            style.Colors[(int)ImGuiCol.Border] = Surface0;
+            style.Colors[(int)ImGuiCol.BorderShadow] = Rgb(0, 0, 0, 0);
+
+            style.Colors[(int)ImGuiCol.FrameBg] = Surface0;
+            style.Colors[(int)ImGuiCol.FrameBgHovered] = Surface1;
+            style.Colors[(int)ImGuiCol.FrameBgActive] = Surface2;
+
+            style.Colors[(int)ImGuiCol.TitleBg] = Crust;
+            style.Colors[(int)ImGuiCol.TitleBgActive] = Mauve;
+            style.Colors[(int)ImGuiCol.TitleBgCollapsed] = Crust;
+
+            style.Colors[(int)ImGuiCol.MenuBarBg] = Mantle;
+
+            style.Colors[(int)ImGuiCol.ScrollbarBg] = Crust;
+            style.Colors[(int)ImGuiCol.ScrollbarGrab] = Surface1;
+            style.Colors[(int)ImGuiCol.ScrollbarGrabHovered] = Surface2;
+            style.Colors[(int)ImGuiCol.ScrollbarGrabActive] = Overlay0;
+
+            style.Colors[(int)ImGuiCol.CheckMark] = Green;
+            style.Colors[(int)ImGuiCol.SliderGrab] = Mauve;
+            style.Colors[(int)ImGuiCol.SliderGrabActive] = Pink;
+
+            style.Colors[(int)ImGuiCol.Button] = Mauve;
+            style.Colors[(int)ImGuiCol.ButtonHovered] = Lavender;
+            style.Colors[(int)ImGuiCol.ButtonActive] = Pink;
+
+            style.Colors[(int)ImGuiCol.Header] = Surface1;
+            style.Colors[(int)ImGuiCol.HeaderHovered] = Surface2;
+            style.Colors[(int)ImGuiCol.HeaderActive] = Mauve;
+
+            style.Colors[(int)ImGuiCol.Separator] = Surface1;
+            style.Colors[(int)ImGuiCol.SeparatorHovered] = Surface2;
+            style.Colors[(int)ImGuiCol.SeparatorActive] = Mauve;
+
+            style.Colors[(int)ImGuiCol.ResizeGrip] = Surface0;
+            style.Colors[(int)ImGuiCol.ResizeGripHovered] = Surface1;
+            style.Colors[(int)ImGuiCol.ResizeGripActive] = Surface2;
+
+            style.Colors[(int)ImGuiCol.Tab] = Mantle;
+            style.Colors[(int)ImGuiCol.TabHovered] = Surface0;
+
+            style.Colors[(int)ImGuiCol.DockingPreview] = new System.Numerics.Vector4(Mauve.X, Mauve.Y, Mauve.Z, 0.5f);
+            style.Colors[(int)ImGuiCol.DockingEmptyBg] = Crust;
+
+            style.Colors[(int)ImGuiCol.PlotLines] = Teal;
+            style.Colors[(int)ImGuiCol.PlotLinesHovered] = Sky;
+            style.Colors[(int)ImGuiCol.PlotHistogram] = Peach;
+            style.Colors[(int)ImGuiCol.PlotHistogramHovered] = Yellow;
+
+            style.Colors[(int)ImGuiCol.TableHeaderBg] = Surface1;
+            style.Colors[(int)ImGuiCol.TableBorderStrong] = Surface2;
+            style.Colors[(int)ImGuiCol.TableBorderLight] = Surface0;
+
+            style.Colors[(int)ImGuiCol.TableRowBg] = CatBase;
+            style.Colors[(int)ImGuiCol.TableRowBgAlt] = Surface0;
+
+            style.Colors[(int)ImGuiCol.TextSelectedBg] = new System.Numerics.Vector4(Blue.X, Blue.Y, Blue.Z, 0.4f);
+
+            style.Colors[(int)ImGuiCol.DragDropTarget] = new System.Numerics.Vector4(Green.X, Green.Y, Green.Z, 0.8f);
+
+            style.Colors[(int)ImGuiCol.NavWindowingHighlight] = Overlay1;
+            style.Colors[(int)ImGuiCol.NavWindowingDimBg] = new System.Numerics.Vector4(CatBase.X, CatBase.Y, CatBase.Z, 0.2f);
+            style.Colors[(int)ImGuiCol.ModalWindowDimBg] = new System.Numerics.Vector4(Crust.X, Crust.Y, Crust.Z, 0.6f);
+
+            style.WindowRounding = 6.0f;
+            style.ChildRounding = 6.0f;
+            style.FrameRounding = 4.0f;
+            style.GrabRounding = 4.0f;
+            style.PopupRounding = 6.0f;
+            style.ScrollbarRounding = 8.0f;
+            style.TabRounding = 4.0f;
+
+            style.WindowBorderSize = 1.0f;
+            style.FrameBorderSize = 0.0f;
+            style.PopupBorderSize = 1.0f;
+            style.ChildBorderSize = 1.0f;
+
+            style.ItemSpacing = new System.Numerics.Vector2(10, 5);
+            style.ItemInnerSpacing = new System.Numerics.Vector2(6, 6);
+            style.WindowPadding = new System.Numerics.Vector2(8, 8);
+            style.FramePadding = new System.Numerics.Vector2(6, 4);
+        }
+
 
         public void WindowResized(int width, int height)
         {
@@ -190,7 +316,6 @@ void main()
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
 
-            // Restore state
             GL.BindTexture(TextureTarget.Texture2D, prevTexture2D);
             GL.ActiveTexture((TextureUnit)prevActiveTexture);
 
@@ -207,7 +332,8 @@ void main()
             if (_frameBegun)
             {
                 _frameBegun = false;
-                OpenTK.Graphics.OpenGL.GL.Viewport(0,0,Application.Application.Width, Application.Application.Height);
+                OpenTK.Graphics.OpenGL.GL.Viewport(0, 0, LegendaryRenderer.LegendaryRuntime.Application.Application.Width, LegendaryRenderer.LegendaryRuntime.Application.Application.Height);
+
                 ImGui.Render();
                 RenderImDrawData(ImGui.GetDrawData());
             }
@@ -241,7 +367,7 @@ void main()
                 _windowWidth / _scaleFactor.X,
                 _windowHeight / _scaleFactor.Y);
             io.DisplayFramebufferScale = _scaleFactor;
-            io.DeltaTime = deltaSeconds; // DeltaTime is in seconds.
+            io.DeltaTime = deltaSeconds;
         }
 
         readonly List<char> PressedChars = new List<char>();
@@ -260,7 +386,7 @@ void main()
             io.MouseDown[4] = MouseState[MouseButton.Button5];
 
             var screenPoint = new Vector2i((int)MouseState.X, (int)MouseState.Y);
-            var point = screenPoint;//wnd.PointToClient(screenPoint);
+            var point = screenPoint;
             io.MousePos = new System.Numerics.Vector2(point.X, point.Y);
 
             foreach (Keys key in Enum.GetValues(typeof(Keys)))
@@ -296,7 +422,7 @@ void main()
             io.MouseWheel = offset.Y;
             io.MouseWheelH = offset.X;
         }
-        
+
         public delegate void ImDrawCallback(ImDrawListPtr parentList, ImDrawCmdPtr cmd);
 
         private void RenderImDrawData(ImDrawDataPtr draw_data)
@@ -306,7 +432,6 @@ void main()
                 return;
             }
 
-            // Get intial state.
             int prevVAO = GL.GetInteger(GetPName.VertexArrayBinding);
             int prevArrayBuffer = GL.GetInteger(GetPName.ArrayBufferBinding);
             int prevProgram = GL.GetInteger(GetPName.CurrentProgram);
@@ -350,9 +475,7 @@ void main()
                 GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill);
             }
 
-            // Bind the element buffer (thru the VAO) so that we can resize it.
             GL.BindVertexArray(_vertexArray);
-            // Bind the vertex buffer so that we can resize it.
             GL.BindBuffer(BufferTarget.ArrayBuffer, _vertexBuffer);
             for (int i = 0; i < draw_data.CmdListsCount; i++)
             {
@@ -380,7 +503,6 @@ void main()
                 }
             }
 
-            // Setup orthographic projection matrix into our constant buffer
             ImGuiIOPtr io = ImGui.GetIO();
             Matrix4 mvp = Matrix4.CreateOrthographicOffCenter(
                 0.0f,
@@ -407,7 +529,6 @@ void main()
             GL.Disable(EnableCap.CullFace);
             GL.Disable(EnableCap.DepthTest);
 
-            // Render command lists
             for (int n = 0; n < draw_data.CmdListsCount; n++)
             {
                 ImDrawListPtr cmd_list = draw_data.CmdLists[n];
@@ -434,7 +555,6 @@ void main()
                         GL.BindTexture(TextureTarget.Texture2D, (int)pcmd.TextureId);
                         CheckGLError("Texture");
 
-                        // We do _windowHeight - (int)clip.W instead of (int)clip.Y because gl has flipped Y when it comes to these coordinates
                         var clip = pcmd.ClipRect;
                         GL.Scissor((int)clip.X, _windowHeight - (int)clip.W, (int)(clip.Z - clip.X), (int)(clip.W - clip.Y));
                         CheckGLError("Scissor");
@@ -455,7 +575,6 @@ void main()
             GL.Disable(EnableCap.Blend);
             GL.Disable(EnableCap.ScissorTest);
 
-            // Reset state
             GL.BindTexture(TextureTarget.Texture2D, prevTexture2D);
             GL.ActiveTexture((TextureUnit)prevActiveTexture);
             GL.UseProgram(prevProgram);
@@ -582,8 +701,8 @@ void main()
             if (key >= Keys.KeyPad0 && key <= Keys.KeyPad9)
                 return key - Keys.KeyPad0 + ImGuiKey.Keypad0;
 
-            if (key >= Keys.F1 && key <= Keys.F24)
-                return key - Keys.F1 + ImGuiKey.F24;
+            if (key >= Keys.F1 && key <= Keys.F12)
+                return key - Keys.F1 + ImGuiKey.F1;
 
             switch (key)
             {

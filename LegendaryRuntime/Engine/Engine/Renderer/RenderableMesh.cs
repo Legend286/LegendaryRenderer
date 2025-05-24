@@ -52,7 +52,6 @@ namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer
             if (MeshFactory.AddMesh(this, out RenderableMesh loaded, part))
             {
                 Init();
-              //  Console.WriteLine($"Mesh loaded: {Name}");
                 this.Material = new Material
                 {
                 };
@@ -61,12 +60,21 @@ namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer
             else
             {
                 ReusedCounter++;
-              //Console.WriteLine($"Already Loaded: {Name}. Mesh Cache has saved {ReusedCounter} duplicate GPU buffers.");
                 this.VertexArrayObject = loaded.VertexArrayObject;
-                this.LocalBounds = loaded.LocalBounds;
-                this.Bounds = loaded.Bounds;
+                if (loaded.LocalBounds != null)
+                {
+                    this.LocalBounds = loaded.LocalBounds;
+                }
+                // If loaded.LocalBounds is null, this.LocalBounds retains its initial value.
+
+                if (loaded.Bounds != null)
+                {
+                    this.Bounds = loaded.Bounds;
+                }
+                // If loaded.Bounds is null, this.Bounds retains its initial value.
+
                 this.fileName = file;
-                this.Material = loaded.Material;
+                this.Material = loaded.Material ?? new Material { };
                 this.VertexCount = loaded.VertexCount;
                 this.IndexCount = loaded.IndexCount;
                 this.VertexArrayObjectShadows = loaded.VertexArrayObjectShadows;
@@ -79,7 +87,7 @@ namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer
         void SetBounds(SphereBounds bounds)
         {
             LocalBounds = bounds;
-            
+
         }
 
         private int IndexCount;
@@ -91,8 +99,7 @@ namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer
             IndexCount = mesh.RenderMesh.IndexCount;
             VertexCount = mesh.VertexCount;
 
-            LocalBounds = mesh.LocalBounds;
-
+            LocalBounds = mesh.LocalBounds ?? new SphereBounds(Vector3.Zero, 10.0f);
         }
         public void SetMeshData(int shadowVao = -1, int vao = -1, bool instanced = false, int indexCount = 0, int vertexCount = 0, SphereBounds? localBounds = null)
         {
@@ -107,6 +114,11 @@ namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer
             VertexCount = vertexCount;
             if (localBounds != null)
             {
+                // If SphereBounds is a class, assignment is direct.
+                // If SphereBounds is a struct, localBounds is Nullable<SphereBounds>,
+                // and localBounds.Value would be used.
+                // Given the error, SphereBounds is likely a class, or NRTs are used such that localBounds
+                // is treated as SphereBounds (non-null) after the check.
                 LocalBounds = localBounds;
             }
             else
@@ -119,6 +131,7 @@ namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer
 
         public override void Update(float deltaTime)
         {
+            // Assuming LocalBounds is guaranteed to be non-null by constructor and SetMeshData methods
             Vector4 origin = new Vector4(LocalBounds.Centre, 1.0f) * Transform.GetWorldMatrix();
             Bounds = new SphereBounds(origin.Xyz, LocalBounds.Radius);
 
@@ -139,9 +152,6 @@ namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer
             VertexArrayObjectShadows = GL.GenVertexArray();
             ElementBufferObject = GL.GenBuffer();
             ElementBufferObjectShadows = GL.GenBuffer();
-
-          //  Console.WriteLine($"Initialised VBO, VAO, EBO to {VertexBufferObject}, {VertexArrayObject}, {ElementBufferObject}. Shadow Buffers EBO: {ElementBufferObjectShadows}, VAO: {VertexArrayObjectShadows} VBO: {VertexBufferObjectShadows}");
-
         }
 
         private Matrix4 previousModelMatrix;
@@ -195,12 +205,12 @@ namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer
                     // Engine.currentShader.SetShaderInt("normalMap", 0);
 
                     BindVAOCached(VertexArrayObject);
-                    GL.DrawElements(RenderMode, IndexCount, DrawElementsType.UnsignedInt, 0);
+                    GL.DrawElements(this.RenderMode, IndexCount, DrawElementsType.UnsignedInt, 0);
                 }
                 else
                 {
                     BindVAOCached(VertexArrayObjectShadows);
-                    GL.DrawElements(RenderMode, IndexCount, DrawElementsType.UnsignedInt, 0);
+                    GL.DrawElements(this.RenderMode, IndexCount, DrawElementsType.UnsignedInt, 0);
                 }
                 previousModelMatrix = Transform.GetPreviousWorldMatrix();
             }
@@ -228,13 +238,13 @@ namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer
                     {
                         currentShader.SetShaderMatrix4x4("shadowInstanceMatrices[" + i + "]", CSMMatrices[i]);
                     }
-                    
+
                     BindVAOCached(VertexArrayObjectShadows);
                     GL.DrawElementsInstanced(PrimitiveType.Triangles, IndexCount, DrawElementsType.UnsignedInt, 0, light.CascadeCount);
                 }
             }
         }
-        
+
         static int lastBoundVAO = -1;
 
         public static bool invalidated = false;
@@ -245,8 +255,6 @@ namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer
                 lastBoundVAO = vao;
                 GL.BindVertexArray(vao);
                 invalidated = false;
-
-           //     Console.WriteLine($"Bound VAO {vao}.");
             }
         }
     }
