@@ -23,15 +23,20 @@ public class EditorSceneHierarchyPanel
         ImGui.Begin("Scene Hierarchy");
 
         DrawGameObjectNode(Engine.Engine.LoadedScenes[0].RootNode);
-        
+
         foreach (var go in MarkedForDeletion)
         {
-            CurrentScene.RemoveGameObject(go);
-            Engine.Engine.GameObjects.Remove(go);
-            if (go is RenderableMesh mesh)
+            foreach (GameObject child in go.Children)
             {
-                Engine.Engine.RenderableMeshes.Remove(mesh);
+                Engine.Engine.RemoveGameObject(child);
+                CurrentScene.RemoveGameObject(child);
+                if (child is RenderableMesh mesh)
+                {
+                    Engine.Engine.RenderableMeshes.Remove(mesh);
+                }
             }
+            Engine.Engine.GameObjects.Remove(go);
+            CurrentScene.RemoveGameObject(go);
         }
         ImGui.End();
     }

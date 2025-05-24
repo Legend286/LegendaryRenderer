@@ -333,6 +333,30 @@ namespace LegendaryRenderer.LegendaryRuntime.Engine.Editor.UserInterface
                             // Else: handle file click (e.g., selection)
                         }
                     }
+
+                    // Add drag and drop source for models (moved outside the if/else blocks)
+                    if (item.ItemType == BrowserItemType.Model || item.ItemType == BrowserItemType.CompiledMesh)
+                    {
+                        // Check if FullPath is valid before starting drag-drop
+                        if (!string.IsNullOrEmpty(item.FullPath) && ImGui.BeginDragDropSource())
+                        {
+                            unsafe
+                            {
+                                byte[] pathBytes = System.Text.Encoding.UTF8.GetBytes(item.FullPath);
+                                fixed (byte* ptr = pathBytes) // Pin the byte array to get a stable pointer
+                                {
+                                    ImGui.SetDragDropPayload("MODEL_ASSET", (IntPtr)ptr, (uint)pathBytes.Length);
+                                }
+                            }
+                            
+                            // Use a safe name for display
+                            string displayNameForDrag = string.IsNullOrEmpty(item.Name) ? "Dragging Model" : $"Dragging {item.Name}";
+                            ImGui.Text(displayNameForDrag);
+                            
+                            ImGui.EndDragDropSource();
+                        }
+                    }
+
                     ImGui.TextWrapped(displayName);
                     ImGui.EndGroup();
                     ImGui.PopID();

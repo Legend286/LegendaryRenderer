@@ -9,8 +9,11 @@ using OpenTK.Mathematics;
 using System.Collections.Generic;
 using LegendaryRenderer.LegendaryRuntime.Engine.Engine.EngineTypes;
 using Vector2 = System.Numerics.Vector2;
-using Vector3 = System.Numerics.Vector3;
-using Matrix4x4 = System.Numerics.Matrix4x4;
+using Vector3 = OpenTK.Mathematics.Vector3;
+using Matrix4x4 = OpenTK.Mathematics.Matrix4;
+using System.IO;
+using LegendaryRenderer.LegendaryRuntime.Application;
+using LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer.ModelLoader;
 
 namespace LegendaryRenderer.LegendaryRuntime.Engine.Editor.UserInterface;
 
@@ -238,8 +241,61 @@ public class EditorViewport
                 new Vector2(1, 0)
             );
 
-        ImGui.PopStyleVar(2); // pop FramePadding + ItemSpacing
+        // Add drag and drop target for models
+        if (ImGui.BeginDragDropTarget())
+        {
+            var payload = ImGui.AcceptDragDropPayload("MODEL_ASSET");
+            unsafe
+            {
+                // Check if the native pointer of the payload is valid and data exists
+                if (payload.NativePtr != null && payload.DataSize > 0)
+                {
+                    // Accessing payload.Data is safe here because NativePtr is not null
+                    string modelPath = System.Text.Encoding.UTF8.GetString((byte*)payload.Data, payload.DataSize);
+                    if (File.Exists(modelPath))
+                    {
+                        // Get the mouse position in viewport coordinates
+                        var mousePos = ImGui.GetMousePos();
+                        var viewportPos = mousePos - ImGui.GetItemRectMin();
+                    
+                        // Convert to normalized device coordinates (-1 to 1)
+                        var ndcX = (viewportPos.X / viewW) * 2 - 1;
+                        var ndcY = -((viewportPos.Y / viewH) * 2 - 1);
+                    
+                        // Create a ray from the camera through the mouse position
+                        var rayClip = new Vector4(ndcX, ndcY, -1.0f, 1.0f);
+                        var rayEye = rayClip * Matrix4.Invert(Engine.Engine.ActiveCamera.ProjectionMatrix);
+                        rayEye = new Vector4(rayEye.X, rayEye.Y, -1.0f, 0.0f);
+                        var rayWorld = rayEye * Matrix4.Invert(Engine.Engine.ActiveCamera.ViewMatrix);
+                        var rayDir = Vector3.Normalize(new Vector3(rayWorld.X, rayWorld.Y, rayWorld.Z));
+                    
+                        // Create a plane at y=0 (ground plane)
+                        var planeNormal = Vector3.UnitY;
+                        var planePoint = Vector3.Zero;
+                    
+                        // Calculate intersection with ground plane
+                        var denom = Vector3.Dot(planeNormal, rayDir);
+                        if (Math.Abs(denom) > 0.0001f)
+                        {
+                            var t = Vector3.Dot(planePoint - Engine.Engine.ActiveCamera.Transform.Position, planeNormal) / denom;
+                            var intersectionPoint = Engine.Engine.ActiveCamera.Transform.Position + rayDir * t;
+                        
+                            // Load and instantiate the model at the intersection point using the caching mechanism
+                            var model = ApplicationWindow.LoadModelFromDragWithCaching(modelPath, intersectionPoint, Quaternion.Identity, Vector3.One);
+                            if (model != null) // Check if the model was loaded successfully
+                            {
+                                // No need to add to scene here, GameObject constructor should handle it.
+                                // Engine.Engine.LoadedScenes[0].AddGameObject(model); 
+                                Console.WriteLine($"Model {model.Name} should have been added to the scene by its constructor.");
+                            }
+                        }
+                    }
+                }
+            }
+            ImGui.EndDragDropTarget();
+        }
 
+        ImGui.PopStyleVar(2); // pop FramePadding + ItemSpacing
 
         // 6) Capture the exact image bounds in screen coords
         Vector2 imgMin = ImGui.GetItemRectMin();
@@ -280,7 +336,6 @@ public class EditorViewport
             }
         }
 
-
         ImGui.End();
 
         // 8) Compute mouse‐in‐viewport (points)
@@ -304,7 +359,6 @@ public class EditorViewport
 
         MouseFramebufferPosition = new Vector2(px, py);
         ImGui.PopStyleVar(); // pop WindowPadding
-
     }
 
     public void ApplyPendingResize()

@@ -139,9 +139,10 @@ public static class MeshHasher
     public struct CombinedMesh
     {
         public GpuMesh RenderMesh;
-        public int numVertices;
+        public int VertexCount;
         public GpuMesh ShadowMesh;
         public int numShadowVertices;
+        public SphereBounds LocalBounds;
     }
     
     private static Dictionary<int, CombinedMesh> MeshHashMap = new Dictionary<int, CombinedMesh>();

@@ -22,7 +22,7 @@ namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer
         public BeginMode RenderMode = BeginMode.Triangles;
         public string fileName { get; private set; }
 
-        private bool Loaded = false;
+        public bool Loaded = false;
 
         public bool Spinning = false;
 
@@ -47,6 +47,7 @@ namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer
         public RenderableMesh(string file, int part = 0) : base(new Vector3(0, 0, 0), $"{file}-{part}")
         {
             Bounds = new SphereBounds(Transform.Position, 10.0f);
+            LocalBounds = new SphereBounds(Vector3.Zero, 10.0f);
             fileName = file;
             if (MeshFactory.AddMesh(this, out RenderableMesh loaded, part))
             {
@@ -82,6 +83,17 @@ namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer
         }
 
         private int IndexCount;
+
+        public void SetMeshData(MeshHasher.CombinedMesh mesh)
+        {
+            VertexArrayObject = mesh.RenderMesh.Vao;
+            VertexArrayObjectShadows = mesh.ShadowMesh.Vao;
+            IndexCount = mesh.RenderMesh.IndexCount;
+            VertexCount = mesh.VertexCount;
+
+            LocalBounds = mesh.LocalBounds;
+
+        }
         public void SetMeshData(int shadowVao = -1, int vao = -1, bool instanced = false, int indexCount = 0, int vertexCount = 0, SphereBounds? localBounds = null)
         {
             if (shadowVao == -1 || vao == -1)

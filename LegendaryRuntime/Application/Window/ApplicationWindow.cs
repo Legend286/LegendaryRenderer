@@ -147,7 +147,7 @@ public class ApplicationWindow : GameWindow
             if (ContainsModel(fileName))
             {
                 // Modified model loading path
-                LoadModelFromDragWithCaching(fileName);
+                LoadModelFromDragWithCaching(fileName, Vector3.Zero, Quaternion.Identity, Vector3.One);
             }
             else if (ImGui.IsAnyItemHovered())
             {
@@ -539,82 +539,145 @@ public class ApplicationWindow : GameWindow
     }
 
     // New method to handle model loading with caching logic
-    void LoadModelFromDragWithCaching(string originalModelFilePath)
+    public static GameObject LoadModelFromDragWithCaching(string originalModelFilePath, Vector3 position, Quaternion rotation, Vector3 scale)
     {
-        Console.WriteLine($"Attempting to load model with caching: {originalModelFilePath}");
+        Console.WriteLine($"Attempting to load model: {originalModelFilePath}");
         AssetCacheManager.EnsureInitialized(); // Ensure it's initialized
+
+        string extension = Path.GetExtension(originalModelFilePath).ToLowerInvariant();
 
         try
         {
-            AssimpContext importer = new AssimpContext();
-            PostProcessSteps processSteps = PostProcessSteps.CalculateTangentSpace | PostProcessSteps.Triangulate |
-                                          PostProcessSteps.GenerateBoundingBoxes | PostProcessSteps.GenerateSmoothNormals |
-                                          PostProcessSteps.JoinIdenticalVertices | PostProcessSteps.ImproveCacheLocality;
-            
-            Assimp.Scene scene = importer.ImportFile(originalModelFilePath, processSteps);
-
-            if (scene == null || scene.RootNode == null)
+            if (extension == ".meshasset")
             {
-                Console.WriteLine($"Failed to import scene or scene has no root node: {originalModelFilePath}");
-                return;
-            }
-            if (!scene.HasMeshes)
-            {
-                 Console.WriteLine($"Scene has no meshes: {originalModelFilePath}. Creating empty hierarchy from nodes if any.");
-                 // Still proceed to create hierarchy if nodes exist, even without meshes.
-            }
-
-            if (scene.HasMeshes)
-            {
-                Console.WriteLine($"Scene '{originalModelFilePath}' has {scene.MeshCount} meshes. Processing with cache...");
-                for (int i = 0; i < scene.MeshCount; i++)
+                Console.WriteLine($"Loading pre-compiled .meshasset: {originalModelFilePath}");
+                string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(originalModelFilePath);
+                
+                if (!int.TryParse(fileNameWithoutExtension, out int meshContentHash))
                 {
-                    Assimp.Mesh assimpMesh = scene.Meshes[i];
-                    int meshContentHash = MeshHasher.HashMesh(assimpMesh);
+                    // Attempt to get hash from manifest if filename is not the hash
+                    // This part requires AssetCacheManager to have a way to lookup hash by compiled asset path
+                    // For now, we'll rely on the filename being the hash or assume TryGetManifestEntryByCompiledPath might exist
+                    // If not, this is a limitation if .meshasset files are not named by their hash.
+                    // A more robust solution might involve hashing the .meshasset file's content if the name isn't the hash.
+                    Console.WriteLine($"Could not parse mesh content hash from filename: {fileNameWithoutExtension}. Attempting to find via manifest or re-hash (not implemented).");
+                    // Placeholder: if manifest lookup by compiled path existed:
+                    // if (!AssetCacheManager.TryGetHashForCompiledAsset(originalModelFilePath, out meshContentHash))
+                    // {
+                    //    Console.WriteLine($"Failed to determine hash for .meshasset: {originalModelFilePath}");
+                    //    return null;
+                    // }
+                    // For now, if filename is not hash, we cannot proceed with this simplified direct load.
+                    // Fallback to attempting ModelLoader.LoadModel which might have its own logic or fail.
+                    // This is a complex case if .meshasset isn't named by its hash.
+                    // The error indicates Assimp is called by ModelLoader.LoadModel, so that fallback is also problematic.
+                    // The most robust thing if filename isn't hash is to compute hash from file bytes.
+                    // However, MeshHasher.GetOrAddMeshFromBinary *requires* the hash as input.
 
-                    // Attempt to generate mesh icon (will only run if icon doesn't exist)
-                    // modelFilePath here is originalModelFilePath, which is the full path to the .fbx, .gltf etc.
-                    IconGenerator.GenerateMeshIcon(scene, assimpMesh, originalModelFilePath, meshContentHash);
+                    // If the filename *must* be the hash for direct .meshasset loading:
+                     Console.WriteLine($"Error: .meshasset filename '{fileNameWithoutExtension}' is not a valid integer hash.");
+                     return null;
+                }
 
-                    if (AssetCacheManager.TryGetCachedMeshData(meshContentHash, originalModelFilePath, out byte[] cachedData))
-                    {
-                        Console.WriteLine($"Cache hit for mesh {i} (hash {meshContentHash}). Loading from binary.");
-                        MeshHasher.GetOrAddMeshFromBinary(meshContentHash, cachedData); // Ensures it's in MeshHasher's map
-                    }
-                    else
-                    {
-                        Console.WriteLine($"Cache miss for mesh {i} (hash {meshContentHash}). Processing and caching.");
-                        MeshHasher.AddOrGetMesh(assimpMesh); // Process and add to MeshHasher's internal dictionary
-                        
-                        byte[] binaryData = MeshHasher.SerializeMeshData(assimpMesh); // Serialize the mesh
-                        AssetCacheManager.StoreCompiledMesh(meshContentHash, originalModelFilePath, binaryData); // Store it
-                    }
+                byte[] meshAssetBytes;
+                try
+                {
+                    meshAssetBytes = File.ReadAllBytes(originalModelFilePath);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error reading .meshasset file '{originalModelFilePath}': {ex.Message}");
+                    return null;
+                }
+
+                if (meshAssetBytes == null || meshAssetBytes.Length == 0)
+                {
+                    Console.WriteLine($"Failed to read data from .meshasset: {originalModelFilePath}");
+                    return null;
+                }
+
+                // This ensures the mesh data is loaded into MeshHasher's internal structures.
+                MeshHasher.CombinedMesh? gpuMesh = MeshHasher.GetOrAddMeshFromBinary(meshContentHash, meshAssetBytes);
+                if (gpuMesh == null)
+                {
+                    Console.WriteLine($"Failed to process mesh from binary data for hash {meshContentHash} from file {originalModelFilePath}");
+                    return null;
+                }
+                
+                // Pass the original .meshasset path as the 'file' key for RenderableMesh/MeshFactory
+                RenderableMesh msh = new RenderableMesh(originalModelFilePath, 0);
+                msh.Loaded = true;
+                msh.SetMeshData((MeshHasher.CombinedMesh)gpuMesh);
+                if (msh.VertexCount != -1) // Check if RenderableMesh constructor + MeshFactory succeeded
+                {
+                    Console.WriteLine($"Successfully created GameObject from .meshasset: {originalModelFilePath}");
+                    return msh;
+                }
+                else
+                {
+                    Console.WriteLine($"Failed to initialize RenderableMesh for .meshasset: {originalModelFilePath} after loading to MeshHasher.");
+                    return null;
                 }
             }
-            
-            Console.WriteLine($"Ensured all meshes from {originalModelFilePath} are processed/cached. Calling ModelLoader.LoadModel.");
+            else // This is for .fbx, .obj, .gltf etc. (original Assimp processing path)
+            {
+                Console.WriteLine($"Processing source model file with Assimp: {originalModelFilePath}");
+                AssimpContext importer = new AssimpContext();
+                PostProcessSteps processSteps = PostProcessSteps.CalculateTangentSpace | PostProcessSteps.Triangulate |
+                                              PostProcessSteps.GenerateBoundingBoxes | PostProcessSteps.GenerateSmoothNormals |
+                                              PostProcessSteps.JoinIdenticalVertices | PostProcessSteps.ImproveCacheLocality;
+                
+                Assimp.Scene scene = importer.ImportFile(originalModelFilePath, processSteps);
 
-            // Define position, rotation, scale for the new model
-            Vector3 position = LegendaryRuntime.Engine.Engine.Engine.ActiveCamera.Transform.Position + Engine.Engine.Engine.ActiveCamera.Transform.Forward * 5; // Example position
-            Quaternion rotation = Rotation(0, 0, 0); // Example rotation
-            Vector3 scale = Vector3.One; // Example scale
+                if (scene == null || scene.RootNode == null)
+                {
+                    Console.WriteLine($"Failed to import scene or scene has no root node: {originalModelFilePath}");
+                    return null; 
+                }
+                // Note: Scene might not have meshes but still have a node structure.
+                // ModelLoader.LoadModel should handle creating an empty hierarchy if necessary.
 
-            // Now call the standard ModelLoader method. It will use the meshes already processed into MeshHasher.
-            GameObject loadedGameObject = ModelLoader.LoadModel(originalModelFilePath, position, rotation, scale, true);
-            
-            // Optionally, add the loadedGameObject to the main scene or manage it as needed
-            // For example, if you have a list of top-level game objects in your engine:
-            // LegendaryRuntime.Engine.Engine.Engine.GameObjects.Add(loadedGameObject);
-            // Or if your scene manager handles this:
-            // LegendaryRuntime.Engine.Engine.Engine.LoadedScenes[0].AddGameObject(loadedGameObject);
-            // This part depends on your engine's scene management.
-          //  Engine.Engine.Engine.AddGameObject(loadedGameObject); // Add the loaded model to the engine's scene
-            Console.WriteLine($"Model {loadedGameObject.Name} created by LoadModel and added to scene.");
+                if (scene.HasMeshes)
+                {
+                    Console.WriteLine($"Scene '{originalModelFilePath}' has {scene.MeshCount} meshes. Processing with cache...");
+                    for (int i = 0; i < scene.MeshCount; i++)
+                    {
+                        Assimp.Mesh assimpMesh = scene.Meshes[i];
+                        int meshContentHash = MeshHasher.HashMesh(assimpMesh);
 
+                        IconGenerator.GenerateMeshIcon(scene, assimpMesh, originalModelFilePath, meshContentHash);
+
+                        if (AssetCacheManager.TryGetCachedMeshData(meshContentHash, originalModelFilePath, out byte[] cachedData))
+                        {
+                            Console.WriteLine($"Cache hit for mesh {i} (hash {meshContentHash}). Ensuring it's in MeshHasher.");
+                            MeshHasher.GetOrAddMeshFromBinary(meshContentHash, cachedData); 
+                        }
+                        else
+                        {
+                            Console.WriteLine($"Cache miss for mesh {i} (hash {meshContentHash}). Processing, serializing, and caching.");
+                            MeshHasher.AddOrGetMesh(assimpMesh); 
+                            
+                            byte[] binaryData = MeshHasher.SerializeMeshData(assimpMesh); 
+                            AssetCacheManager.StoreCompiledMesh(meshContentHash, originalModelFilePath, binaryData); 
+                        }
+                    }
+                }
+                else
+                {
+                    Console.WriteLine($"Scene '{originalModelFilePath}' has no meshes. ModelLoader.LoadModel will create hierarchy from nodes if any.");
+                }
+                
+                Console.WriteLine($"Ensured all meshes from {originalModelFilePath} are processed/cached. Calling ModelLoader.LoadModel.");
+                GameObject loadedGameObject = ModelLoader.LoadModel(originalModelFilePath, position, rotation, scale, true);
+                
+                Console.WriteLine($"Model {loadedGameObject?.Name} (from source) created by ModelLoader.LoadModel.");
+                return loadedGameObject; 
+            }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error during cached model loading for {originalModelFilePath}: {ex.Message}\n{ex.StackTrace}");
+            Console.WriteLine($"Error during model loading for {originalModelFilePath}: {ex.Message}\n{ex.StackTrace}");
+            return null; 
         }
     }
 }

@@ -475,10 +475,11 @@ public static class Engine
     {
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
         DockspaceController.BeginDockspace();
+        ContentBrowserWindow.Draw();
         EditorViewport.Draw();
         EditorViewport.ApplyPendingResize();
         EditorSceneHierarchyPanel.Draw();
-        ContentBrowserWindow.Draw();
+   
         EditorInspector.Draw();
         DockspaceController.EndDockspace();
     }
