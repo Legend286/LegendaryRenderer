@@ -545,7 +545,7 @@ public class ApplicationWindow : GameWindow
         AssetCacheManager.EnsureInitialized(); // Ensure it's initialized
 
         string extension = Path.GetExtension(originalModelFilePath).ToLowerInvariant();
-
+        
         try
         {
             if (extension == ".meshasset")

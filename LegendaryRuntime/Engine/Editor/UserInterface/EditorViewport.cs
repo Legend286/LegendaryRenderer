@@ -13,11 +13,44 @@ using Vector3 = OpenTK.Mathematics.Vector3;
 using Matrix4x4 = OpenTK.Mathematics.Matrix4;
 using System.IO;
 using LegendaryRenderer.LegendaryRuntime.Application;
+using LegendaryRenderer.LegendaryRuntime.Application.Profiling;
 using LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer.ModelLoader;
 using OpenTK.Graphics.ES30;
 
 namespace LegendaryRenderer.LegendaryRuntime.Engine.Editor.UserInterface;
 
+class RollingBuffer : IDisposable
+{
+    public float[] buffer = new float[128];
+    public int bufferTotal = 0;
+    
+    public void AddToRollingBuffer(float value)
+    {
+        if (bufferTotal < buffer.Length)
+        {
+            buffer[bufferTotal++] = value;
+        }
+        else
+        {
+            // Shift the buffer left and add the new value at the end
+            for (int i = 1; i < buffer.Length; i++)
+            {
+                buffer[i - 1] = buffer[i];
+            }
+            buffer[buffer.Length - 1] = value;
+        }
+    }
+
+    public void Dispose()
+    {
+        ClearBuffer();
+    }
+    public void ClearBuffer()
+    {
+        buffer = new float[128];
+        bufferTotal = 0;
+    }
+}
 public class EditorViewport
 {
     public Vector2 ViewportSize { get; private set; }
@@ -62,6 +95,8 @@ public class EditorViewport
     }
     private int cycle = 0;
     private bool resizingThisFrame = false;
+    
+    Dictionary<string, RollingBuffer> buffers = new Dictionary<string, RollingBuffer>();
     public void Draw()
     {
         // 0) Reset resize flag
@@ -72,7 +107,30 @@ public class EditorViewport
         ImGui.Begin("Viewport", ImGuiWindowFlags.MenuBar | ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse);
         // ─────────────────────────────────────────────────────────────────────────────────────────────────
 
-        // 2) Draw a simple menu bar
+        ImGui.Begin("Panel");
+
+        foreach (var KVP in ScopedProfiler.Statistics)
+        {
+            if(buffers.TryGetValue(KVP.Key, out RollingBuffer buf))
+            {
+                if (buf == null)
+                {
+                    buf = new RollingBuffer();
+                    buffers[KVP.Key] = buf;
+                }
+            }
+            else
+            {
+                buf = new RollingBuffer();
+                buffers.Add(KVP.Key, buf);
+            }
+            {
+                buf.AddToRollingBuffer(KVP.Value);
+                ImGui.PlotHistogram($"{KVP.Key}", ref buf.buffer[0], buf.bufferTotal);
+            }
+        }
+        ImGui.End();
+        
         if (ImGui.BeginMenuBar())
         {
             if (ImGui.BeginMenu("Create"))
