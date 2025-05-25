@@ -3,6 +3,7 @@ using OpenTK.Mathematics;
 using Quaternion = OpenTK.Mathematics.Quaternion;
 using Vector2 = OpenTK.Mathematics.Vector2;
 using Vector3 = OpenTK.Mathematics.Vector3;
+using Vector4 = OpenTK.Mathematics.Vector4;
 
 namespace LegendaryRenderer.LegendaryRuntime.Engine.Utilities;
 
@@ -91,6 +92,10 @@ public static class Maths
         return new System.Numerics.Vector3(vector.X, vector.Y, vector.Z);
     }
 
+    public static System.Numerics.Vector4 ToNumericsVector4(Vector4 vector)
+    {
+        return new System.Numerics.Vector4(vector.X, vector.Y, vector.Z, vector.W);
+    }
     public static System.Numerics.Matrix4x4 ToNumericsMatrix4x4(Matrix4 matrix)
     {
         Matrix4x4 m = new Matrix4x4();

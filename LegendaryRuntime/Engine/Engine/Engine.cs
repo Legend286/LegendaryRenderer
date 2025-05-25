@@ -460,8 +460,9 @@ public static class Engine
             
             RenderDebugModels();
 
-            RenderImGui();
+           
         }
+        RenderImGui();
     }
 
        
