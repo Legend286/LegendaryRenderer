@@ -127,7 +127,7 @@ public class Frustum
     public void DrawFrustum(FrustumDrawMode mode)
     {
         string name = ParentCamera != null ? ParentCamera.Name : "Default";
-        using(new ScopedProfiler($"Render {name} View Frustum {Count++}"))
+        using(new Profiler($"Render {name} View Frustum {Count++}"))
         {
             GL.Disable(EnableCap.DepthTest);
             

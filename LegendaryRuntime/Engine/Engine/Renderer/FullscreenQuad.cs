@@ -107,7 +107,6 @@ public static class FullscreenQuad
                 Engine.currentShader.SetShaderFloat("lightRadius", 1.0f / MathF.Max(light.Range * light.Range, 0.0000001f));
                 Engine.currentShader.SetShaderFloat("lightIntensity", light.Intensity);
                 Engine.currentShader.SetShaderFloat("lightShadowBias", light.Bias);
-                Engine.currentShader.SetShaderFloat("lightNormalBias", light.NormalBias);
                 Engine.currentShader.SetShaderInt("lightShadowsEnabled", light.EnableShadows ? 1 : 0);
                 
                 Engine.currentShader.SetShaderInt("enableIESProfile", light.UseIESProfile ? 1 : 0);

@@ -203,7 +203,7 @@ public class ApplicationWindow : GameWindow
         AssetCacheManager.EnsureInitialized(); // Initialize AssetCacheManager on load
         IconGenerator.Initialize(); // Initialize IconGenerator
       
-        var loading = new ScopedProfiler("Loading Phase");
+        var loading = new Profiler("Loading Phase");
 
         /*Light l3 = new Light(Vector3.Zero, "Light Test");
         l3.Type = Light.LightType.Directional;
@@ -345,7 +345,7 @@ public class ApplicationWindow : GameWindow
     protected override void OnRenderFrame(FrameEventArgs args)
     {
         base.OnRenderFrame(args);
-        ScopedProfiler.ResetStats();
+        Profiler.ResetStats();
      
 
         ResetCounters();
@@ -483,7 +483,7 @@ public class ApplicationWindow : GameWindow
         LegendaryRuntime.Engine.Engine.Engine.ActiveCamera.MousePosition = MouseState.Position;
 
 
-        using (new ScopedProfiler("Engine.Update"))
+        using (new Profiler("Engine.Update"))
         {
             LegendaryRuntime.Engine.Engine.Engine.Update((float)args.Time);
         }

@@ -23,7 +23,6 @@ uniform sampler2D shadowMap3;
 uniform sampler2D shadowMap4;
 uniform sampler2D shadowMap5;
 
-
 uniform int cascadeCount;
 
 uniform mat4 view;
@@ -50,7 +49,7 @@ uniform vec3 lightColour; // light colour
 uniform int lightType; // int for light type, 0 = spot, 1 = point, 2 = directional
 uniform int lightShadowsEnabled; // enable shadows or not for this light
 uniform float lightShadowBias; // shadow bias for this light
-uniform float lightNormalBias; // shadow normal bias
+uniform float lightShadowBiasNormal; // shadow normal bias
 uniform int enableIESProfile; // enable IES profile 
 uniform sampler2D IESProfileTexture;  // IES texture sampler
 
@@ -107,7 +106,7 @@ float CalculateAttenuation(vec3 spotDir, vec3 lightDir, vec3 lightPos, vec3 worl
 
 vec3 WorldPositionFromDepth(vec2 UV)
 {
-    float depth = texture(screenDepth, UV).r * 2 - 1;
+    float depth = max(texture(screenDepth, UV).r, 0.000000001f) * 2 - 1;
     vec2 screen = UV * 2 - 1;
     vec4 ndc = vec4(screen, depth, 1.0f);
 
@@ -268,11 +267,12 @@ vec3 PBR(vec3 N, vec3 V, vec3 L, vec3 albedo, float metallic, float roughness, v
     float G = G_Smith(NdotV, NdotL, roughness); // roughness
     vec3 F = F_Schlick(HdotV, F0);
     
+    /*
     vec3 ReflectionVector = reflect(-V, N);
     vec2 reflectionUV = EquirectangularUVFromReflectionVector(ReflectionVector);
     vec2 noiseUV = texture(ssaoNoise, texCoord * (screenDimensions.xy / 16)).rg * 2 - 1;
-    vec3 refl = integrateSpecularEnvironment(N, V, clamp(roughness, 0.01, 1.0f), noiseUV * (0.075f*roughness));
-
+    vec3 refl = vec3(0.0f);//;integrateSpecularEnvironment(N, V, clamp(roughness, 0.01, 1.0f), noiseUV * (0.075f*roughness));
+*/
 
     vec3 specular = (D * G * F) / (4.0 * NdotV * NdotL + 0.001);
     
@@ -389,7 +389,7 @@ float NormalOrientedAmbientOcclusion(vec2 UV, vec3 vsNormal)
     return 1-occlusion;
 }
 
-float GetShadowAttenuation(mat4 shadowViewProj, sampler2D shadowMapTex, vec3 pos, vec3 normal, vec3 lightDir, float biasMultiplier)
+float GetShadowAttenuation(mat4 shadowViewProj, sampler2D shadowMapTex, vec3 pos, vec3 normal, vec3 lightDir, float biasMultiplier, int useShadowFiltering)
 {
     if(lightShadowsEnabled == 1)
     {
@@ -398,11 +398,18 @@ float GetShadowAttenuation(mat4 shadowViewProj, sampler2D shadowMapTex, vec3 pos
 
         shadowPos.xyz = shadowPos.xyz * 0.5f + 0.5f;
 
-       
+        
+        
         //shadowPos.xy = clamp(shadowPos.xy, 0, 1);
 
         // PCF Parameters
         int pcfSamples = 16;         // Number of Poisson disk samples
+        
+        if(useShadowFiltering == 0)
+        {
+            pcfSamples = 1;
+        }
+        
         float lightSize = 0.0001;     // Size of the sampling region for soft shadows
 
         // Poisson Disk Samples (precomputed offsets)
@@ -446,13 +453,16 @@ float GetShadowAttenuation(mat4 shadowViewProj, sampler2D shadowMapTex, vec3 pos
 
         // Adaptive bias based on normal and light direction
         float normalBiasFactor = clamp(dot(normal, -lightDir), 0.0, 1.0);
-        float bias = lightNormalBias * normalBiasFactor; // Lower the bias multiplier
-        bias += lightShadowBias * biasMultiplier;
+        float bias = lightShadowBiasNormal * normalBiasFactor; // Lower the bias multiplier
+        bias = bias + (lightShadowBias * biasMultiplier);
 
         // Loop over Poisson disk samples
         for (int i = 0; i < pcfSamples; i++) {
-            vec2 offset = rotationMatrix * ((poissonDisk[i] * (1 / shadowResolution)));
-
+            vec2 offset = vec2(0);
+            if(useShadowFiltering == 1)
+            {
+                offset = rotationMatrix * ((poissonDisk[i] * (1 / shadowResolution)));
+            }
             vec2 samplePos = shadowPos.xy + offset;
             
             float sampleDepth = texture(shadowMapTex, samplePos).r;
@@ -473,13 +483,15 @@ float GetShadowAttenuation(mat4 shadowViewProj, sampler2D shadowMapTex, vec3 pos
         {
             shadowFactor = 0.0;
         }
-
+        
         return 1 - clamp(shadowFactor, 0, 1);
     }
     else
     {
         return 0;
     }
+
+
 }
 
 float CalculateAttenuationFactor(mat4 shadowViewProj, vec3 pos)
@@ -492,6 +504,18 @@ float CalculateAttenuationFactor(mat4 shadowViewProj, vec3 pos)
     return smoothstep(0.95, 1.0f, clamp(distance(vec2(0.5f), shadowPos0.xy)*2, 0.0f, 1.0f));
 }
 
+float GetShadowAttenuationPoint(vec3 pos, vec3 normal, vec3 lightDir, const int useShadowFiltering)
+{
+    float shadowFactor = 1.0f;
+    shadowFactor = shadowFactor * GetShadowAttenuation(shadowViewProjection0, shadowMap0, pos, normal, lightDir, 1.0f, useShadowFiltering);
+    shadowFactor = shadowFactor * GetShadowAttenuation(shadowViewProjection1, shadowMap1, pos, normal, lightDir, 1.0f, useShadowFiltering);
+    shadowFactor = shadowFactor * GetShadowAttenuation(shadowViewProjection2, shadowMap2, pos, normal, lightDir, 1.0f, useShadowFiltering);
+    shadowFactor = shadowFactor * GetShadowAttenuation(shadowViewProjection3, shadowMap3, pos, normal, lightDir, 1.0f, useShadowFiltering);
+    shadowFactor = shadowFactor * GetShadowAttenuation(shadowViewProjection4, shadowMap4, pos, normal, lightDir, 1.0f, useShadowFiltering);
+    shadowFactor = shadowFactor * GetShadowAttenuation(shadowViewProjection5, shadowMap5, pos, normal, lightDir, 1.0f, useShadowFiltering);
+    
+    return saturate(shadowFactor);
+}
 float GetShadowAttenuationCSM(vec3 pos, vec3 normal, vec3 lightDir)
 {
     float shadowFactor = 0.0f;
@@ -499,39 +523,123 @@ float GetShadowAttenuationCSM(vec3 pos, vec3 normal, vec3 lightDir)
     if(cascadeCount > 5)
     {
         float mixCascade = CalculateAttenuationFactor(shadowViewProjection5, pos);
-        shadowFactor = mix(shadowFactor, GetShadowAttenuation(shadowViewProjection5, shadowMap5, pos, normal, -lightDir, 50.0f), 1-mixCascade);
+        shadowFactor = mix(shadowFactor, GetShadowAttenuation(shadowViewProjection5, shadowMap5, pos, normal, -lightDir, 50.0f, 1), 1-mixCascade);
     }
 
     if(cascadeCount > 4)
     {
         float mixCascade = CalculateAttenuationFactor(shadowViewProjection4, pos);
-        shadowFactor = mix(shadowFactor, GetShadowAttenuation(shadowViewProjection4, shadowMap4, pos, normal, -lightDir, 40.0f), 1-mixCascade);
+        shadowFactor = mix(shadowFactor, GetShadowAttenuation(shadowViewProjection4, shadowMap4, pos, normal, -lightDir, 40.0f, 1), 1-mixCascade);
     }
     if(cascadeCount > 3)
     {
         float mixCascade = CalculateAttenuationFactor(shadowViewProjection3, pos);
-        shadowFactor = mix(shadowFactor, GetShadowAttenuation(shadowViewProjection3, shadowMap3, pos, normal, -lightDir, 30.0f), 1-mixCascade);
+        shadowFactor = mix(shadowFactor, GetShadowAttenuation(shadowViewProjection3, shadowMap3, pos, normal, -lightDir, 30.0f, 1), 1-mixCascade);
     }
     if(cascadeCount > 2)
     {
         float mixCascade = CalculateAttenuationFactor(shadowViewProjection2, pos);
-        shadowFactor = mix(shadowFactor, GetShadowAttenuation(shadowViewProjection2, shadowMap2, pos, normal, -lightDir, 20.0f), 1-mixCascade);
+        shadowFactor = mix(shadowFactor, GetShadowAttenuation(shadowViewProjection2, shadowMap2, pos, normal, -lightDir, 20.0f, 1), 1-mixCascade);
     }
     if(cascadeCount > 1)
     {
         float mixCascade = CalculateAttenuationFactor(shadowViewProjection1, pos);
-        shadowFactor = mix(shadowFactor, GetShadowAttenuation(shadowViewProjection1, shadowMap1, pos, normal, -lightDir, 10.0f), 1-mixCascade);
+        shadowFactor = mix(shadowFactor, GetShadowAttenuation(shadowViewProjection1, shadowMap1, pos, normal, -lightDir, 10.0f, 1), 1-mixCascade);
     }
     if (cascadeCount > 0)
     {
         float mixCascade = CalculateAttenuationFactor(shadowViewProjection0, pos);
 
-        shadowFactor = mix(shadowFactor, GetShadowAttenuation(shadowViewProjection0, shadowMap0, pos, normal, -lightDir, 1.0f), 1-mixCascade);
+        shadowFactor = mix(shadowFactor, GetShadowAttenuation(shadowViewProjection0, shadowMap0, pos, normal, -lightDir, 1.0f, 1), 1-mixCascade);
     }
 
     return shadowFactor;
 }
 uniform int enableCookie;
+
+bool intersectRaySphere(vec3 rayOrigin, vec3 rayDir, vec3 spherePos, float radius, out float t0, out float t1)
+{
+    // Initialize out parameters to a safe default.
+    t0 = 0.0f;
+    t1 = 0.0f;
+
+    vec3 oc = rayOrigin - spherePos; // Vector from sphere center to ray origin
+
+    float a = dot(rayDir, rayDir); // Squared length of rayDir.
+    float b = 2.0f * dot(oc, rayDir);
+    float c = dot(oc, oc) - radius * radius;
+
+    // Define a small epsilon to handle floating-point comparisons for 'a'
+    // This helps prevent division by zero or by a number so small it causes overflow.
+    const float A_EPSILON = 1e-7f; // A small positive number
+
+    if (abs(a) < A_EPSILON) {
+        // 'a' is effectively zero, meaning rayDir is a zero vector or extremely short.
+        // The ray is essentially a point (rayOrigin).
+        // Intersection occurs if this point is inside or on the sphere.
+        if (c <= 0.0f) { // dot(oc, oc) - radius*radius <= 0  =>  dot(oc,oc) <= radius*radius
+            // rayOrigin is inside or on the sphere.
+            // We can consider the intersection at t=0.
+            // Both t0 and t1 can be 0 as it's a single point intersection for a point-ray.
+            t0 = 0.0f;
+            t1 = 0.0f;
+            return true;
+        }
+        // rayOrigin is outside, and ray has no direction to move towards the sphere.
+        return false;
+    }
+
+    float discriminant = b * b - 4.0f * a * c;
+
+    // If the discriminant is negative, there are no real roots, so no intersection.
+    // This also implicitly guards against sqrt(negative), which would produce NaN.
+    if (discriminant < 0.0f) {
+        return false;
+    }
+
+    // At this point, 'a' is non-zero and discriminant is non-negative.
+    float sqrtD = sqrt(discriminant);
+
+    // Calculate intersection distances.
+    // Since 'a' is guarded from being zero, this division is safer.
+    float inv2a = 1.0f / (2.0f * a);
+    float tNear = (-b - sqrtD) * inv2a;
+    float tFar  = (-b + sqrtD) * inv2a;
+
+    // Ensure tNear is the smaller value (can happen if 'a' was negative, though not here as a=dot(v,v))
+    // or due to floating point quirks with very small sqrtD.
+    // However, with a > 0, -b - sqrtD <= -b + sqrtD, so tNear should <= tFar.
+    // This swap is more of a general robustness measure if 'a' could have been negative.
+    if (tNear > tFar) {
+        float temp = tNear;
+        tNear = tFar;
+        tFar = temp;
+    }
+
+    // Check if the entire intersection is behind the ray's origin.
+    if (tFar < 0.0f) {
+        return false; // Both intersection points are behind the ray.
+    }
+
+    // If tNear is behind the ray's origin but tFar is in front,
+    // the ray starts inside the sphere. Clamp tNear to 0.
+    t0 = max(tNear, 0.0f);
+    t1 = tFar;
+
+    // Final sanity check: if after clamping t0, it became greater than t1,
+    // it implies no valid segment of the ray intersects. (e.g. tNear=-1, tFar=-0.5 -> t0=0, t1=-0.5)
+    // However, the "if (tFar < 0.0f)" check should already handle this.
+    // If t0 > t1 here, it would imply tFar was positive but tNear was more positive,
+    // which the earlier potential swap should have handled.
+    // This is an extra layer of caution if needed:
+    
+    if (t0 > t1) {
+        return false;
+    }
+    
+
+    return true;
+}
 
 void main()
 {
@@ -545,7 +653,7 @@ void main()
     {
         attenuation = CalculateAttenuation(spotLightDir, lightDir, lightPosition, pos, spotLightCones.xy);
     }
-    
+    vec4 volumetrics = vec4(0);
     vec4 albMat = texture(screenTexture, texCoord).rgba;
     
     vec3 albedo = albMat.rgb;
@@ -556,12 +664,14 @@ void main()
 
     float metallic = albMat.w;
     float roughness = norm.w;
-    
+
+    vec3 viewDir = normalize(pos - cameraPosWS);
+
     vec4 lightCookie = vec4(1);
     
     if (lightType == 0 || lightType == 4)
     {
-        shadowFactor = GetShadowAttenuation(shadowViewProjection, shadowMap, pos, normal, lightDir, 1.0f);
+        shadowFactor = GetShadowAttenuation(shadowViewProjection, shadowMap, pos, normal, lightDir, 1.0f, 1);
         if (lightType == 4)
         {
             lightDir = -spotLightDir;
@@ -578,12 +688,50 @@ void main()
     }
     else if (lightType == 1)
     {
-        shadowFactor = shadowFactor * GetShadowAttenuation(shadowViewProjection0, shadowMap0, pos, normal, lightDir, 1.0f);
-        shadowFactor = shadowFactor * GetShadowAttenuation(shadowViewProjection1, shadowMap1, pos, normal, lightDir, 1.0f);
-        shadowFactor = shadowFactor * GetShadowAttenuation(shadowViewProjection2, shadowMap2, pos, normal, lightDir, 1.0f);
-        shadowFactor = shadowFactor * GetShadowAttenuation(shadowViewProjection3, shadowMap3, pos, normal, lightDir, 1.0f);
-        shadowFactor = shadowFactor * GetShadowAttenuation(shadowViewProjection4, shadowMap4, pos, normal, lightDir, 1.0f);
-        shadowFactor = shadowFactor * GetShadowAttenuation(shadowViewProjection5, shadowMap5, pos, normal, lightDir, 1.0f);
+        shadowFactor = GetShadowAttenuationPoint(pos, normal, lightDir, 1);
+
+        float start, end;
+
+        // Reconstruct the actual radius from inverse squared radius
+        float radius = inversesqrt(lightRadius);
+
+        
+        if (intersectRaySphere(cameraPosWS, viewDir, lightPosition, radius, start, end))
+        {
+            // Clamp t-values to avoid stepping behind the camera
+            start = max(start, 0.001);
+            float depth = 1-texture(screenDepth, texCoord).r;
+            
+            depth = linearizeDepth(depth);
+            
+            end = min(end, depth - 0.01f);
+         
+            // Compute start/end world positions 
+            vec3 startMarch = cameraPosWS + normalize(viewDir) * start;
+            vec3 endMarch   = cameraPosWS + normalize(viewDir) * end;
+            
+            float rayLength = max(distance(startMarch, endMarch), 0.00001f);
+            const int steps = 40;
+            float stepSize = max(rayLength / float(steps), 0.001f);
+            vec3 rayDir = normalize(-viewDir);
+            vec3 rayStep = rayDir * stepSize;
+
+            // Small random offset (e.g. ±0.5 step)
+            float noise = fract(sin(dot(texCoord * vec2(12.9898, 78.233), vec2(1.0))) * 43758.5453);
+            float jitter = (noise - 0.5); // range [-0.5, +0.5]
+            vec3 rayPos = endMarch + rayStep * jitter; // start from slightly offset point
+            
+            volumetrics = vec4(0.0);// Reset debug output
+            for (int i = 0; i < steps; i++)
+            {
+                vec3 dire = rayPos - lightPosition;
+                volumetrics += vec4(vec3(1-GetShadowAttenuationPoint(rayPos, dire, dire, 0)), 1) * CalculateAttenuation(spotLightDir, -dire, lightPosition, rayPos, spotLightCones.xy);
+                rayPos += rayStep ;
+            }
+           
+            volumetrics /= steps;
+            volumetrics *= lightIntensity * vec4(lightColour,1.0f);
+        }
     }
     else if (lightType == 2)
     {
@@ -596,8 +744,6 @@ void main()
     }
   
 
-    vec3 viewDir = normalize(pos - cameraPosWS);
-
     vec3 light = PBR(normal, -viewDir, lightDir, albedo, metallic, roughness, vec3(1, 1, 1), lightColour*lightCookie.rgb, lightIntensity) * attenuation;
     vec3 n = normalize(texture(screenNormal, texCoord).rgb);
     vec3 vsNormal = (vec4(n * 2 - 1, 0.0f) * (view)).xyz;
@@ -606,7 +752,7 @@ void main()
     
    
    
-    FragColor = vec4(((light * (1-(shadowFactor)))) + 0.015f * ((dot(normal, lightDir)*0.5+0.5)*(((lightColour*lightCookie.rgb)*albedo))),1.0f);
+    FragColor = vec4(((light * (1-(shadowFactor)))) + 0.015f * ((dot(normal, lightDir)*0.5+0.5)*(((lightColour*lightCookie.rgb)*albedo))),1.0f) + volumetrics;
 
     /*
     vec3 ReflectionVector = viewDir;

@@ -109,7 +109,7 @@ public class EditorViewport
 
         ImGui.Begin("Statistics");
 
-        foreach (var KVP in ScopedProfiler.Statistics)
+        foreach (var KVP in Profiler.Statistics)
         {
             if(buffers.TryGetValue(KVP.Key, out RollingBuffer buf))
             {

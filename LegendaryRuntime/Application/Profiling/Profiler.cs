@@ -2,7 +2,7 @@
 using OpenTK.Graphics.OpenGL4;
 
 namespace LegendaryRenderer.LegendaryRuntime.Application.Profiling;
-public class ScopedProfiler : IDisposable
+public class Profiler : IDisposable
 {
     private readonly string _profilerName;
     private Stopwatch _cpuStopwatch;
@@ -10,7 +10,7 @@ public class ScopedProfiler : IDisposable
     private readonly int _gpuQueryEnd;
     public static Dictionary<string, float> Statistics = new Dictionary<string, float>();
 
-    public ScopedProfiler(string profilerName)
+    public Profiler(string profilerName)
     {
         _profilerName = profilerName;
 

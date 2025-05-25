@@ -298,10 +298,16 @@ public static class Gizmos
                     {
                         _activeAxis = PickAxis(originSS, endSS, mouseSS - viewportPosition);
                         if (_activeAxis != Axis.None)
+                        {
                             (_dragging, isGizmoActive) = (true, true);
+                            Engine.Engine.CanSelect = false;
+                        }
                     }
                     else if (_dragging && io.MouseReleased[0])
+                    {
                         (_dragging, isGizmoActive, _activeAxis) = (false, false, Axis.None);
+                        Engine.Engine.CanSelect = true;
+                    }
                     else if (_dragging && io.MouseDown[0])
                     {
                         Vector2 md = Maths.FromNumericsVector2(io.MouseDelta);
@@ -442,7 +448,7 @@ public static class Gizmos
 
                         // Normalize sweep angle to [0, 2π)
                         float sweep = dAng < 0 ? dAng + ((float)Math.PI * 2) : dAng;
-                        
+
                         float startAngle = MathF.Atan2(_rotateStartDir.Y, _rotateStartDir.X);
                         float endAngle = startAngle + sweep;
                         

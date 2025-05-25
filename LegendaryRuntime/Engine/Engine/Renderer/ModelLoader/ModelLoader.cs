@@ -30,7 +30,7 @@ public static class ModelLoader
         GameObject rootNode = new GameObject(position, $"Loaded Model {fileName}");
         rootNode.Transform.Rotation = rotation;
 
-        using (new ScopedProfiler($"Load Model '{fileName}' ({Loaded++})."))
+        using (new Profiler($"Load Model '{fileName}' ({Loaded++})."))
         {
             AssimpContext importer = new AssimpContext();
             // Get the absolute base directory of the executable.

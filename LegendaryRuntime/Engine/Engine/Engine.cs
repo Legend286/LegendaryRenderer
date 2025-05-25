@@ -202,7 +202,7 @@ public static class Engine
     }
     public static List<RenderableMesh> CullRenderables(Matrix4 viewProjectionMatrix, bool shouldRender, List<RenderableMesh>? preCulledRenderables = null)
     {
-        using (new ScopedProfiler($"Scene Culling {CullPass++}"))
+        using (new Profiler($"Scene Culling {CullPass++}"))
         {
             var PotentialRenderedObjects = RenderableMeshes;
 
@@ -382,7 +382,7 @@ public static class Engine
     public static void EngineRenderLoop()
     {
 
-        using (new ScopedProfiler("Scene Rendering (Total)"))
+        using (new Profiler("Scene Rendering (Total)"))
         {
             EditorViewport.SetFramebufferID(RenderBuffers.GetTextureHandle(TextureHandle.COPY));
             FullscreenQuad.RenderQuad("AtmosphericSky", new[] { 0 }, new[] { "null" });
@@ -393,7 +393,7 @@ public static class Engine
                      ClearBufferMask.StencilBufferBit);
 
 
-            using (new ScopedProfiler("Render to GBuffer"))
+            using (new Profiler("Render to GBuffer"))
             {
                 Engine.RenderGBufferModels();
             }
@@ -405,7 +405,7 @@ public static class Engine
 
             int lighting = RenderBuffers.GetLightingBufferID();
 
-            using (new ScopedProfiler("Render Lights"))
+            using (new Profiler("Render Lights"))
             {
                 RenderBufferHelpers.Instance.BindLightingFramebuffer();
                 GL.ClearColor(Color.Black);
@@ -426,7 +426,7 @@ public static class Engine
 
             RenderAutoExposure();
 
-            using (new ScopedProfiler("Motion Blur"))
+            using (new Profiler("Motion Blur"))
             {
                 FullscreenQuad.RenderQuad("MotionBlur", new[] { lighting, textures[3], textures[1] }, new[] { "sourceTexture", "velocityTexture", "depthTexture" });
             }
@@ -438,7 +438,7 @@ public static class Engine
             FullscreenQuad.RenderQuad("Blit", new[] { x }, new[] { "sourceTexture" });
 
 
-            using (new ScopedProfiler("Outline (Editor)"))
+            using (new Profiler("Outline (Editor)"))
             {
                 RenderSelectedObjects();
                 RenderSelectionOutline();
@@ -463,6 +463,7 @@ public static class Engine
            
         }
         RenderImGui();
+  
     }
 
        
@@ -695,7 +696,7 @@ public static class Engine
 
     public static void RenderSpotShadowMap(Light light, bool shouldRender)
     {
-        using (new ScopedProfiler($"{light.Name} Shadowmap Rendering"))
+        using (new Profiler($"{light.Name} Shadowmap Rendering"))
         {
             BindShadowMap();
             GL.Viewport(0, 0, SpotShadowWidth, SpotShadowHeight);
@@ -757,7 +758,7 @@ public static class Engine
         CSMMatrices = Light.GenerateCascadedShadowMatrices(ActiveCamera, light, ShadowResolution);
 
         int index = 0;
-        using (new ScopedProfiler($"{light.Name} Cascade {index} Shadowmap Rendering"))
+        using (new Profiler($"{light.Name} Cascade {index} Shadowmap Rendering"))
         {
             if (!UseInstancedShadows)
             {
@@ -848,7 +849,7 @@ public static class Engine
     }
     public static void RenderPointShadowMaps(Light light, bool shouldRender)
     {
-        using (new ScopedProfiler($"{light.Name} Point Shadowmap Rendering"))
+        using (new Profiler($"{light.Name} Point Shadowmap Rendering"))
         {
             List<RenderableMesh> preculledRenderables;
 
@@ -1094,7 +1095,7 @@ public static class Engine
                     RenderBufferHelpers.Instance?.BindLightingFramebuffer();
                 }
 
-                using (new ScopedProfiler($"{light.Name} Render"))
+                using (new Profiler($"{light.Name} Render"))
                 {
                     if (shouldRender)
                     {
