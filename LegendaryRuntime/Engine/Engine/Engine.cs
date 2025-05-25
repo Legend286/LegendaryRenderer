@@ -1042,7 +1042,7 @@ public static class Engine
             if (go is Light)
             {
                 Light? light = go as Light;
-                SphereBounds bounds = new SphereBounds(light.Transform.Position, light.Range);
+                SphereBounds bounds = new SphereBounds(light.Transform.Position, light.Range*2);
 
                 bool shouldRender = false;
 

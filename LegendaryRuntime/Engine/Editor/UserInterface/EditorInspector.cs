@@ -114,8 +114,8 @@ public class EditorInspector
                 var pos = Maths.ToNumericsVector3(currentPosition);
                 if (ImGui.DragFloat3("Position", ref pos))
                 {
-                    gameObject.Transform.Position = Maths.FromNumericsVector3(pos);
-                    currentPosition = gameObject.Transform.Position;
+                    gameObject.GetRoot().Transform.Position = Maths.FromNumericsVector3(pos);
+                    currentPosition = gameObject.GetRoot().Transform.Position;
                 }
 
                 ImGui.Text("Rotation (drag to update, type to commit)");
@@ -144,7 +144,7 @@ public class EditorInspector
                     );
 
                     currentRotation = deltaQuat * currentRotation;
-                    gameObject.Transform.Rotation = currentRotation;
+                    gameObject.GetRoot().Transform.Rotation = currentRotation;
 
                     // Update lastCommittedEuler and sync UI
                     Vector3 newEulerRad = currentRotation.ToEulerAngles();
@@ -160,7 +160,7 @@ public class EditorInspector
                     Vector3 eulerRadAbsolute = displayedEuler * degToRad;
                     currentRotation =
                         Quaternion.FromEulerAngles(eulerRadAbsolute.X, eulerRadAbsolute.Y, eulerRadAbsolute.Z);
-                    gameObject.Transform.Rotation = currentRotation;
+                    gameObject.GetRoot().Transform.Rotation = currentRotation;
 
                     // Sync UI and last committed
                     Vector3 newEulerRad = currentRotation.ToEulerAngles();
@@ -193,8 +193,8 @@ public class EditorInspector
                     var scale = Maths.ToNumericsVector3(currentScale);
                     if (ImGui.DragFloat3("Scale", ref scale))
                     {
-                        gameObject.Transform.Scale = Maths.FromNumericsVector3(scale);
-                        currentScale = gameObject.Transform.Scale;
+                        gameObject.GetRoot().Transform.Scale = Maths.FromNumericsVector3(scale);
+                        currentScale = gameObject.GetRoot().Transform.Scale;
                     }
                 }
             }
