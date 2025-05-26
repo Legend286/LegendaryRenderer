@@ -201,14 +201,28 @@ public class EditorInspector
 
 // config
             float minRange = 0.1f;
-            float maxRange = 100.0f;
+            float maxRange = 1000.0f;
             if (gameObject is Light light)
             {
+                var enableVolumetrics = light.EnableVolumetrics;
+                var volumetricsEnabled = enableVolumetrics ? "Disable" : "Enable";
+                if (ImGui.RadioButton($"{volumetricsEnabled} Volumetrics", enableVolumetrics))
+                {
+                    enableVolumetrics = !enableVolumetrics;
+                    light.EnableVolumetrics = enableVolumetrics;
+                }
                 
+                var enableShadows = light.EnableShadows;
+                var shadowsEnabled = enableShadows ? "Disable" : "Enable";
+                if (ImGui.RadioButton($"{shadowsEnabled} Shadows", enableShadows))
+                {
+                    enableShadows = !enableShadows;
+                    light.EnableShadows = enableShadows;
+                }
                 
                 var colour = Maths.ToNumericsVector3(Maths.Color4ToVector3(light.Colour));
 
-                ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X / 3.3f);
+                ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X / 1.5f);
                 if (ImGui.ColorPicker3("Light Colour", ref colour))
                 {
                     light.Colour = Maths.Vector3ToColor4(Maths.FromNumericsVector3(colour));

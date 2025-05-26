@@ -18,6 +18,8 @@ public class Light : GameObject
 
     public bool EnableShadows { get; set; } = false;
 
+    public bool EnableVolumetrics { get; set; } = false;
+
     public bool EnableCookie = false;
 
     private int cascadeCount = 4;

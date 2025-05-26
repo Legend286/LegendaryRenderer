@@ -48,7 +48,9 @@ uniform vec3 spotLightCones; // x and y are min max derivitives, z is unused
 uniform vec3 lightColour; // light colour
 uniform int lightType; // int for light type, 0 = spot, 1 = point, 2 = directional
 uniform int lightShadowsEnabled; // enable shadows or not for this light
+uniform int lightEnableVolumetrics;
 uniform float lightShadowBias; // shadow bias for this light
+uniform int enableCookie;
 uniform float lightShadowBiasNormal; // shadow normal bias
 uniform int enableIESProfile; // enable IES profile 
 uniform sampler2D IESProfileTexture;  // IES texture sampler
@@ -389,7 +391,7 @@ float NormalOrientedAmbientOcclusion(vec2 UV, vec3 vsNormal)
     return 1-occlusion;
 }
 
-float GetShadowAttenuation(mat4 shadowViewProj, sampler2D shadowMapTex, vec3 pos, vec3 normal, vec3 lightDir, float biasMultiplier, int useShadowFiltering)
+float GetShadowAttenuation(mat4 shadowViewProj, sampler2D shadowMapTex, vec3 pos, vec3 normal, vec3 lightDir, float biasMultiplier, const int useShadowFiltering)
 {
     if(lightShadowsEnabled == 1)
     {
@@ -481,7 +483,7 @@ float GetShadowAttenuation(mat4 shadowViewProj, sampler2D shadowMapTex, vec3 pos
 
         if (shadowPos.x <= 0.0f || shadowPos.x >= 1.0f || shadowPos.y <= 0.0f || shadowPos.y >= 1.0f)
         {
-            shadowFactor = 0.0;
+            shadowFactor = 1.0;
         }
         
         return 1 - clamp(shadowFactor, 0, 1);
@@ -555,89 +557,113 @@ float GetShadowAttenuationCSM(vec3 pos, vec3 normal, vec3 lightDir)
 
     return shadowFactor;
 }
-uniform int enableCookie;
 
 bool intersectRaySphere(vec3 rayOrigin, vec3 rayDir, vec3 spherePos, float radius, out float t0, out float t1)
 {
-    // Initialize out parameters to a safe default.
     t0 = 0.0f;
     t1 = 0.0f;
 
-    vec3 oc = rayOrigin - spherePos; // Vector from sphere center to ray origin
-
-    float a = dot(rayDir, rayDir); // Squared length of rayDir.
+    vec3 oc = rayOrigin - spherePos; 
+    float a = dot(rayDir, rayDir); 
     float b = 2.0f * dot(oc, rayDir);
     float c = dot(oc, oc) - radius * radius;
-
-    // Define a small epsilon to handle floating-point comparisons for 'a'
-    // This helps prevent division by zero or by a number so small it causes overflow.
-    const float A_EPSILON = 1e-7f; // A small positive number
+    
+    const float A_EPSILON = 1e-7f;
 
     if (abs(a) < A_EPSILON) {
-        // 'a' is effectively zero, meaning rayDir is a zero vector or extremely short.
-        // The ray is essentially a point (rayOrigin).
-        // Intersection occurs if this point is inside or on the sphere.
-        if (c <= 0.0f) { // dot(oc, oc) - radius*radius <= 0  =>  dot(oc,oc) <= radius*radius
-            // rayOrigin is inside or on the sphere.
-            // We can consider the intersection at t=0.
-            // Both t0 and t1 can be 0 as it's a single point intersection for a point-ray.
+       
+        if (c <= 0.0f) { 
+            
             t0 = 0.0f;
             t1 = 0.0f;
             return true;
         }
-        // rayOrigin is outside, and ray has no direction to move towards the sphere.
+      
         return false;
     }
 
     float discriminant = b * b - 4.0f * a * c;
 
-    // If the discriminant is negative, there are no real roots, so no intersection.
-    // This also implicitly guards against sqrt(negative), which would produce NaN.
     if (discriminant < 0.0f) {
         return false;
     }
-
-    // At this point, 'a' is non-zero and discriminant is non-negative.
+    
     float sqrtD = sqrt(discriminant);
-
-    // Calculate intersection distances.
-    // Since 'a' is guarded from being zero, this division is safer.
+    
     float inv2a = 1.0f / (2.0f * a);
     float tNear = (-b - sqrtD) * inv2a;
     float tFar  = (-b + sqrtD) * inv2a;
-
-    // Ensure tNear is the smaller value (can happen if 'a' was negative, though not here as a=dot(v,v))
-    // or due to floating point quirks with very small sqrtD.
-    // However, with a > 0, -b - sqrtD <= -b + sqrtD, so tNear should <= tFar.
-    // This swap is more of a general robustness measure if 'a' could have been negative.
+    
     if (tNear > tFar) {
         float temp = tNear;
         tNear = tFar;
         tFar = temp;
     }
-
-    // Check if the entire intersection is behind the ray's origin.
+    
     if (tFar < 0.0f) {
-        return false; // Both intersection points are behind the ray.
+        return false;
     }
 
-    // If tNear is behind the ray's origin but tFar is in front,
-    // the ray starts inside the sphere. Clamp tNear to 0.
     t0 = max(tNear, 0.0f);
     t1 = tFar;
-
-    // Final sanity check: if after clamping t0, it became greater than t1,
-    // it implies no valid segment of the ray intersects. (e.g. tNear=-1, tFar=-0.5 -> t0=0, t1=-0.5)
-    // However, the "if (tFar < 0.0f)" check should already handle this.
-    // If t0 > t1 here, it would imply tFar was positive but tNear was more positive,
-    // which the earlier potential swap should have handled.
-    // This is an extra layer of caution if needed:
     
     if (t0 > t1) {
         return false;
     }
-    
 
+    return true;
+}
+
+
+bool intersectRayCone(vec3 rayOrigin, vec3 rayDir, vec3 coneOrigin, vec3 coneDir, float coneAngle, float coneLength, out float t0, out float t1)
+{
+    float cosAngle = cos(coneAngle);
+    float cos2 = cosAngle * cosAngle;
+    
+    vec3 co = rayOrigin - coneOrigin;
+    
+    float vDotD = dot(rayDir, coneDir);
+    float coDotD = dot(co, coneDir);
+    
+    float a = vDotD * vDotD - cos2;
+    float b = 2.0 * (vDotD * coDotD - dot(rayDir, co) * cos2);
+    float c = coDotD * coDotD - dot(co, co) * cos2;
+    
+    float discr = b * b - 4.0 * a * c;
+    if(discr < 0.0) return false;
+    
+    float sqrtDiscr = sqrt(discr);
+    float tmp0 = (-b - sqrtDiscr) / (2.0 * a);
+    float tmp1 = (-b + sqrtDiscr) / (2.0 * a);
+    
+    if(tmp0 > tmp1)
+    {
+        float tmp = tmp0;
+        tmp0 = tmp1;
+        tmp1 = tmp;
+    }
+    
+    const float EPS = 1e-4;
+    vec3 hit0 = rayOrigin * rayDir * tmp0;
+    vec3 hit1 = rayOrigin + rayDir * tmp1;
+    
+    float h0 = dot(hit0 - coneOrigin, coneDir);
+    float h1 = dot(hit1 - coneOrigin, coneDir);
+    
+    bool valid0 = (h0 >= 0.0f && h0 <= coneLength);
+    bool valid1 = (h1 >= 0.0f && h1 <= coneLength);
+    
+    if(!valid0 && !valid1) return false;
+    
+    if(!valid0 && valid1)
+    {
+        tmp0 = EPS;
+    }
+    
+    t0 = tmp0;
+    t1 = tmp1;
+    return true;
+    
     return true;
 }
 
@@ -661,7 +687,7 @@ void main()
     vec4 norm = texture(screenNormal, texCoord).rgba;
     vec3 normal = normalize(norm.xyz * 2 - 1);
     float shadowFactor = 1;
-
+    float radius = inversesqrt(lightRadius);
     float metallic = albMat.w;
     float roughness = norm.w;
 
@@ -671,7 +697,64 @@ void main()
     
     if (lightType == 0 || lightType == 4)
     {
-        shadowFactor = GetShadowAttenuation(shadowViewProjection, shadowMap, pos, normal, lightDir, 1.0f, 1);
+        if(lightType == 0)
+        {
+            shadowFactor = GetShadowAttenuation(shadowViewProjection, shadowMap, pos, normal, lightDir, 1.0f, 1);
+
+            float start, end;
+
+            // Reconstruct the actual radius from inverse squared radius
+            float radius = inversesqrt(lightRadius);
+
+            float cosOuter = clamp(-spotLightCones.y / spotLightCones.x, 0.0, 1.0);
+            
+            if (intersectRayCone(cameraPosWS, viewDir, lightPosition, spotLightDir, cosOuter, radius, start, end) && lightEnableVolumetrics == 1)
+            {
+                
+                // Clamp t-values to avoid stepping behind the camera
+                start = max(start, 0.001);
+                float depth = 1 - texture(screenDepth, texCoord).r;
+
+                depth = linearizeDepth(depth);
+
+                end = min(end, depth);
+                
+                
+                // Compute start/end world positions 
+                vec3 startMarch = cameraPosWS + normalize(viewDir) * start;
+                vec3 endMarch = cameraPosWS + normalize(viewDir) * end;
+                
+                float rayLength = max(length(startMarch - endMarch), 0.00001f);
+                int steps = 32;
+
+                FragColor = vec4(1, rayLength, 0, 1);
+                return;
+
+                float stepSize = max(rayLength / float(steps), 0.00001f);
+                vec3 rayDir = normalize(viewDir);
+                vec3 rayStep = rayDir * stepSize;
+                float noise = fract(sin(dot(texCoord * vec2(12.9898, 78.233), vec2(1.0))) * 43758.5453);
+                float jitter = (noise - 0.5) * stepSize * 0.5;
+                vec3 rayPos = startMarch + rayDir * jitter;
+                volumetrics = vec4(0.0);// Reset debug output
+                for (int i = 0; i < steps; i++)
+                {
+                    vec3 dire = rayPos - lightPosition;
+                    vec3 shadowVol = vec3(1.0f);
+                    if (lightShadowsEnabled == 1)
+                    {
+                        shadowVol = vec3(1 - GetShadowAttenuation(shadowViewProjection, shadowMap, rayPos, dire, dire, 8.0f, 0));
+                    }
+                    
+                    volumetrics += vec4(vec3(shadowVol * CalculateAttenuation(spotLightDir, lightDir, lightPosition, rayPos, spotLightCones.xy)), 1.0f);//* CalculateAttenuation(spotLightDir, lightDir, lightPosition, rayPos, spotLightCones.xy)), 1.0f);
+                    rayPos += rayStep;
+                }
+
+                volumetrics /= steps;
+                volumetrics *= lightIntensity * vec4(lightColour, 1.0f);
+            }
+        }
+        
         if (lightType == 4)
         {
             lightDir = -spotLightDir;
@@ -693,10 +776,10 @@ void main()
         float start, end;
 
         // Reconstruct the actual radius from inverse squared radius
-        float radius = inversesqrt(lightRadius);
+
 
         
-        if (intersectRaySphere(cameraPosWS, viewDir, lightPosition, radius, start, end))
+        if (intersectRaySphere(cameraPosWS, viewDir, lightPosition, radius, start, end) && lightEnableVolumetrics == 1)
         {
             // Clamp t-values to avoid stepping behind the camera
             start = max(start, 0.001);
@@ -704,14 +787,18 @@ void main()
             
             depth = linearizeDepth(depth);
             
-            end = min(end, depth - 0.01f);
+            end = min(end, depth);
          
             // Compute start/end world positions 
             vec3 startMarch = cameraPosWS + normalize(viewDir) * start;
             vec3 endMarch   = cameraPosWS + normalize(viewDir) * end;
             
             float rayLength = max(distance(startMarch, endMarch), 0.00001f);
-            const int steps = 40;
+            int steps = 2;
+            
+            steps = int(clamp(float(steps * rayLength),8, 50));
+            
+            
             float stepSize = max(rayLength / float(steps), 0.001f);
             vec3 rayDir = normalize(-viewDir);
             vec3 rayStep = rayDir * stepSize;
@@ -725,7 +812,12 @@ void main()
             for (int i = 0; i < steps; i++)
             {
                 vec3 dire = rayPos - lightPosition;
-                volumetrics += vec4(vec3(1-GetShadowAttenuationPoint(rayPos, dire, dire, 0)), 1) * CalculateAttenuation(spotLightDir, -dire, lightPosition, rayPos, spotLightCones.xy);
+                vec3 shadowVol = vec3 (1.0f);
+                if(lightShadowsEnabled == 1)
+                {
+                    shadowVol = vec3(1-GetShadowAttenuationPoint(rayPos, dire, dire, 0));
+                }
+                volumetrics += vec4(vec3(shadowVol * CalculateAttenuation(spotLightDir, -dire, lightPosition, rayPos, spotLightCones.xy)), 1.0f);
                 rayPos += rayStep ;
             }
            
