@@ -38,6 +38,32 @@ namespace LegendaryRenderer.LegendaryRuntime.Engine.Editor.Dockspace
             ImGui.Begin("DockspaceWindow", windowFlags);
             ImGui.PopStyleVar(2);
 
+            // --- BEGIN ADDED MENU BAR ---
+            if (ImGui.BeginMainMenuBar())
+            {
+                if (ImGui.BeginMenu("File"))
+                {
+                    // Placeholder for File menu items
+                    ImGui.MenuItem("Open...", "Ctrl+O"); // Example
+                    ImGui.MenuItem("Save", "Ctrl+S");    // Example
+                    ImGui.Separator();
+                    ImGui.MenuItem("Exit");
+                    ImGui.EndMenu();
+                }
+
+                if (ImGui.BeginMenu("Developer"))
+                {
+                    if (ImGui.MenuItem("Reload All Shaders"))
+                    {
+                        LegendaryRenderer.Shaders.ShaderManager.ReloadAllShaders();
+                    }
+                    // Potentially other developer tools can be added here
+                    ImGui.EndMenu();
+                }
+                ImGui.EndMainMenuBar();
+            }
+            // --- END ADDED MENU BAR ---
+
             dockspaceID = ImGui.GetID("MyDockspace");
 
             if (true)

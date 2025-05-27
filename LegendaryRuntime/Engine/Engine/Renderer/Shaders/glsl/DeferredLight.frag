@@ -483,7 +483,7 @@ float GetShadowAttenuation(mat4 shadowViewProj, sampler2D shadowMapTex, vec3 pos
 
         if (shadowPos.x <= 0.0f || shadowPos.x >= 1.0f || shadowPos.y <= 0.0f || shadowPos.y >= 1.0f)
         {
-            shadowFactor = 1.0;
+            shadowFactor = 0.0;
         }
         
         return 1 - clamp(shadowFactor, 0, 1);
@@ -558,27 +558,304 @@ float GetShadowAttenuationCSM(vec3 pos, vec3 normal, vec3 lightDir)
     return shadowFactor;
 }
 
+// Constants for intersectRayConeFinite
+const float RC_INF = 1.0f / 0.0f;
+const float RC_EPSILON_GEOM = 1e-7f; // Epsilon for geometric comparisons (like A, B coefficients, dot products for parallelism)
+const float RC_EPSILON_T = 1e-4f;    // Epsilon for t-values (intersection distances near zero)
+bool intersectRayConeFinite(
+vec3 rayOrigin, vec3 rayDir,
+vec3 coneApex, vec3 coneAxis,
+float cosConeAngle, float coneHeight,
+out float t0, out float t1)
+{
+    t0 = 0.0;
+    t1 = 0.0;
+
+    // Ensure coneHeight is positive and non-zero
+    coneHeight = max(coneHeight, RC_EPSILON_T);
+
+    // Clamp cosConeAngle for stability
+    float robustCosConeAngle = clamp(cosConeAngle, RC_EPSILON_GEOM, 1.0 - RC_EPSILON_GEOM);
+    float cos2Angle = robustCosConeAngle * robustCosConeAngle;
+
+    // Check if ray origin is inside the cone
+    vec3 originToApex = rayOrigin - coneApex;
+    float originHeight = dot(originToApex, coneAxis);
+    bool rayStartsInside = false;
+
+    if (originHeight >= -RC_EPSILON_T && originHeight <= coneHeight + RC_EPSILON_T) {
+        if (originHeight > RC_EPSILON_T) {
+            float originDist = length(originToApex);
+            float originRadialDistSq = max(0.0, originDist * originDist - originHeight * originHeight);
+            float originRadialDist = sqrt(originRadialDistSq);
+
+            // Safe calculation of expected radius - avoid tan() near 90 degrees
+            float sinAngle = sqrt(max(0.0, 1.0 - robustCosConeAngle * robustCosConeAngle));
+            float expectedRadius = (robustCosConeAngle > RC_EPSILON_GEOM) ?
+            originHeight * sinAngle / robustCosConeAngle :
+            originHeight * 1000.0; // Very wide cone fallback
+
+            rayStartsInside = (originRadialDist <= expectedRadius + RC_EPSILON_T);
+        } else {
+            // Very close to apex
+            rayStartsInside = true;
+        }
+    }
+
+    vec3 co = rayOrigin - coneApex;
+    float rayDirDotAxis = dot(rayDir, coneAxis);
+    float coDotAxis = dot(co, coneAxis);
+
+    // First, find intersections with the infinite double cone
+    float A = rayDirDotAxis * rayDirDotAxis - cos2Angle;
+    float B = 2.0 * (rayDirDotAxis * coDotAxis - dot(rayDir, co) * cos2Angle);
+    float C = coDotAxis * coDotAxis - dot(co, co) * cos2Angle;
+
+    float t_cone[2];
+    int numConeSolutions = 0;
+
+    if (abs(A) < RC_EPSILON_GEOM) {
+        if (abs(B) < RC_EPSILON_GEOM) {
+            if (C > RC_EPSILON_GEOM) {
+                return false; // Ray misses cone entirely
+            }
+            // Ray lies on cone surface - degenerate case, treat as miss for volume rendering
+            return false;
+        } else {
+            // Linear case: single intersection
+            float t = -C / B;
+            if (t >= (rayStartsInside ? 0.0 : RC_EPSILON_T)) {
+                t_cone[0] = t;
+                numConeSolutions = 1;
+            }
+        }
+    } else {
+        // Quadratic case
+        float discriminant = B * B - 4.0 * A * C;
+        if (discriminant < 0.0) {
+            return false; // No intersection with cone
+        }
+
+        float sqrtDisc = sqrt(discriminant);
+        float inv2A = 1.0 / (2.0 * A);
+        float t1 = (-B - sqrtDisc) * inv2A;
+        float t2 = (-B + sqrtDisc) * inv2A;
+
+        // Only keep intersections that are in front of the ray (or at origin if we start inside)
+        float minT = rayStartsInside ? 0.0 : RC_EPSILON_T;
+        if (t1 >= minT) {
+            t_cone[numConeSolutions++] = t1;
+        }
+        if (t2 >= minT && t2 != t1) {
+            t_cone[numConeSolutions++] = t2;
+        }
+    }
+
+    // Special handling if ray starts inside the cone
+    if (rayStartsInside) {
+        // Find all possible exit points: cone surface, apex plane, and base plane
+        float candidateExits[10];
+        int numExits = 0;
+
+        // Add cone surface intersections
+        for (int i = 0; i < numConeSolutions; i++) {
+            if (t_cone[i] > RC_EPSILON_T) {
+                vec3 hitPoint = rayOrigin + rayDir * t_cone[i];
+                float height = dot(hitPoint - coneApex, coneAxis);
+                if (height >= -RC_EPSILON_T && height <= coneHeight + RC_EPSILON_T) {
+                    candidateExits[numExits++] = t_cone[i];
+                }
+            }
+        }
+
+        // Add plane intersections (apex and base caps)
+        if (abs(rayDirDotAxis) > RC_EPSILON_GEOM) {
+            float invRayDirDotAxis = 1.0 / rayDirDotAxis;
+
+            // Apex plane (h = 0)
+            float t_apex = (0.0 - coDotAxis) * invRayDirDotAxis;
+            if (t_apex > RC_EPSILON_T) {
+                candidateExits[numExits++] = t_apex;
+            }
+
+            // Base plane (h = coneHeight) - need to verify point is within base circle
+            float t_base = (coneHeight - coDotAxis) * invRayDirDotAxis;
+            if (t_base > RC_EPSILON_T) {
+                vec3 baseHitPoint = rayOrigin + rayDir * t_base;
+                vec3 baseToApex = baseHitPoint - coneApex;
+                float baseHeight = dot(baseToApex, coneAxis);
+
+                // Verify we're actually at the base height
+                if (abs(baseHeight - coneHeight) < RC_EPSILON_T) {
+                    // Check if point is within the base circle
+                    float baseDist = length(baseToApex);
+                    float baseRadialDistSq = max(0.0, baseDist * baseDist - baseHeight * baseHeight);
+                    float baseRadialDist = sqrt(baseRadialDistSq);
+
+                    // Safe calculation of base radius
+                    float sinAngle = sqrt(max(0.0, 1.0 - robustCosConeAngle * robustCosConeAngle));
+                    float baseRadius = (robustCosConeAngle > RC_EPSILON_GEOM) ?
+                    coneHeight * sinAngle / robustCosConeAngle :
+                    coneHeight * 1000.0; // Very wide cone fallback
+
+                    if (baseRadialDist <= baseRadius + RC_EPSILON_T) {
+                        candidateExits[numExits++] = t_base;
+                    }
+                }
+            }
+        }
+
+        if (numExits == 0) {
+            return false;
+        }
+
+        // Find the closest valid exit
+        float minExit = candidateExits[0];
+        for (int i = 1; i < numExits; i++) {
+            if (candidateExits[i] < minExit) {
+                minExit = candidateExits[i];
+            }
+        }
+
+        t0 = 0.0;
+        t1 = minExit;
+        return true;
+    }
+
+    // Now filter cone intersections to only keep those on the FORWARD cone
+    // (height between 0 and coneHeight)
+    float validT[2];
+    int numValid = 0;
+
+    for (int i = 0; i < numConeSolutions; i++) {
+        vec3 hitPoint = rayOrigin + rayDir * t_cone[i];
+        float height = dot(hitPoint - coneApex, coneAxis);
+
+        // Only accept intersections within the finite cone bounds
+        if (height >= -RC_EPSILON_T && height <= coneHeight + RC_EPSILON_T) {
+            validT[numValid++] = t_cone[i];
+        }
+    }
+
+    if (numValid == 0) {
+        return false; // No valid intersections with finite cone
+    }
+
+    // Handle slab intersections (axial clipping)
+    float t_slab_near = -RC_INF;
+    float t_slab_far = RC_INF;
+
+    if (abs(rayDirDotAxis) > RC_EPSILON_GEOM) {
+        float invRayDirDotAxis = 1.0 / rayDirDotAxis;
+        float t_apex = (0.0 - coDotAxis) * invRayDirDotAxis;
+        float t_base = (coneHeight - coDotAxis) * invRayDirDotAxis;
+        t_slab_near = min(t_apex, t_base);
+        t_slab_far = max(t_apex, t_base);
+    } else {
+        // Ray parallel to axis - check if we're in the valid height range
+        if (coDotAxis < -RC_EPSILON_T || coDotAxis > coneHeight + RC_EPSILON_T) {
+            return false;
+        }
+    }
+
+    // Combine all valid intersections and find the entry/exit interval
+    float allT[4];
+    int count = 0;
+
+    // Add valid cone intersections
+    for (int i = 0; i < numValid; i++) {
+        allT[count++] = validT[i];
+    }
+
+    // Add slab intersections if they're positive
+    if (t_slab_near > RC_EPSILON_T) {
+        allT[count++] = t_slab_near;
+    }
+    if (t_slab_far > RC_EPSILON_T && t_slab_far != t_slab_near) {
+        allT[count++] = t_slab_far;
+    }
+
+    if (count < 2) {
+        return false; // Need at least entry and exit
+    }
+
+    // Sort the intersections
+    for (int i = 0; i < count - 1; i++) {
+        for (int j = i + 1; j < count; j++) {
+            if (allT[i] > allT[j]) {
+                float temp = allT[i];
+                allT[i] = allT[j];
+                allT[j] = temp;
+            }
+        }
+    }
+
+    // Find the first valid interval
+    for (int i = 0; i < count - 1; i++) {
+        float tStart = allT[i];
+        float tEnd = allT[i + 1];
+
+        if (tEnd - tStart > RC_EPSILON_T) {
+            // Verify this interval is actually inside the cone
+            float tMid = (tStart + tEnd) * 0.5;
+            vec3 midPoint = rayOrigin + rayDir * tMid;
+            float midHeight = dot(midPoint - coneApex, coneAxis);
+
+            if (midHeight >= -RC_EPSILON_T && midHeight <= coneHeight + RC_EPSILON_T) {
+                // Check if point is inside cone surface
+                vec3 midToApex = midPoint - coneApex;
+                float midDist = length(midToApex);
+                float axialDist = dot(midToApex, coneAxis);
+
+                if (axialDist > RC_EPSILON_T) {
+                    float radialDistSq = max(0.0, midDist * midDist - axialDist * axialDist);
+                    float radialDist = sqrt(radialDistSq);
+
+                    // Safe calculation of expected radius
+                    float sinAngle = sqrt(max(0.0, 1.0 - robustCosConeAngle * robustCosConeAngle));
+                    float expectedRadius = (robustCosConeAngle > RC_EPSILON_GEOM) ?
+                    axialDist * sinAngle / robustCosConeAngle :
+                    axialDist * 1000.0; // Very wide cone fallback
+
+                    if (radialDist <= expectedRadius + RC_EPSILON_T) {
+                        t0 = max(tStart, RC_EPSILON_T);
+                        t1 = tEnd;
+                        return t0 < t1;
+                    }
+                } else {
+                    // Very close to apex, accept if height is valid
+                    t0 = max(tStart, RC_EPSILON_T);
+                    t1 = tEnd;
+                    return t0 < t1;
+                }
+            }
+        }
+    }
+
+    return false;
+}
+
 bool intersectRaySphere(vec3 rayOrigin, vec3 rayDir, vec3 spherePos, float radius, out float t0, out float t1)
 {
     t0 = 0.0f;
     t1 = 0.0f;
 
-    vec3 oc = rayOrigin - spherePos; 
-    float a = dot(rayDir, rayDir); 
+    vec3 oc = rayOrigin - spherePos;
+    float a = dot(rayDir, rayDir);
     float b = 2.0f * dot(oc, rayDir);
     float c = dot(oc, oc) - radius * radius;
-    
+
     const float A_EPSILON = 1e-7f;
 
     if (abs(a) < A_EPSILON) {
-       
-        if (c <= 0.0f) { 
-            
+
+        if (c <= 0.0f) {
+
             t0 = 0.0f;
             t1 = 0.0f;
             return true;
         }
-      
+
         return false;
     }
 
@@ -587,26 +864,26 @@ bool intersectRaySphere(vec3 rayOrigin, vec3 rayDir, vec3 spherePos, float radiu
     if (discriminant < 0.0f) {
         return false;
     }
-    
+
     float sqrtD = sqrt(discriminant);
-    
+
     float inv2a = 1.0f / (2.0f * a);
     float tNear = (-b - sqrtD) * inv2a;
     float tFar  = (-b + sqrtD) * inv2a;
-    
+
     if (tNear > tFar) {
         float temp = tNear;
         tNear = tFar;
         tFar = temp;
     }
-    
+
     if (tFar < 0.0f) {
         return false;
     }
 
     t0 = max(tNear, 0.0f);
     t1 = tFar;
-    
+
     if (t0 > t1) {
         return false;
     }
@@ -615,57 +892,6 @@ bool intersectRaySphere(vec3 rayOrigin, vec3 rayDir, vec3 spherePos, float radiu
 }
 
 
-bool intersectRayCone(vec3 rayOrigin, vec3 rayDir, vec3 coneOrigin, vec3 coneDir, float coneAngle, float coneLength, out float t0, out float t1)
-{
-    float cosAngle = cos(coneAngle);
-    float cos2 = cosAngle * cosAngle;
-    
-    vec3 co = rayOrigin - coneOrigin;
-    
-    float vDotD = dot(rayDir, coneDir);
-    float coDotD = dot(co, coneDir);
-    
-    float a = vDotD * vDotD - cos2;
-    float b = 2.0 * (vDotD * coDotD - dot(rayDir, co) * cos2);
-    float c = coDotD * coDotD - dot(co, co) * cos2;
-    
-    float discr = b * b - 4.0 * a * c;
-    if(discr < 0.0) return false;
-    
-    float sqrtDiscr = sqrt(discr);
-    float tmp0 = (-b - sqrtDiscr) / (2.0 * a);
-    float tmp1 = (-b + sqrtDiscr) / (2.0 * a);
-    
-    if(tmp0 > tmp1)
-    {
-        float tmp = tmp0;
-        tmp0 = tmp1;
-        tmp1 = tmp;
-    }
-    
-    const float EPS = 1e-4;
-    vec3 hit0 = rayOrigin * rayDir * tmp0;
-    vec3 hit1 = rayOrigin + rayDir * tmp1;
-    
-    float h0 = dot(hit0 - coneOrigin, coneDir);
-    float h1 = dot(hit1 - coneOrigin, coneDir);
-    
-    bool valid0 = (h0 >= 0.0f && h0 <= coneLength);
-    bool valid1 = (h1 >= 0.0f && h1 <= coneLength);
-    
-    if(!valid0 && !valid1) return false;
-    
-    if(!valid0 && valid1)
-    {
-        tmp0 = EPS;
-    }
-    
-    t0 = tmp0;
-    t1 = tmp1;
-    return true;
-    
-    return true;
-}
 
 void main()
 {
@@ -686,7 +912,7 @@ void main()
 
     vec4 norm = texture(screenNormal, texCoord).rgba;
     vec3 normal = normalize(norm.xyz * 2 - 1);
-    float shadowFactor = 1;
+    float shadowFactor = 0;
     float radius = inversesqrt(lightRadius);
     float metallic = albMat.w;
     float roughness = norm.w;
@@ -708,7 +934,7 @@ void main()
 
             float cosOuter = clamp(-spotLightCones.y / spotLightCones.x, 0.0, 1.0);
             
-            if (intersectRayCone(cameraPosWS, viewDir, lightPosition, spotLightDir, cosOuter, radius, start, end) && lightEnableVolumetrics == 1)
+            if (intersectRayConeFinite(cameraPosWS, viewDir, lightPosition, spotLightDir, cosOuter, radius, start, end) && lightEnableVolumetrics == 1)
             {
                 
                 // Clamp t-values to avoid stepping behind the camera
@@ -724,29 +950,27 @@ void main()
                 vec3 startMarch = cameraPosWS + normalize(viewDir) * start;
                 vec3 endMarch = cameraPosWS + normalize(viewDir) * end;
                 
-                float rayLength = max(length(startMarch - endMarch), 0.00001f);
-                int steps = 32;
-
-                FragColor = vec4(1, rayLength, 0, 1);
-                return;
-
+                float rayLength = max(length(startMarch - endMarch), RC_EPSILON_T);
+                int steps = 20;
+                
                 float stepSize = max(rayLength / float(steps), 0.00001f);
                 vec3 rayDir = normalize(viewDir);
                 vec3 rayStep = rayDir * stepSize;
                 float noise = fract(sin(dot(texCoord * vec2(12.9898, 78.233), vec2(1.0))) * 43758.5453);
-                float jitter = (noise - 0.5) * stepSize * 0.5;
+                float jitter = (noise - 0.5) * stepSize;
                 vec3 rayPos = startMarch + rayDir * jitter;
+                
                 volumetrics = vec4(0.0);// Reset debug output
+                
                 for (int i = 0; i < steps; i++)
                 {
-                    vec3 dire = rayPos - lightPosition;
+                    vec3 dire2 = normalize(rayPos - lightPosition);
                     vec3 shadowVol = vec3(1.0f);
                     if (lightShadowsEnabled == 1)
                     {
-                        shadowVol = vec3(1 - GetShadowAttenuation(shadowViewProjection, shadowMap, rayPos, dire, dire, 8.0f, 0));
+                        shadowVol = vec3(1 - GetShadowAttenuation(shadowViewProjection, shadowMap, rayPos, dire2, dire2, 1.0f, 0));
                     }
-                    
-                    volumetrics += vec4(vec3(shadowVol * CalculateAttenuation(spotLightDir, lightDir, lightPosition, rayPos, spotLightCones.xy)), 1.0f);//* CalculateAttenuation(spotLightDir, lightDir, lightPosition, rayPos, spotLightCones.xy)), 1.0f);
+                    volumetrics += abs(vec4(vec3(shadowVol * CalculateAttenuation(spotLightDir, -dire2, lightPosition, rayPos, spotLightCones.xy)), 1.0f));//* CalculateAttenuation(spotLightDir, lightDir, lightPosition, rayPos, spotLightCones.xy)), 1.0f);
                     rayPos += rayStep;
                 }
 
@@ -793,10 +1017,10 @@ void main()
             vec3 startMarch = cameraPosWS + normalize(viewDir) * start;
             vec3 endMarch   = cameraPosWS + normalize(viewDir) * end;
             
-            float rayLength = max(distance(startMarch, endMarch), 0.00001f);
-            int steps = 2;
+            float rayLength = max(distance(startMarch, endMarch), .5);
+            int steps = 20;
             
-            steps = int(clamp(float(steps * rayLength),8, 50));
+           // steps = int(clamp(float(steps * rayLength),3, 30));
             
             
             float stepSize = max(rayLength / float(steps), 0.001f);
@@ -811,7 +1035,7 @@ void main()
             volumetrics = vec4(0.0);// Reset debug output
             for (int i = 0; i < steps; i++)
             {
-                vec3 dire = rayPos - lightPosition;
+                vec3 dire = normalize(rayPos - lightPosition);
                 vec3 shadowVol = vec3 (1.0f);
                 if(lightShadowsEnabled == 1)
                 {
