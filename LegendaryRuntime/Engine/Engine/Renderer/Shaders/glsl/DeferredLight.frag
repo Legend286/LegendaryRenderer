@@ -954,11 +954,11 @@ void main()
                 int steps = 20;
                 
                 float stepSize = max(rayLength / float(steps), 0.00001f);
-                vec3 rayDir = normalize(viewDir);
+                vec3 rayDir = normalize(-viewDir);
                 vec3 rayStep = rayDir * stepSize;
                 float noise = fract(sin(dot(texCoord * vec2(12.9898, 78.233), vec2(1.0))) * 43758.5453);
                 float jitter = (noise - 0.5) * stepSize;
-                vec3 rayPos = startMarch + rayDir * jitter;
+                vec3 rayPos = endMarch + rayDir * jitter;
                 
                 volumetrics = vec4(0.0);// Reset debug output
                 
