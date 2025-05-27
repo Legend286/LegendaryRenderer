@@ -16,6 +16,7 @@ using LegendaryRenderer.LegendaryRuntime.Engine.Engine.GameObjects;
 using LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer;
 using LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer.MaterialSystem;
 using LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer.MeshInstancing;
+using LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer.Systems.Compute;
 using LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer.Systems.SceneSystem;
 using LegendaryRenderer.LegendaryRuntime.Engine.Renderer.MaterialSystem;
 using LegendaryRenderer.Shaders;

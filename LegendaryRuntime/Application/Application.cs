@@ -39,6 +39,6 @@ public static class Application
         var gameSettings = GameWindowSettings.Default;
         gameSettings.UpdateFrequency = maxFPS;
         return new ApplicationWindow(gameSettings,
-            new NativeWindowSettings() { Size = (width, height), Title = title, RedBits = 16, GreenBits = 16, BlueBits = 16, AlphaBits = 16});
+            new NativeWindowSettings() { Size = (width, height), Title = title, RedBits = 16, GreenBits = 16, BlueBits = 16, AlphaBits = 16, SrgbCapable = false});
     }
 }

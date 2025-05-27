@@ -13,7 +13,7 @@ public class AutoExposureCompute
 
         if (computeID == -1)
         {
-            computeID = LoadReductionProgram("LegendaryRuntime/Engine/Shaders/glsl/AutoExposureCompute.comp");
+            computeID = LoadReductionProgram("LegendaryRuntime/Engine/Engine/Renderer/Shaders/glsl/AutoExposureCompute.comp");
         }
 
         float exposure = ComputeAutoExposure(textureID, textureWidth, textureHeight, computeID, prevExposure,

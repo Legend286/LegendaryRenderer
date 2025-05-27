@@ -172,8 +172,8 @@ vec3 ImportanceSampleGGX(vec2 Xi, vec3 N, float roughness) {
     // Convert random numbers to spherical coordinates with GGX distribution.
     float phi = 2.0 * PI * Xi.x;
     // Compute cos(theta) using the inverse CDF of the GGX distribution.
-    float cosTheta = sqrt((1.0 - Xi.y) / (1.0 + (a * a - 1.0) * Xi.y));
-    float sinTheta = sqrt(1.0 - cosTheta * cosTheta);
+    float cosTheta = 1/inversesqrt((1.0 - Xi.y) / (1.0 + (a * a - 1.0) * Xi.y));
+    float sinTheta = 1/inversesqrt(1.0 - cosTheta * cosTheta);
 
     // Tangent space vector.
     vec3 H_tangent;
@@ -391,7 +391,7 @@ float NormalOrientedAmbientOcclusion(vec2 UV, vec3 vsNormal)
     return 1-occlusion;
 }
 
-float GetShadowAttenuation(mat4 shadowViewProj, sampler2D shadowMapTex, vec3 pos, vec3 normal, vec3 lightDir, float biasMultiplier, const int useShadowFiltering)
+float GetShadowAttenuation(mat4 shadowViewProj, sampler2D shadowMapTex, vec3 pos, vec3 normal, vec3 lightDir, float biasMultiplier, int useShadowFiltering)
 {
     if(lightShadowsEnabled == 1)
     {
@@ -469,13 +469,9 @@ float GetShadowAttenuation(mat4 shadowViewProj, sampler2D shadowMapTex, vec3 pos
 
             float sampleDepth = texture(shadowMapTex, samplePos).r;
 
-            if ((sampleDepth < shadowPos.z - bias))
+            if ((sampleDepth > shadowPos.z - bias))
             {
-                shadowFactor += 0.0; // Lit
-            }
-            else
-            {
-                shadowFactor += 1.0f;
+                shadowFactor += 1.0; // Lit
             }
         }
 
@@ -506,16 +502,53 @@ float CalculateAttenuationFactor(mat4 shadowViewProj, vec3 pos)
     return smoothstep(0.95, 1.0f, clamp(distance(vec2(0.5f), shadowPos0.xy)*2, 0.0f, 1.0f));
 }
 
-float GetShadowAttenuationPoint(vec3 pos, vec3 normal, vec3 lightDir, const int useShadowFiltering)
+int determineCubeFace(vec3 direction) {
+    vec3 absDir = abs(direction);
+
+    // Find the dominant axis (largest absolute component)
+    if (absDir.x >= absDir.y && absDir.x >= absDir.z) {
+        // X is dominant
+        return (direction.x > 0.0) ? 0 : 1; // +X or -X
+    }
+    else if (absDir.y >= absDir.x && absDir.y >= absDir.z) {
+        // Y is dominant  
+        return (direction.y > 0.0) ? 2 : 3; // +Y or -Y
+    }
+    else {
+        // Z is dominant
+        return (direction.z > 0.0) ? 4 : 5; // +Z or -Z
+    }
+}
+
+float GetShadowAttenuationPoint(vec3 pos, vec3 normal, vec3 lightDir, int useShadowFiltering)
 {
     float shadowFactor = 1.0f;
-    shadowFactor = shadowFactor * GetShadowAttenuation(shadowViewProjection0, shadowMap0, pos, normal, lightDir, 1.0f, useShadowFiltering);
-    shadowFactor = shadowFactor * GetShadowAttenuation(shadowViewProjection1, shadowMap1, pos, normal, lightDir, 1.0f, useShadowFiltering);
-    shadowFactor = shadowFactor * GetShadowAttenuation(shadowViewProjection2, shadowMap2, pos, normal, lightDir, 1.0f, useShadowFiltering);
-    shadowFactor = shadowFactor * GetShadowAttenuation(shadowViewProjection3, shadowMap3, pos, normal, lightDir, 1.0f, useShadowFiltering);
-    shadowFactor = shadowFactor * GetShadowAttenuation(shadowViewProjection4, shadowMap4, pos, normal, lightDir, 1.0f, useShadowFiltering);
-    shadowFactor = shadowFactor * GetShadowAttenuation(shadowViewProjection5, shadowMap5, pos, normal, lightDir, 1.0f, useShadowFiltering);
-
+    int faceIndex = determineCubeFace(lightDir);
+    if(faceIndex == 0)
+    {
+        shadowFactor = GetShadowAttenuation(shadowViewProjection0, shadowMap0, pos, normal, lightDir, 1.0f, useShadowFiltering);
+    }
+    if(faceIndex == 1)
+    {
+        shadowFactor = GetShadowAttenuation(shadowViewProjection1, shadowMap1, pos, normal, lightDir, 1.0f, useShadowFiltering);
+    }
+    if(faceIndex == 2)
+    {
+        shadowFactor = GetShadowAttenuation(shadowViewProjection2, shadowMap2, pos, normal, lightDir, 1.0f, useShadowFiltering);
+    }
+    if(faceIndex == 3)
+    {
+        shadowFactor = GetShadowAttenuation(shadowViewProjection3, shadowMap3, pos, normal, lightDir, 1.0f, useShadowFiltering);
+    }
+    if(faceIndex == 4)
+    {
+        shadowFactor = GetShadowAttenuation(shadowViewProjection4, shadowMap4, pos, normal, lightDir, 1.0f, useShadowFiltering);
+    }
+    if(faceIndex == 5)
+    {
+        shadowFactor *= GetShadowAttenuation(shadowViewProjection5, shadowMap5, pos, normal, lightDir, 1.0f, useShadowFiltering);
+    }
+    
     return saturate(shadowFactor);
 }
 float GetShadowAttenuationCSM(vec3 pos, vec3 normal, vec3 lightDir)
@@ -587,10 +620,10 @@ out float t0, out float t1)
         if (originHeight > RC_EPSILON_T) {
             float originDist = length(originToApex);
             float originRadialDistSq = max(0.0, originDist * originDist - originHeight * originHeight);
-            float originRadialDist = sqrt(originRadialDistSq);
+            float originRadialDist = 1/inversesqrt(originRadialDistSq);
 
             // Safe calculation of expected radius - avoid tan() near 90 degrees
-            float sinAngle = sqrt(max(0.0, 1.0 - robustCosConeAngle * robustCosConeAngle));
+            float sinAngle = 1/inversesqrt(max(0.0, 1.0 - robustCosConeAngle * robustCosConeAngle));
             float expectedRadius = (robustCosConeAngle > RC_EPSILON_GEOM) ?
             originHeight * sinAngle / robustCosConeAngle :
             originHeight * 1000.0; // Very wide cone fallback
@@ -636,7 +669,7 @@ out float t0, out float t1)
             return false; // No intersection with cone
         }
 
-        float sqrtDisc = sqrt(discriminant);
+        float sqrtDisc = 1/inversesqrt(discriminant);
         float inv2A = 1.0 / (2.0 * A);
         float t1 = (-B - sqrtDisc) * inv2A;
         float t2 = (-B + sqrtDisc) * inv2A;
@@ -690,10 +723,10 @@ out float t0, out float t1)
                     // Check if point is within the base circle
                     float baseDist = length(baseToApex);
                     float baseRadialDistSq = max(0.0, baseDist * baseDist - baseHeight * baseHeight);
-                    float baseRadialDist = sqrt(baseRadialDistSq);
+                    float baseRadialDist = 1/inversesqrt(baseRadialDistSq);
 
                     // Safe calculation of base radius
-                    float sinAngle = sqrt(max(0.0, 1.0 - robustCosConeAngle * robustCosConeAngle));
+                    float sinAngle = 1/inversesqrt(max(0.0, 1.0 - robustCosConeAngle * robustCosConeAngle));
                     float baseRadius = (robustCosConeAngle > RC_EPSILON_GEOM) ?
                     coneHeight * sinAngle / robustCosConeAngle :
                     coneHeight * 1000.0; // Very wide cone fallback
@@ -809,10 +842,10 @@ out float t0, out float t1)
 
                 if (axialDist > RC_EPSILON_T) {
                     float radialDistSq = max(0.0, midDist * midDist - axialDist * axialDist);
-                    float radialDist = sqrt(radialDistSq);
+                    float radialDist = 1/inversesqrt(radialDistSq);
 
                     // Safe calculation of expected radius
-                    float sinAngle = sqrt(max(0.0, 1.0 - robustCosConeAngle * robustCosConeAngle));
+                    float sinAngle = 1/inversesqrt(max(0.0, 1.0 - robustCosConeAngle * robustCosConeAngle));
                     float expectedRadius = (robustCosConeAngle > RC_EPSILON_GEOM) ?
                     axialDist * sinAngle / robustCosConeAngle :
                     axialDist * 1000.0; // Very wide cone fallback
@@ -865,7 +898,7 @@ bool intersectRaySphere(vec3 rayOrigin, vec3 rayDir, vec3 spherePos, float radiu
         return false;
     }
 
-    float sqrtD = sqrt(discriminant);
+    float sqrtD = 1/inversesqrt(discriminant);
 
     float inv2a = 1.0f / (2.0f * a);
     float tNear = (-b - sqrtD) * inv2a;
@@ -972,7 +1005,8 @@ void main()
                 }
 
                 volumetrics /= steps;
-                volumetrics *= lightIntensity * vec4(lightColour, 1.0f);
+                
+                volumetrics *= lightIntensity * vec4(lightColour, 1.0f) * rayLength;
                 volumetrics = clamp(volumetrics, 0, lightIntensity);
             }
         }
@@ -1022,8 +1056,8 @@ void main()
 
             // Small random offset (e.g. ±0.5 step)
             float noise = fract(sin(dot(texCoord * vec2(12.9898, 78.233), vec2(1.0))) * 43758.5453);
-            float jitter = (noise - 0.5); // range [-0.5, +0.5]
-            vec3 rayPos = endMarch + rayStep * jitter; // start from slightly offset point
+            float jitter = (noise); // range [-0.5, +0.5]
+            vec3 rayPos = endMarch + rayDir * jitter; // start from slightly offset point
 
             volumetrics = vec4(0.0);// Reset debug output
             for (int i = 0; i < steps; i++)
@@ -1038,8 +1072,9 @@ void main()
                 rayPos += rayStep ;
             }
 
-            volumetrics /= steps * rayLength;
-            volumetrics *= lightIntensity * vec4(lightColour,1.0f);
+            volumetrics /= steps;
+            volumetrics *= lightIntensity * vec4(lightColour,1.0f) * rayLength;
+           // volumetrics = clamp(volumetrics, 0, lightIntensity);
         }
     }
     else if (lightType == 2)
