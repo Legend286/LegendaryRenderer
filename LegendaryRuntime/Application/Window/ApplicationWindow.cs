@@ -85,7 +85,7 @@ public class ApplicationWindow : GameWindow
     private GameObject model2;
     private GameObject model3;
     public static List<Light> lights = new List<Light>();
-    private int numLights = 0;
+    private int numLights = 32;
 
     string[] modelExtensions = new string[] { ".fbx", ".gltf", ".glb", ".obj", ".objc", ".objd" };
     string[] textureExtensions = new string[] { ".png", ".jpg", ".jpeg", ".tif" };
@@ -251,7 +251,7 @@ public class ApplicationWindow : GameWindow
         for (int i = 0; i < numLights; i++)
         {
             var light = new Light(new Vector3(MathF.Cos((float)i / numLights) * 4, 1, MathF.Sin((float)i / numLights) * 4), "Light DEF");
-            light.Transform.LocalRotation *= Quaternion.FromEulerAngles(MathHelper.DegreesToRadians(0), MathHelper.DegreesToRadians((360 / numLights) * i), 0);
+            light.Transform.Rotation *= Quaternion.FromEulerAngles(MathHelper.DegreesToRadians(0), MathHelper.DegreesToRadians((360 / numLights) * i), 0);
             light.Transform.Position = light.Transform.Forward * 2;
             light.Colour = colours[i % 6];
             light.Range = 10.0f;
@@ -260,7 +260,8 @@ public class ApplicationWindow : GameWindow
             light.InnerCone = 20.0f;
             light.Intensity = 800.0f;
             light.LightIESProfile = profile;
-            light.EnableShadows = true;
+            light.EnableShadows = false;
+            light.EnableVolumetrics = true;
             lights.Add(light);
         }
 
@@ -532,8 +533,8 @@ public class ApplicationWindow : GameWindow
 
         for (int i = 0; i < numLights; i++)
         {
-            lights[i].Transform.LocalRotation *= Quaternion.FromEulerAngles(0, MathHelper.DegreesToRadians(90) * (float)args.Time, 0);
-            lights[i].Transform.Position = new Vector3(-8,2,3) + lights[i].Transform.Forward * 2;
+            lights[i].Transform.Rotation *= Quaternion.FromEulerAngles(0, MathHelper.DegreesToRadians(90) * (float)args.Time, 0);
+            lights[i].Transform.Position = new Vector3(0,2,0) + lights[i].Transform.Forward * 0.5f;
         }
     }
 

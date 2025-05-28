@@ -523,7 +523,7 @@ int determineCubeFace(vec3 direction) {
 float GetShadowAttenuationPoint(vec3 pos, vec3 normal, vec3 lightDir, int useShadowFiltering)
 {
     float shadowFactor = 1.0f;
-    int faceIndex = determineCubeFace(lightDir);
+    int faceIndex = determineCubeFace(-lightDir);
     if(faceIndex == 0)
     {
         shadowFactor = GetShadowAttenuation(shadowViewProjection0, shadowMap0, pos, normal, lightDir, 1.0f, useShadowFiltering);
@@ -1056,7 +1056,7 @@ void main()
 
             // Small random offset (e.g. ±0.5 step)
             float noise = fract(sin(dot(texCoord * vec2(12.9898, 78.233), vec2(1.0))) * 43758.5453);
-            float jitter = (noise); // range [-0.5, +0.5]
+            float jitter = (noise - 0.5) * stepSize; // range [-0.5, +0.5]
             vec3 rayPos = endMarch + rayDir * jitter; // start from slightly offset point
 
             volumetrics = vec4(0.0);// Reset debug output
@@ -1066,9 +1066,9 @@ void main()
                 vec3 shadowVol = vec3 (1.0f);
                 if(lightShadowsEnabled == 1)
                 {
-                    shadowVol = vec3(1-GetShadowAttenuationPoint(rayPos, dire, dire, 0));
+                    shadowVol = vec3(1-GetShadowAttenuationPoint(rayPos, -dire, -dire, 0));
                 }
-                volumetrics += vec4(vec3(shadowVol * CalculateAttenuation(spotLightDir, -dire, lightPosition, rayPos, spotLightCones.xy)), 1.0f) * rayLength;
+                volumetrics += vec4(vec3(shadowVol * CalculateAttenuation(spotLightDir, dire, lightPosition, rayPos, spotLightCones.xy)), 1.0f) * rayLength;
                 rayPos += rayStep ;
             }
 
