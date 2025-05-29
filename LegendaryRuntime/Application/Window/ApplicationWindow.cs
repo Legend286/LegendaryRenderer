@@ -85,7 +85,7 @@ public class ApplicationWindow : GameWindow
     private GameObject model2;
     private GameObject model3;
     public static List<Light> lights = new List<Light>();
-    private int numLights = 32;
+    private int numLights = 3;
 
     string[] modelExtensions = new string[] { ".fbx", ".gltf", ".glb", ".obj", ".objc", ".objd" };
     string[] textureExtensions = new string[] { ".png", ".jpg", ".jpeg", ".tif" };
@@ -258,9 +258,9 @@ public class ApplicationWindow : GameWindow
             light.Type = Light.LightType.Spot;
             light.OuterCone = 90.0f;
             light.InnerCone = 20.0f;
-            light.Intensity = 800.0f;
+            light.Intensity = 10.0f;
             light.LightIESProfile = profile;
-            light.EnableShadows = false;
+            light.EnableShadows = true;
             light.EnableVolumetrics = true;
             lights.Add(light);
         }

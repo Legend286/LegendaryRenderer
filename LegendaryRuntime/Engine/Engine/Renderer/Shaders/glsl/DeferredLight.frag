@@ -981,7 +981,9 @@ void main()
                 vec3 endMarch = cameraPosWS + normalize(viewDir) * end;
 
                 float rayLength = max(length(startMarch - endMarch), RC_EPSILON_T);
-                int steps = 20;
+                float desiredStep = 0.001f;
+
+                int steps = int(clamp(rayLength / desiredStep, 1.0f, 50.0f));
 
                 float stepSize = max(rayLength / float(steps), 0.00001f);
                 vec3 rayDir = normalize(-viewDir);
@@ -1045,7 +1047,10 @@ void main()
             vec3 endMarch   = cameraPosWS + normalize(viewDir) * end;
 
             float rayLength = max(distance(startMarch, endMarch), .5);
-            int steps = 20;
+            float desiredStep = 0.001f;
+
+            int steps = int(clamp(rayLength / desiredStep, 1.0f, 50.0f));
+
 
             // steps = int(clamp(float(steps * rayLength),3, 30));
 
