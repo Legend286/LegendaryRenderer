@@ -8,7 +8,7 @@ uniform vec4 projectionParameters;
 uniform sampler2D screenTexture;
 uniform sampler2D screenDepth;
 uniform sampler2D screenNormal;
-uniform sampler2DShadow shadowMap;
+uniform sampler2D shadowMap;
 uniform sampler2D ssaoNoise;
 
 uniform sampler2D cubemap;
@@ -16,12 +16,12 @@ uniform sampler2D cubemap;
 uniform sampler2D lightCookieTexture;
 
 // point light shadowmaps
-uniform sampler2DShadow shadowMap0;
-uniform sampler2DShadow shadowMap1;
-uniform sampler2DShadow shadowMap2;
-uniform sampler2DShadow shadowMap3;
-uniform sampler2DShadow shadowMap4;
-uniform sampler2DShadow shadowMap5;
+uniform sampler2D shadowMap0;
+uniform sampler2D shadowMap1;
+uniform sampler2D shadowMap2;
+uniform sampler2D shadowMap3;
+uniform sampler2D shadowMap4;
+uniform sampler2D shadowMap5;
 
 uniform int cascadeCount;
 
@@ -391,7 +391,7 @@ float NormalOrientedAmbientOcclusion(vec2 UV, vec3 vsNormal)
     return 1-occlusion;
 }
 
-float GetShadowAttenuation(mat4 shadowViewProj, sampler2DShadow shadowMapTex, vec3 pos, vec3 normal, vec3 lightDir, float biasMultiplier, int useShadowFiltering)
+float GetShadowAttenuation(mat4 shadowViewProj, sampler2D shadowMapTex, vec3 pos, vec3 normal, vec3 lightDir, float biasMultiplier, int useShadowFiltering)
 {
     if(lightShadowsEnabled == 1)
     {
@@ -402,7 +402,7 @@ float GetShadowAttenuation(mat4 shadowViewProj, sampler2DShadow shadowMapTex, ve
 
 
 
-        shadowPos.xy = clamp(shadowPos.xy, 0, 1);
+        //shadowPos.xy = clamp(shadowPos.xy, 0, 1);
 
         // PCF Parameters
         int pcfSamples = 16;         // Number of Poisson disk samples
@@ -467,17 +467,12 @@ float GetShadowAttenuation(mat4 shadowViewProj, sampler2DShadow shadowMapTex, ve
             }
             vec2 samplePos = shadowPos.xy + offset;
 
-            /*
             float sampleDepth = texture(shadowMapTex, samplePos).r;
 
             if ((sampleDepth > shadowPos.z - bias))
             {
                 shadowFactor += 1.0; // Lit
             }
-            */
-            
-            
-            shadowFactor += textureProj(shadowMapTex, vec4(shadowPos.xy + offset, shadowPos.z, 1), bias);
         }
 
         shadowFactor /= float(pcfSamples); // Average the samples
