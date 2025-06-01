@@ -40,7 +40,7 @@ using TextureHandle = LegendaryRenderer.LegendaryRuntime.Engine.Utilities.GLHelp
 using Vector2 = OpenTK.Mathematics.Vector2;
 using Vector3 = OpenTK.Mathematics.Vector3;
 using Vector4 = OpenTK.Mathematics.Vector4;
-using System.Runtime.InteropServices;
+
 
 namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine;
 
@@ -55,41 +55,6 @@ public struct SSAOSettings
         Radius = 0.3f;
         Bias = 0.01f;
         NumberOfSamples = 32;
-    }
-}
-
-public struct ShadowInstanceData
-{
-    public Matrix4 ModelMatrix;
-    public Matrix4 LightViewProjection;
-    public Vector4 AtlasScaleOffset;  // xy = scale, zw = offset
-    public Vector4 TileBounds;       // for pixel shader clip
-    public int LightIndex;
-    public int FaceIndex;            // For point lights (0-5), -1 for others
-    private float padding1;
-    private float padding2;
-}
-
-public struct LightShadowInfo
-{
-    public Light Light;
-    public int BaseAtlasIndex;       // Starting index in atlas
-    public int TileCount;            // Number of tiles (1 for spot/directional, 6 for point)
-    public bool IsVisible;
-    public List<RenderableMesh> ShadowCasters;
-}
-
-public struct AtlasTileInfo
-{
-    public Vector2 atlasOffset;
-    public Vector2 atlasScale;
-    public int tileSizeInPixels;
-    
-    public AtlasTileInfo(Vector2 offset, Vector2 scale, int tileSize)
-    {
-        atlasOffset = offset;
-        atlasScale = scale;
-        tileSizeInPixels = tileSize;
     }
 }
 
@@ -127,24 +92,6 @@ public static class Engine
         ShadowViewCount = 0,
         NumShadowCasters = 0,
         CullPass = 0;
-
-    // Shadow atlas management
-    private static int shadowAtlasTexture = -1;
-    private static int shadowAtlasFBO = -1;
-    public static int ShadowAtlasResolution = 4096;
-    private static int currentAtlasTileSize = 512;
-    
-    // Instance data management
-    private static Dictionary<RenderableMesh, List<ShadowInstanceData>> shadowInstanceGroups = new();
-    private static List<LightShadowInfo> visibleShadowLights = new();
-    private static int shadowInstanceBufferUBO = -1;
-    private static List<ShadowInstanceData> allShadowInstances = new();
-    
-    // Matrix storage for synchronization between shadow generation and lighting
-    private static Dictionary<int, Matrix4[]> storedShadowMatrices = new();
-    
-    // Maximum instances per draw call (OpenGL 4.1 compliant)
-    public const int MAX_SHADOW_INSTANCES_PER_MESH = 64;
 
     static Engine()
     {
@@ -193,7 +140,6 @@ public static class Engine
             
         };
 
-        InitializeShadowAtlas();
     }
     
     // Thread-safe queue for actions to run on the main thread.
@@ -807,7 +753,7 @@ public static class Engine
     
     public static Matrix4[] CSMMatrices = new Matrix4[4];
 
-    public static bool UseInstancedShadows = true;
+    public static bool UseInstancedShadows = false;
     public static void RenderCascadedShadowMaps(Light light, bool shouldRender)
     {
         CSMMatrices = Light.GenerateCascadedShadowMatrices(ActiveCamera, light, ShadowResolution);
@@ -984,42 +930,23 @@ public static class Engine
         return frustum.ContainsSphere(renderableMesh.Bounds);
     }
     
-    public static AtlasTileInfo CalculateAtlasTile(int atlasIndex, int atlasResolution, int tileSize)
+    public static (Vector2 atlasOffset, Vector2 atlasScale, int tileSizeInPixels) CalculateAtlasTile(int lightIndex, int numberOfLights, int atlasResolution)
     {
-        int tilesPerSide = atlasResolution / tileSize;
-        int row = atlasIndex / tilesPerSide;
-        int col = atlasIndex % tilesPerSide;
-        
-        Vector2 atlasOffset = new Vector2(
-            (float)col / tilesPerSide,
-            (float)row / tilesPerSide
-        );
-        
-        Vector2 atlasScale = new Vector2(
-            1.0f / tilesPerSide,
-            1.0f / tilesPerSide
-        );
-        
-        return new AtlasTileInfo(atlasOffset, atlasScale, tileSize);
-    }
+        // Compute the number of tiles along one dimension.
+        int tileCount = (int)Math.Ceiling(Math.Sqrt(numberOfLights));
     
-    private static int CalculateOptimalTileSize(int atlasResolution, int totalTiles)
-    {
-        if (totalTiles <= 0) return atlasResolution;
-        
-        // Calculate square grid to fit all tiles
-        int tilesPerSide = (int)Math.Ceiling(Math.Sqrt(totalTiles));
-        int tileSize = atlasResolution / Math.Max(1, tilesPerSide);
-        
-        // Ensure tile size is at least 32x32 and power of 2 for better performance
-        tileSize = Math.Max(32, tileSize);
-        
-        // Round down to nearest power of 2
-        int powerOf2 = 1;
-        while (powerOf2 * 2 <= tileSize)
-            powerOf2 *= 2;
-            
-        return powerOf2;
+        // Compute the x and y grid coordinates for the light.
+        int x = lightIndex % tileCount;
+        int y = lightIndex / tileCount;
+    
+        // In normalized atlas coordinates (0 to 1).
+        Vector2 atlasOffset = new Vector2((float)x / tileCount, (float)y / tileCount);
+        Vector2 atlasScale = new Vector2(1f / tileCount, 1f / tileCount);
+    
+        // Additionally, compute the size of each tile in pixels.
+        int tileSizeInPixels = atlasResolution / tileCount;
+    
+        return (atlasOffset, atlasScale, tileSizeInPixels);
     }
 
     private static List<ShadowCasterInstance> shadowCasterInstances = new List<ShadowCasterInstance>();
@@ -1048,7 +975,7 @@ public static class Engine
 
             if (light.EnableShadows && shouldRender)
             {
-                var atlasSettings = CalculateAtlasTile(lightIndex, ShadowResolution, currentAtlasTileSize);
+                var atlasSettings = CalculateAtlasTile(lightIndex, numLights, ShadowResolution);
 
                 List<RenderableMesh> pruned = CullSceneByPointLight(light);
                 
@@ -1111,94 +1038,75 @@ public static class Engine
     {
         EditorWorldIconManager.ResetCounter();
         
-        if (UseInstancedShadows)
+        // this is the old light rendering code
+        foreach (GameObject go in GameObjects)
         {
-            // Build instanced shadow data once per frame
-            BuildInstancedShadowData();
-            
-            // Render all shadows with instancing
-            if (EnableShadows)
+            if (go is Light)
             {
-                RenderInstancedShadows();
-            }
-            
-            // Render individual lights for lighting calculations ONLY (shadows handled by instancing)
-            foreach (GameObject go in GameObjects)
-            {
-                if (go is Light)
+                Light? light = go as Light;
+                SphereBounds bounds = new SphereBounds(light.Transform.Position, light.Range*2);
+
+                bool shouldRender = false;
+
+                if (light.Type == Light.LightType.Point)
                 {
-                    Light? light = go as Light;
-                    SphereBounds bounds = new SphereBounds(light.Transform.Position, light.Range * 2);
-
-                    bool shouldRender = false;
-
-                    if (light.Type == Light.LightType.Point)
-                    {
-                        shouldRender = ActiveCamera.Frustum.ContainsSphere(bounds.Centre, bounds.Radius);
-                    }
-                    else if (light.Type == Light.LightType.Spot || light.Type == Light.LightType.Projector)
-                    {
-                        shouldRender = ActiveCamera.Frustum.ContainsFrustum(new Frustum(light.ViewProjectionMatrix));
-                    }
-                    else if (light.Type == Light.LightType.Directional)
-                    {
-                        shouldRender = light.IsVisible;
-                    }
-
-                    if (shouldRender)
-                    {
-                        NumberOfVisibleLights++;
-                        light.Render(); // Render ONLY the light, not shadows
-                    }
+                    shouldRender = ActiveCamera.Frustum.ContainsSphere(bounds.Centre, bounds.Radius); // stops total triangle count being messed up...
                 }
-            }
-        }
-        else
-        {
-            // Original non-instanced rendering path
-            foreach (GameObject go in GameObjects)
-            {
-                if (go is Light)
+                else if (light.Type == Light.LightType.Spot || light.Type == Light.LightType.Projector)
                 {
-                    Light? light = go as Light;
-                    SphereBounds bounds = new SphereBounds(light.Transform.Position, light.Range*2);
-
-                    bool shouldRender = false;
-
-                    if (light.Type == Light.LightType.Point)
+                    shouldRender = ActiveCamera.Frustum.ContainsFrustum(new Frustum(light.ViewProjectionMatrix));
+                }
+                else if (light.Type == Light.LightType.Directional)
+                {
+                    shouldRender = light.IsVisible;
+                }
+                
+                if (light.EnableShadows && EnableShadows)
+                {
+                 //   GL.CullFace(OpenTK.Graphics.OpenGL.CullFaceMode.Front);
+                    
+                    if (light.Type == Light.LightType.Spot || light.Type == Light.LightType.Projector)
                     {
-                        shouldRender = ActiveCamera.Frustum.ContainsSphere(bounds.Centre, bounds.Radius); // stops total triangle count being messed up...
+                        RenderSpotShadowMap(light, shouldRender);
                     }
-                    else if (light.Type == Light.LightType.Spot || light.Type == Light.LightType.Projector)
+                    else if (light.Type == Light.LightType.Point)
                     {
-                        shouldRender = ActiveCamera.Frustum.ContainsFrustum(new Frustum(light.ViewProjectionMatrix));
+                        RenderPointShadowMaps(light, shouldRender);
                     }
                     else if (light.Type == Light.LightType.Directional)
                     {
-                        shouldRender = light.IsVisible;
+                        RenderCascadedShadowMaps(light, shouldRender);
                     }
                     
-                    if (light.EnableShadows && EnableShadows)
-                    {
-                        // Individual shadow rendering (only when instanced shadows are disabled)
-                        if (light.Type == Light.LightType.Point)
-                        {
-                            RenderPointShadowMaps(light, shouldRender);
-                        }
-                        else if (light.Type == Light.LightType.Spot || light.Type == Light.LightType.Projector)
-                        {
-                            RenderSpotShadowMap(light, shouldRender);
-                        }
-                        else if (light.Type == Light.LightType.Directional)
-                        {
-                            RenderCascadedShadowMaps(light, shouldRender);
-                        }
-                    }
+                  //  GL.CullFace(OpenTK.Graphics.OpenGL.CullFaceMode.Back);
+                }
+                else
+                {
+                    BindShadowMap();
+                    GL.Viewport(0, 0, SpotShadowWidth, SpotShadowHeight);
+                    GL.Clear(ClearBufferMask.DepthBufferBit);
 
+                    for (int i = 0; i < 6; i++)
+                    {
+                        BindPointShadowMap(i);
+                        GL.Viewport(0, 0, PointShadowWidth, PointShadowHeight);
+                        GL.Clear(ClearBufferMask.DepthBufferBit);
+                    }
+                    
+                    RenderBufferHelpers.Instance?.BindLightingFramebuffer();
+                }
+
+                using (new Profiler($"{light.Name} Render"))
+                {
                     if (shouldRender)
                     {
-                        NumberOfVisibleLights++;
-                        light.Render();
+                        go.Render();
+                        go.WasRenderedLastFrame = true;
+                        Engine.NumberOfVisibleLights++;
+                    }
+                    else
+                    {
+                        go.WasRenderedLastFrame = false;
                     }
                 }
             }
@@ -1226,450 +1134,5 @@ public static class Engine
             Console.Write("Deselected");
             SelectedRenderableObjects.Clear();
         }
-    }
-
-    private static void InitializeShadowAtlas()
-    {
-        // Create shadow atlas texture
-        shadowAtlasTexture = GL.GenTexture();
-        GL.BindTexture(TextureTarget.Texture2D, shadowAtlasTexture);
-        GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.DepthComponent32f, 
-                     ShadowAtlasResolution, ShadowAtlasResolution, 0, 
-                     PixelFormat.DepthComponent, PixelType.Float, IntPtr.Zero);
-        
-        GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
-        GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
-        GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.ClampToBorder);
-        GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.ClampToBorder);
-        GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureBorderColor, new float[] { 1.0f, 1.0f, 1.0f, 1.0f });
-        
-        // Create shadow atlas framebuffer
-        shadowAtlasFBO = GL.GenFramebuffer();
-        GL.BindFramebuffer(FramebufferTarget.Framebuffer, shadowAtlasFBO);
-        GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.DepthAttachment, 
-                               TextureTarget.Texture2D, shadowAtlasTexture, 0);
-        GL.DrawBuffer(DrawBufferMode.None);
-        GL.ReadBuffer(ReadBufferMode.None);
-        
-        if (GL.CheckFramebufferStatus(FramebufferTarget.Framebuffer) != FramebufferErrorCode.FramebufferComplete)
-        {
-            Console.WriteLine("ERROR: Shadow atlas framebuffer is not complete!");
-        }
-        
-        GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
-        
-        // Create UBO for instance data with proper std140 layout
-        // std140 layout alignment rules:
-        // - mat4: 64 bytes (4 vec4s)
-        // - vec4: 16 bytes
-        // - int in array: padded to 16 bytes per element
-        
-        int matrixSize = 64;          // mat4 = 64 bytes in std140
-        int vectorSize = 16;          // vec4 = 16 bytes
-        int intArrayElementSize = 16; // int in array = 16 bytes (padded)
-        
-        int totalSize = (MAX_SHADOW_INSTANCES_PER_MESH * matrixSize * 2) +      // model + lightViewProjection matrices
-                       (MAX_SHADOW_INSTANCES_PER_MESH * vectorSize * 2) +       // atlasScaleOffset + tileBounds vectors
-                       (MAX_SHADOW_INSTANCES_PER_MESH * intArrayElementSize * 2); // lightIndex + faceIndex arrays (padded)
-        
-        shadowInstanceBufferUBO = GL.GenBuffer();
-        GL.BindBuffer(BufferTarget.UniformBuffer, shadowInstanceBufferUBO);
-        GL.BufferData(BufferTarget.UniformBuffer, totalSize, IntPtr.Zero, BufferUsageHint.DynamicDraw);
-        GL.BindBufferBase(BufferTarget.UniformBuffer, 0, shadowInstanceBufferUBO);
-        
-        Console.WriteLine($"Shadow atlas initialized: {ShadowAtlasResolution}x{ShadowAtlasResolution}, UBO size: {totalSize} bytes (std140 compliant)");
-    }
-    
-    public static int GetShadowAtlasTexture()
-    {
-        return shadowAtlasTexture;
-    }
-    
-    public static int GetCurrentAtlasTileSize()
-    {
-        return currentAtlasTileSize;
-    }
-    
-    private static void BindShadowAtlas()
-    {
-        GL.BindFramebuffer(FramebufferTarget.Framebuffer, shadowAtlasFBO);
-    }
-
-    public static void BuildInstancedShadowData()
-    {
-        if (!UseInstancedShadows)
-            return;
-            
-        using (new Profiler("Build Instanced Shadow Data"))
-        {
-            shadowInstanceGroups.Clear();
-            visibleShadowLights.Clear();
-            allShadowInstances.Clear();
-            storedShadowMatrices.Clear(); // Clear stored matrices
-            
-            if (shadowAtlasTexture == -1)
-            {
-                InitializeShadowAtlas();
-            }
-            
-            // Calculate current tile size based on number of shadow lights
-            var allLights = GameObjects.OfType<Light>().Where(l => l.EnableShadows).ToList();
-            if (allLights.Count == 0)
-            {
-                Console.WriteLine("No shadow-casting lights found - skipping shadow generation");
-                return;
-            }
-            
-            // Count total tiles needed (point lights need 6, others need 1)
-            int totalTiles = 0;
-            foreach (var light in allLights)
-            {
-                if (light.Type == Light.LightType.Point)
-                    totalTiles += 6;
-                else
-                    totalTiles += 1;
-            }
-            
-            // Calculate tile size to fit all lights in atlas
-            currentAtlasTileSize = CalculateOptimalTileSize(ShadowAtlasResolution, totalTiles);
-            
-            int currentAtlasIndex = 0;
-            int lightIndex = 0; // Index in visible lights array
-            
-            foreach (var light in allLights)
-            {
-                bool shouldRender = false;
-                
-                // Check if light is visible
-                if (light.Type == Light.LightType.Point)
-                {
-                    SphereBounds bounds = new SphereBounds(light.Transform.Position, light.Range);
-                    shouldRender = ActiveCamera.Frustum.ContainsSphere(bounds);
-                }
-                else if (light.Type == Light.LightType.Spot || light.Type == Light.LightType.Projector)
-                {
-                    shouldRender = ActiveCamera.Frustum.ContainsFrustum(new Frustum(light.ViewProjectionMatrix));
-                }
-                else if (light.Type == Light.LightType.Directional)
-                {
-                    shouldRender = light.IsVisible;
-                }
-                
-                if (!shouldRender) continue;
-                
-                var lightInfo = new LightShadowInfo
-                {
-                    Light = light,
-                    BaseAtlasIndex = currentAtlasIndex,
-                    TileCount = light.Type == Light.LightType.Point ? 6 : 1,
-                    IsVisible = true,
-                    ShadowCasters = CullSceneByPointLight(light)
-                };
-                
-                visibleShadowLights.Add(lightInfo);
-                
-                // Store shadow matrices for this light
-                if (light.Type == Light.LightType.Point)
-                {
-                    storedShadowMatrices[lightIndex] = light.PointLightViewProjections;
-                }
-                else
-                {
-                    storedShadowMatrices[lightIndex] = new Matrix4[] { light.ViewProjectionMatrix };
-                }
-                
-                // Build instances for this light
-                BuildInstancesForLight(lightInfo, currentAtlasIndex);
-                
-                currentAtlasIndex += lightInfo.TileCount;
-                lightIndex++;
-            }
-            
-            // Group instances by mesh for efficient rendering
-            GroupInstancesByMesh();
-        }
-    }
-    
-    private static void BuildInstancesForLight(LightShadowInfo lightInfo, int baseAtlasIndex)
-    {
-        var light = lightInfo.Light;
-        
-        if (light.Type == Light.LightType.Point)
-        {
-            // Point lights need 6 instances (one per face)
-            for (int face = 0; face < 6; face++)
-            {
-                // Don't cull entire faces based on camera visibility - 
-                // objects might cast shadows even if the face isn't visible to camera
-                var atlasInfo = CalculateAtlasTile(baseAtlasIndex + face, ShadowAtlasResolution, currentAtlasTileSize);
-                
-                foreach (var caster in lightInfo.ShadowCasters)
-                {
-                    if (ShadowCasterIntersectsLight(caster, light.PointLightViewProjections[face]))
-                    {
-                        var instance = new ShadowInstanceData
-                        {
-                            ModelMatrix = caster.Transform.GetWorldMatrix(),
-                            LightViewProjection = light.PointLightViewProjections[face],
-                            AtlasScaleOffset = new Vector4(atlasInfo.atlasScale.X, atlasInfo.atlasScale.Y, 
-                                                         atlasInfo.atlasOffset.X, atlasInfo.atlasOffset.Y),
-                            TileBounds = new Vector4(atlasInfo.atlasOffset.X, atlasInfo.atlasOffset.Y,
-                                                   atlasInfo.atlasOffset.X + atlasInfo.atlasScale.X,
-                                                   atlasInfo.atlasOffset.Y + atlasInfo.atlasScale.Y),
-                            LightIndex = visibleShadowLights.Count - 1,
-                            FaceIndex = face
-                        };
-                        
-                        allShadowInstances.Add(instance);
-                        
-                        if (!shadowInstanceGroups.ContainsKey(caster))
-                            shadowInstanceGroups[caster] = new List<ShadowInstanceData>();
-                        shadowInstanceGroups[caster].Add(instance);
-                    }
-                }
-            }
-        }
-        else
-        {
-            // Spot/Directional lights need only 1 instance
-            var atlasInfo = CalculateAtlasTile(baseAtlasIndex, ShadowAtlasResolution, currentAtlasTileSize);
-            
-            foreach (var caster in lightInfo.ShadowCasters)
-            {
-                Matrix4 lightVP = light.Type == Light.LightType.Directional ? 
-                    Light.GenerateCascadedShadowMatrices(ActiveCamera, light, ShadowResolution)[0] : 
-                    light.ViewProjectionMatrix;
-                    
-                if (ShadowCasterIntersectsLight(caster, lightVP))
-                {
-                    var instance = new ShadowInstanceData
-                    {
-                        ModelMatrix = caster.Transform.GetWorldMatrix(),
-                        LightViewProjection = lightVP,
-                        AtlasScaleOffset = new Vector4(atlasInfo.atlasScale.X, atlasInfo.atlasScale.Y, 
-                                                     atlasInfo.atlasOffset.X, atlasInfo.atlasOffset.Y),
-                        TileBounds = new Vector4(atlasInfo.atlasOffset.X, atlasInfo.atlasOffset.Y,
-                                               atlasInfo.atlasOffset.X + atlasInfo.atlasScale.X,
-                                               atlasInfo.atlasOffset.Y + atlasInfo.atlasScale.Y),
-                        LightIndex = visibleShadowLights.Count - 1,
-                        FaceIndex = -1
-                    };
-                    
-                    allShadowInstances.Add(instance);
-                    
-                    if (!shadowInstanceGroups.ContainsKey(caster))
-                        shadowInstanceGroups[caster] = new List<ShadowInstanceData>();
-                    shadowInstanceGroups[caster].Add(instance);
-                }
-            }
-        }
-    }
-    
-    private static void GroupInstancesByMesh()
-    {
-        // Instances are already grouped by mesh in shadowInstanceGroups
-        // This function can be used for additional optimizations if needed
-    }
-    
-    public static void RenderInstancedShadows()
-    {
-        if (!UseInstancedShadows || allShadowInstances.Count == 0)
-            return;
-            
-        using (new Profiler("Render Instanced Shadows"))
-        {
-            BindShadowAtlas();
-            GL.Viewport(0, 0, ShadowAtlasResolution, ShadowAtlasResolution);
-            GL.Clear(ClearBufferMask.DepthBufferBit);
-            
-            ShaderManager.LoadShader("shadowgen_instanced", out ShaderFile shader);
-            shader.UseShader();
-            
-            shader.SetShaderInt("useInstancedRendering", 1);
-            shader.SetShaderInt("maxInstances", MAX_SHADOW_INSTANCES_PER_MESH);
-            
-            int totalInstancesRendered = 0;
-            int totalDrawCalls = 0;
-            
-            // Render each unique mesh with all its instances
-            foreach (var kvp in shadowInstanceGroups)
-            {
-                var mesh = kvp.Key;
-                var instances = kvp.Value;
-                
-                if (instances.Count == 0) continue;
-                
-                // Process instances in batches to respect OpenGL limits
-                for (int batchStart = 0; batchStart < instances.Count; batchStart += MAX_SHADOW_INSTANCES_PER_MESH)
-                {
-                    int batchSize = Math.Min(MAX_SHADOW_INSTANCES_PER_MESH, instances.Count - batchStart);
-                    var batchInstances = instances.Skip(batchStart).Take(batchSize).ToArray();
-                    
-                    // Create separate arrays for the UBO layout
-                    Matrix4[] modelMatrices = new Matrix4[batchSize];
-                    Matrix4[] lightViewProjections = new Matrix4[batchSize];
-                    Vector4[] atlasScaleOffsets = new Vector4[batchSize];
-                    Vector4[] tileBounds = new Vector4[batchSize];
-                    int[] lightIndices = new int[batchSize];
-                    int[] faceIndices = new int[batchSize];
-                    
-                    for (int i = 0; i < batchSize; i++)
-                    {
-                        modelMatrices[i] = batchInstances[i].ModelMatrix;
-                        lightViewProjections[i] = batchInstances[i].LightViewProjection;
-                        atlasScaleOffsets[i] = batchInstances[i].AtlasScaleOffset;
-                        tileBounds[i] = batchInstances[i].TileBounds;
-                        lightIndices[i] = batchInstances[i].LightIndex;
-                        faceIndices[i] = batchInstances[i].FaceIndex;
-                    }
-                    
-                    // Upload data to UBO in the correct std140 layout
-                    GL.BindBuffer(BufferTarget.UniformBuffer, shadowInstanceBufferUBO);
-                    
-                    int offset = 0;
-                    int matrixSize = 64;          // mat4 = 64 bytes in std140
-                    int vectorSize = 16;          // vec4 = 16 bytes
-                    int intArrayElementSize = 16; // int in array = 16 bytes (padded)
-                    
-                    // Clear the entire UBO first to prevent stale data
-                    byte[] clearData = new byte[MAX_SHADOW_INSTANCES_PER_MESH * (matrixSize * 2 + vectorSize * 2 + intArrayElementSize * 2)];
-                    GL.BufferSubData(BufferTarget.UniformBuffer, IntPtr.Zero, clearData.Length, clearData);
-                    
-                    // Reset offset after clearing
-                    offset = 0;
-                    
-                    // Upload model matrices
-                    for (int i = 0; i < batchSize; i++)
-                    {
-                        float[] matrixData = new float[16];
-                        var matrix = modelMatrices[i];
-                        for (int j = 0; j < 16; j++)
-                            matrixData[j] = matrix[j / 4, j % 4];
-                        GL.BufferSubData(BufferTarget.UniformBuffer, (IntPtr)(offset + i * matrixSize), 64, matrixData);
-                    }
-                    offset += MAX_SHADOW_INSTANCES_PER_MESH * matrixSize;
-                    
-                    // Upload light view projection matrices
-                    for (int i = 0; i < batchSize; i++)
-                    {
-                        float[] matrixData = new float[16];
-                        var matrix = lightViewProjections[i];
-                        for (int j = 0; j < 16; j++)
-                            matrixData[j] = matrix[j / 4, j % 4];
-                        GL.BufferSubData(BufferTarget.UniformBuffer, (IntPtr)(offset + i * matrixSize), 64, matrixData);
-                    }
-                    offset += MAX_SHADOW_INSTANCES_PER_MESH * matrixSize;
-                    
-                    // Upload atlas scale offset vectors
-                    for (int i = 0; i < batchSize; i++)
-                    {
-                        float[] vectorData = { atlasScaleOffsets[i].X, atlasScaleOffsets[i].Y, atlasScaleOffsets[i].Z, atlasScaleOffsets[i].W };
-                        GL.BufferSubData(BufferTarget.UniformBuffer, (IntPtr)(offset + i * vectorSize), vectorSize, vectorData);
-                    }
-                    offset += MAX_SHADOW_INSTANCES_PER_MESH * vectorSize;
-                    
-                    // Upload tile bounds vectors
-                    for (int i = 0; i < batchSize; i++)
-                    {
-                        float[] vectorData = { tileBounds[i].X, tileBounds[i].Y, tileBounds[i].Z, tileBounds[i].W };
-                        GL.BufferSubData(BufferTarget.UniformBuffer, (IntPtr)(offset + i * vectorSize), vectorSize, vectorData);
-                    }
-                    offset += MAX_SHADOW_INSTANCES_PER_MESH * vectorSize;
-                    
-                    // Upload light indices (padded to 16 bytes per element for std140)
-                    for (int i = 0; i < batchSize; i++)
-                    {
-                        int[] paddedInt = { lightIndices[i], 0, 0, 0 }; // Pad to 16 bytes (4 ints)
-                        GL.BufferSubData(BufferTarget.UniformBuffer, (IntPtr)(offset + i * intArrayElementSize), intArrayElementSize, paddedInt);
-                    }
-                    offset += MAX_SHADOW_INSTANCES_PER_MESH * intArrayElementSize;
-                    
-                    // Upload face indices (padded to 16 bytes per element for std140)
-                    for (int i = 0; i < batchSize; i++)
-                    {
-                        int[] paddedInt = { faceIndices[i], 0, 0, 0 }; // Pad to 16 bytes (4 ints)
-                        GL.BufferSubData(BufferTarget.UniformBuffer, (IntPtr)(offset + i * intArrayElementSize), intArrayElementSize, paddedInt);
-                    }
-                    
-                    shader.SetShaderInt("instanceCount", batchSize);
-                    shader.SetShaderInt("tileSize", currentAtlasTileSize);
-                    shader.SetShaderInt("atlasResolution", ShadowAtlasResolution);
-                    
-                    // Set material properties
-                    if (mesh.Material.DiffuseTexture != -1)
-                    {
-                        GL.ActiveTexture(TextureUnit.Texture0);
-                        GL.BindTexture(TextureTarget.Texture2D, mesh.Material.DiffuseTexture);
-                        shader.SetShaderInt("diffuseTexture", 0);
-                        shader.SetShaderFloat("hasDiffuse", 1.0f);
-                    }
-                    else
-                    {
-                        shader.SetShaderFloat("hasDiffuse", 0.0f);
-                    }
-                    
-                    // Render instanced
-                    RenderableMesh.BindVAOCached(mesh.mesh.ShadowMesh.Vao);
-                    GL.DrawElementsInstanced(PrimitiveType.Triangles, mesh.mesh.ShadowMesh.IndexCount, 
-                                           DrawElementsType.UnsignedInt, IntPtr.Zero, batchSize);
-                    
-                    DrawCalls++;
-                    NumShadowCasters += batchSize;
-                    totalInstancesRendered += batchSize;
-                    totalDrawCalls++;
-                }
-            }
-            
-            // Debug output for performance tracking
-            if (totalInstancesRendered > 0)
-            {
-                Console.WriteLine($"Instanced Shadows: {totalInstancesRendered} instances in {totalDrawCalls} draw calls " +
-                                $"(vs {totalInstancesRendered} individual calls). Efficiency: {(float)totalInstancesRendered / totalDrawCalls:F1}x");
-            }
-            
-            RenderBufferHelpers.Instance?.BindLightingFramebuffer();
-        }
-    }
-
-    public static Matrix4 GetStoredShadowMatrix(int lightIndex, int faceIndex)
-    {
-        if (storedShadowMatrices.ContainsKey(lightIndex) && 
-            faceIndex >= 0 && faceIndex < storedShadowMatrices[lightIndex].Length)
-        {
-            return storedShadowMatrices[lightIndex][faceIndex];
-        }
-        
-        // Fallback: recompute from visible lights if available
-        if (lightIndex >= 0 && lightIndex < visibleShadowLights.Count)
-        {
-            var light = visibleShadowLights[lightIndex].Light;
-            if (light.Type == Light.LightType.Point)
-            {
-                return light.PointLightViewProjections[faceIndex];
-            }
-            else
-            {
-                return light.ViewProjectionMatrix;
-            }
-        }
-        
-        return Matrix4.Identity;
-    }
-
-    public static bool TryGetLightShadowInfo(Light light, out LightShadowInfo shadowInfo, out int listIndex)
-    {
-        for (int i = 0; i < visibleShadowLights.Count; i++)
-        {
-            if (ReferenceEquals(visibleShadowLights[i].Light, light))
-            {
-                shadowInfo = visibleShadowLights[i];
-                listIndex = i;
-                return true;
-            }
-        }
-
-        shadowInfo = default;
-        listIndex = -1;
-        return false;
     }
 }

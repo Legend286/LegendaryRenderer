@@ -347,13 +347,13 @@ public class ApplicationWindow : GameWindow
     {
         base.OnRenderFrame(args);
         Profiler.ResetStats();
-        Profiler.SetLastFrameTime((float)(args.Time * 1000.0)); // Convert to milliseconds
+     
 
         ResetCounters();
         
         LegendaryRuntime.Engine.Engine.Engine.EngineRenderLoop();
-
-        ShowMaterialSelectionPopup();
+        
+       
         var size = FromNumericsVector2(LegendaryRuntime.Engine.Engine.Engine.EditorViewport.ViewportSize);
         var vpPos = LegendaryRuntime.Engine.Engine.Engine.EditorViewport.ViewportPosition;
         // Mouse inside viewport, relative to ViewportPosition
@@ -383,7 +383,7 @@ public class ApplicationWindow : GameWindow
             }
         } 
         
-        LegendaryRuntime.Engine.Engine.Engine.DoSelection();
+        Engine.Engine.Engine.DoSelection();
         
         // Render ImGui draw data
         imguiController.Render(); // This should be after all ImGui window definitions
@@ -399,8 +399,6 @@ public class ApplicationWindow : GameWindow
     private bool initial = true;
     private void ShowMaterialSelectionPopup()
     {
-        if (!shouldShowPopup)
-            return;
         string name = droppedFile.Split("/").Last();
         
         if (initial)

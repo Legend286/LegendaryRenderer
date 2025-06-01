@@ -108,80 +108,29 @@ public class EditorViewport
         // ─────────────────────────────────────────────────────────────────────────────────────────────────
 
         ImGui.Begin("Statistics");
-        
-        if (!buffers.ContainsKey("FrameTime"))
+
+        foreach (var KVP in Profiler.Statistics)
         {
-            buffers["FrameTime"] = new RollingBuffer();
-        }
-        
-        buffers["FrameTime"].AddToRollingBuffer(Profiler.GetLastFrameTime());
-        
-        ImGui.Text($"Frame Time: {Profiler.GetLastFrameTime():F2}ms");
-        ImGui.PlotLines("Frame Time", ref buffers["FrameTime"].buffer[0], buffers["FrameTime"].bufferTotal, 0, "", 0.0f, 50.0f, new Vector2(0, 80));
-        
-        ImGui.Separator();
-        ImGui.Text($"Triangles Rendered: {Engine.Engine.TriangleCountRendered:N0}");
-        ImGui.Text($"Triangles Culled: {Engine.Engine.TriangleCountCulled:N0}");
-        ImGui.Text($"Total Triangles: {Engine.Engine.TriangleCountTotal:N0}");
-        ImGui.Text($"Draw Calls: {Engine.Engine.DrawCalls}");
-        ImGui.Text($"Visible Lights: {Engine.Engine.NumberOfVisibleLights}");
-        
-        ImGui.Separator();
-        ImGui.Text("Shadow Rendering:");
-        ImGui.Text($"Shadow Views: {Engine.Engine.ShadowViewCount}");
-        ImGui.Text($"Shadow Casters: {Engine.Engine.NumShadowCasters}");
-        ImGui.Text($"Instanced Shadows: {(Engine.Engine.UseInstancedShadows ? "Enabled" : "Disabled")}");
-        
-        if (Engine.Engine.UseInstancedShadows)
-        {
-            ImGui.Text($"Atlas Resolution: {Engine.Engine.ShadowAtlasResolution}x{Engine.Engine.ShadowAtlasResolution}");
-            ImGui.Text($"Current Tile Size: {Engine.Engine.GetCurrentAtlasTileSize()}px");
-        }
-        
-        ImGui.End();
-        
-        // Shadow Atlas Debug Window
-        if (Engine.Engine.UseInstancedShadows && ImGui.Begin("Shadow Atlas Debug"))
-        {
-            ImGui.Text($"Shadow Atlas ({Engine.Engine.ShadowAtlasResolution}x{Engine.Engine.ShadowAtlasResolution})");
-            ImGui.Text($"Tile Size: {Engine.Engine.GetCurrentAtlasTileSize()}px");
-            
-            int atlasTexture = Engine.Engine.GetShadowAtlasTexture();
-            if (atlasTexture > 0)
+            if(buffers.TryGetValue(KVP.Key, out RollingBuffer buf))
             {
-                // Display the shadow atlas as a grayscale image
-                float displaySize = 512.0f; // Display size in pixels
-                ImGui.Image(atlasTexture, new Vector2(displaySize, displaySize), 
-                           new Vector2(0, 1), new Vector2(1, 0));
-                
-                if (ImGui.IsItemHovered())
+                if (buf == null)
                 {
-                    ImGui.BeginTooltip();
-                    var mousePos = ImGui.GetMousePos();
-                    var itemMin = ImGui.GetItemRectMin();
-                    var relativePos = mousePos - itemMin;
-                    var uvPos = new Vector2(relativePos.X / displaySize, 1.0f - relativePos.Y / displaySize);
-                    
-                    ImGui.Text($"UV: ({uvPos.X:F3}, {uvPos.Y:F3})");
-                    
-                    // Calculate which tile this corresponds to
-                    int tilesPerRow = Engine.Engine.ShadowAtlasResolution / Engine.Engine.GetCurrentAtlasTileSize();
-                    int tileX = (int)(uvPos.X * tilesPerRow);
-                    int tileY = (int)(uvPos.Y * tilesPerRow);
-                    int tileIndex = tileY * tilesPerRow + tileX;
-                    
-                    ImGui.Text($"Tile: ({tileX}, {tileY}) = Index {tileIndex}");
-                    ImGui.EndTooltip();
+                    buf = new RollingBuffer();
+                    buffers[KVP.Key] = buf;
                 }
             }
             else
             {
-                ImGui.Text("Shadow atlas texture not available");
+                buf = new RollingBuffer();
+                buffers.Add(KVP.Key, buf);
             }
-            
-            ImGui.End();
+            {
+                buf.AddToRollingBuffer(KVP.Value);
+                ImGui.PlotHistogram($"{KVP.Key}", ref buf.buffer[0], buf.bufferTotal, 0, $"{buf.buffer[buf.bufferTotal-1]} milliseconds", 0.001f, 32.0f);
+            }
         }
-
+        ImGui.End();
+        
         if (ImGui.BeginMenuBar())
         {
             if (ImGui.BeginMenu("Create"))
@@ -301,14 +250,6 @@ public class EditorViewport
                 {
                     Engine.Engine.EnableShadows = !Engine.Engine.EnableShadows;
                 }
-                
-                string InstancedShadowState = Engine.Engine.UseInstancedShadows ? "Disable" : "Enable";
-                if (ImGui.MenuItem($"{InstancedShadowState} Instanced Shadows"))
-                {
-                    Engine.Engine.UseInstancedShadows = !Engine.Engine.UseInstancedShadows;
-                    Console.WriteLine($"Instanced Shadows: {(Engine.Engine.UseInstancedShadows ? "Enabled" : "Disabled")}");
-                }
-                
                 if (ImGui.MenuItem("Enable Post Processing"))
                 {
                     // your post processing toggle logic
