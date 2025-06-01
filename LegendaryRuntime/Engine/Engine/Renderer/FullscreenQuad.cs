@@ -1,9 +1,13 @@
 using LegendaryRenderer.LegendaryRuntime.Engine.Engine.EngineTypes;
 using LegendaryRenderer.LegendaryRuntime.Engine.Engine.GameObjects;
+using LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer;
 using LegendaryRenderer.Shaders;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 using LegendaryRenderer.LegendaryRuntime.Application;
+using System.Linq;
+using System.Collections.Generic;
+using static LegendaryRenderer.LegendaryRuntime.Engine.Engine.Engine;
 
 namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer;
 
@@ -112,34 +116,126 @@ public static class FullscreenQuad
                 
                 Engine.currentShader.SetShaderInt("enableIESProfile", light.UseIESProfile ? 1 : 0);
 
+                // Set instanced shadow atlas uniforms
+                Engine.currentShader.SetShaderInt("useInstancedShadows", Engine.UseInstancedShadows ? 1 : 0);
+                
+                if (Engine.UseInstancedShadows)
+                {
+                    // Bind shadow atlas texture
+                    int atlasTextureUnit = textureNames.Length + 2;
+                    GL.ActiveTexture((TextureUnit)atlasTextureUnit + 33984);
+                    GL.BindTexture(TextureTarget.Texture2D, Engine.GetShadowAtlasTexture());
+                    Engine.currentShader.SetShaderInt("shadowAtlas", atlasTextureUnit);
+                    
+                    // Use the same light filtering logic as in BuildInstancedShadowData()
+                    if (Engine.TryGetLightShadowInfo(light, out var lightShadowInfo, out int visibleLightIndex))
+                    {
+                        // Use the same tile size that was calculated during shadow generation
+                        int currentTileSize = Engine.GetCurrentAtlasTileSize();
+                        
+                        // Calculate base atlas index for this light (same logic as BuildInstancesForLight)
+                        int baseAtlasIndex = lightShadowInfo.BaseAtlasIndex;
+                        
+                        // For point lights, we need to pass the base tile info for face 0
+                        // The fragment shader will calculate the correct face tile offset
+                        AtlasTileInfo atlasInfo;
+                        if (light.Type == Light.LightType.Point)
+                        {
+                            // Point lights: Pass base tile info - shader will handle face offset calculation
+                            atlasInfo = Engine.CalculateAtlasTile(baseAtlasIndex, Engine.ShadowAtlasResolution, currentTileSize);
+                            
+                            // Debug output for atlas tile calculation
+                            Console.WriteLine($"Point Light '{light.Name}' (Visible Index: {visibleLightIndex}): " +
+                                            $"BaseAtlasIndex={baseAtlasIndex} (6 consecutive tiles), TileSize={currentTileSize}, " +
+                                            $"BaseAtlasInfo=Scale({atlasInfo.atlasScale.X:F3},{atlasInfo.atlasScale.Y:F3}) " +
+                                            $"Offset({atlasInfo.atlasOffset.X:F3},{atlasInfo.atlasOffset.Y:F3})");
+                        }
+                        else
+                        {
+                            // Spot/Directional lights: Use single tile calculation
+                            atlasInfo = Engine.CalculateAtlasTile(baseAtlasIndex, Engine.ShadowAtlasResolution, currentTileSize);
+                            
+                            // Debug output for atlas tile calculation
+                            Console.WriteLine($"Light '{light.Name}' (Type: {light.Type}, Visible Index: {visibleLightIndex}): " +
+                                            $"BaseAtlasIndex={baseAtlasIndex}, TileSize={currentTileSize}, " +
+                                            $"AtlasInfo=Scale({atlasInfo.atlasScale.X:F3},{atlasInfo.atlasScale.Y:F3}) " +
+                                            $"Offset({atlasInfo.atlasOffset.X:F3},{atlasInfo.atlasOffset.Y:F3})");
+                        }
+                        
+                        Engine.currentShader.SetShaderVector4("lightAtlasInfo", 
+                            new Vector4(atlasInfo.atlasScale.X, atlasInfo.atlasScale.Y, atlasInfo.atlasOffset.X, atlasInfo.atlasOffset.Y));
+                    }
+                    else
+                    {
+                        // Light not found in visible lights - this light isn't casting shadows
+                        Engine.currentShader.SetShaderVector4("lightAtlasInfo", new Vector4(1.0f, 1.0f, 0.0f, 0.0f));
+                    }
+                    
+                    // Now handle view projection matrices based on light type
+                    if (light.Type == Light.LightType.Spot || light.Type == Light.LightType.Projector)
+                    {
+                        if (Engine.TryGetLightShadowInfo(light, out _, out int visLightIdx_matrices)) // Re-check or use earlier result
+                        {
+                            // Use the exact matrix from shadow generation via engine method
+                            Matrix4 shadowMatrix = Engine.GetStoredShadowMatrix(visLightIdx_matrices, 0);
+                            Engine.currentShader.SetShaderMatrix4x4("shadowViewProjection", shadowMatrix);
+                        }
+                    }
+                    else if (light.Type == Light.LightType.Point)
+                    {
+                        if (Engine.TryGetLightShadowInfo(light, out _, out int visLightIdx_matrices)) // Re-check or use earlier result
+                        {
+                            // Use exact matrices from shadow generation
+                            for (int i = 0; i < 6; i++)
+                            {
+                                Matrix4 shadowMatrix = Engine.GetStoredShadowMatrix(visLightIdx_matrices, i);
+                                Engine.currentShader.SetShaderMatrix4x4($"shadowViewProjection{i}", shadowMatrix);
+                            }
+                        }
+                    }
+                    else if (light.Type == Light.LightType.Directional)
+                    {
+                        Matrix4[] cascadeViewProjections = Light.GenerateCascadedShadowMatrices(Engine.ActiveCamera, light, Engine.ShadowResolution);
+                        
+                        for (int i = 0; i < light.CascadeCount; i++)
+                        {
+                            Engine.currentShader.SetShaderMatrix4x4($"shadowViewProjection{i}", cascadeViewProjections[i]);
+                        }
+                        Engine.currentShader.SetShaderInt("cascadeCount", light.CascadeCount);
+                    }
+                }
+                else
+                {
+                    // Non-instanced path - use original logic
+                    if (light.Type == Light.LightType.Spot || light.Type == Light.LightType.Projector)
+                    {
+                        Engine.currentShader.SetShaderMatrix4x4("shadowViewProjection", light.ViewProjectionMatrix);
+                    }
+                    else if (light.Type == Light.LightType.Point)
+                    {
+                        for (int i = 0; i < 6; i++)
+                        {
+                            Engine.currentShader.SetShaderMatrix4x4($"shadowViewProjection{i}", light.PointLightViewProjections[i]);
+                        }
+                    }
+                    else if (light.Type == Light.LightType.Directional)
+                    {
+                        Matrix4[] cascadeViewProjections = Light.GenerateCascadedShadowMatrices(Engine.ActiveCamera, light, Engine.ShadowResolution);
+                        
+                        for (int i = 0; i < light.CascadeCount; i++)
+                        {
+                            Engine.currentShader.SetShaderMatrix4x4($"shadowViewProjection{i}", cascadeViewProjections[i]);
+                        }
+                        Engine.currentShader.SetShaderInt("cascadeCount", light.CascadeCount);
+                    }
+                }
+
                 if (light.LightIESProfile != null)
                 {
                     int target = textureNames.Length + 1;
                     GL.ActiveTexture((TextureUnit)target + 33984); // don't forget the offset!
                     GL.BindTexture(TextureTarget.Texture2D, light.LightIESProfile.TextureID);
                     Engine.currentShader.SetShaderInt("IESProfileTexture", target);
-                }
-
-                if (light.Type == Light.LightType.Spot || light.Type == Light.LightType.Projector)
-                {
-                    Engine.currentShader.SetShaderMatrix4x4("shadowViewProjection", light.ViewProjectionMatrix);
-                }
-                else if (light.Type == Light.LightType.Point)
-                {
-                    for (int i = 0; i < 6; i++)
-                    {
-                        Engine.currentShader.SetShaderMatrix4x4($"shadowViewProjection{i}", light.PointLightViewProjections[i]);
-                    }
-                }
-                else if (light.Type == Light.LightType.Directional)
-                {
-                    Matrix4[] cascadeViewProjections = Light.GenerateCascadedShadowMatrices(Engine.ActiveCamera, light, Engine.ShadowResolution);
-                    
-                    for (int i = 0; i < light.CascadeCount; i++)
-                    {
-                        Engine.currentShader.SetShaderMatrix4x4($"shadowViewProjection{i}", cascadeViewProjections[i]);
-                    }
-                    Engine.currentShader.SetShaderInt("cascadeCount", light.CascadeCount);
                 }
             }
         }

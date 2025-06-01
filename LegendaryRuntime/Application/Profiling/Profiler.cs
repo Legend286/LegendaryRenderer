@@ -9,6 +9,19 @@ public class Profiler : IDisposable
     private readonly int _gpuQueryStart;
     private readonly int _gpuQueryEnd;
     public static Dictionary<string, float> Statistics = new Dictionary<string, float>();
+    
+    // Frame time tracking
+    private static float lastFrameTime = 0.0f;
+    
+    public static float GetLastFrameTime()
+    {
+        return lastFrameTime;
+    }
+    
+    public static void SetLastFrameTime(float frameTime)
+    {
+        lastFrameTime = frameTime;
+    }
 
     public Profiler(string profilerName)
     {

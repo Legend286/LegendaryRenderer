@@ -23,6 +23,11 @@ uniform sampler2D shadowMap3;
 uniform sampler2D shadowMap4;
 uniform sampler2D shadowMap5;
 
+// Instanced shadow atlas support
+uniform int useInstancedShadows;
+uniform sampler2D shadowAtlas;
+uniform vec4 lightAtlasInfo;  // xy = scale, zw = offset for this light's atlas tile
+
 uniform int cascadeCount;
 
 uniform mat4 view;
@@ -924,7 +929,135 @@ bool intersectRaySphere(vec3 rayOrigin, vec3 rayDir, vec3 spherePos, float radiu
     return true;
 }
 
+float GetShadowAttenuationAtlas(mat4 shadowViewProj, vec4 atlasInfo, vec3 pos, vec3 normal, vec3 lightDir, float biasMultiplier, int useShadowFiltering)
+{
+    if(lightShadowsEnabled == 1)
+    {
+        vec4 shadowPos = vec4(pos, 1.0f) * (shadowViewProj);
+        shadowPos.xyz /= shadowPos.w;
+        shadowPos.xyz = shadowPos.xyz * 0.5f + 0.5f;
 
+        // Map to atlas tile: scale and offset the UV coordinates
+        shadowPos.xy = shadowPos.xy * atlasInfo.xy + atlasInfo.zw;
+
+        // PCF Parameters
+        int pcfSamples = 16;
+        if(useShadowFiltering == 0)
+        {
+            pcfSamples = 1;
+        }
+
+        float lightSize = 0.0001;
+
+        // Poisson Disk Samples (precomputed offsets)
+        vec2 poissonDisk[16] = vec2[](
+        vec2(-0.94201624, -0.39906216), vec2(0.94558609, -0.76890725),
+        vec2(-0.094184101, -0.92938870), vec2(0.34495938, 0.29387760),
+        vec2(-0.91588581, 0.45771432), vec2(-0.81544232, -0.87912464),
+        vec2(-0.38277543, 0.27676845), vec2(0.97484398, 0.75648379),
+        vec2(0.44323325, -0.97511554), vec2(0.53742981, -0.47373420),
+        vec2(-0.26496911, -0.41893023), vec2(0.79197514, 0.19090188),
+        vec2(-0.24188840, 0.99706507), vec2(-0.81409955, 0.91437590),
+        vec2(0.19984126, 0.78641367), vec2(0.14383161, -0.14100790)
+        );
+
+        // Random rotation based on fragment position
+        float rotationAngle = fract(sin(dot(shadowPos.xy, vec2(12.9898, 78.233))) * 43758.5453) * 6.283185;
+        mat2 rotationMatrix = mat2(cos(rotationAngle), -sin(rotationAngle),
+        sin(rotationAngle), cos(rotationAngle));
+
+        float shadowFactor = 0.0;
+
+        // Adaptive bias based on normal and light direction
+        float normalBiasFactor = clamp(dot(normal, -lightDir), 0.0, 1.0);
+        float bias = lightShadowBiasNormal * normalBiasFactor;
+        bias = bias + (lightShadowBias * biasMultiplier);
+
+        // Scale PCF offsets by atlas tile size to prevent bleeding
+        float atlasScale = min(atlasInfo.x, atlasInfo.y);
+        
+        // Loop over Poisson disk samples
+        for (int i = 0; i < pcfSamples; i++) {
+            vec2 offset = vec2(0);
+            if(useShadowFiltering == 1)
+            {
+                offset = rotationMatrix * (poissonDisk[i] * (atlasScale / shadowResolution));
+            }
+            vec2 samplePos = shadowPos.xy + offset;
+
+            // Clamp to atlas tile bounds to prevent bleeding
+            vec2 tileMin = atlasInfo.zw;
+            vec2 tileMax = atlasInfo.zw + atlasInfo.xy;
+            samplePos = clamp(samplePos, tileMin, tileMax);
+
+            float sampleDepth = texture(shadowAtlas, samplePos).r;
+
+            if ((sampleDepth > shadowPos.z - bias))
+            {
+                shadowFactor += 1.0; // Lit
+            }
+        }
+
+        shadowFactor /= float(pcfSamples);
+
+        // Check if we're within the atlas tile bounds
+        vec2 tileMin = atlasInfo.zw;
+        vec2 tileMax = atlasInfo.zw + atlasInfo.xy;
+        if (shadowPos.x < tileMin.x || shadowPos.x > tileMax.x || 
+            shadowPos.y < tileMin.y || shadowPos.y > tileMax.y)
+        {
+            shadowFactor = 0.0;
+        }
+
+        return 1 - clamp(shadowFactor, 0, 1);
+    }
+    else
+    {
+        return 0;
+    }
+}
+
+float GetShadowAttenuationPointAtlas(vec3 pos, vec3 normal, vec3 lightDir, int useShadowFiltering)
+{
+    // Determine which cube face to sample based on light direction
+    int faceIndex = determineCubeFace(-lightDir);
+    
+    // For point lights, the lightAtlasInfo contains the base tile info for face 0
+    // Point lights use 6 consecutive tiles, so we calculate the offset for each face
+    vec4 faceAtlasInfo = lightAtlasInfo;
+    
+    // Calculate tiles per row in the atlas
+    float tilesPerRow = 1.0 / lightAtlasInfo.x;
+    
+    // For consecutive tiles, we simply offset by the face index
+    // Since tiles are laid out consecutively: base, base+1, base+2, base+3, base+4, base+5
+    float faceOffsetX = float(faceIndex) * lightAtlasInfo.x;
+    
+    // Check if we need to wrap to the next row
+    if (lightAtlasInfo.z + faceOffsetX >= 1.0)
+    {
+        // Wrap to next row
+        float remainingOffset = (lightAtlasInfo.z + faceOffsetX) - 1.0;
+        faceAtlasInfo.z = remainingOffset;
+        faceAtlasInfo.w += lightAtlasInfo.y; // Move to next row
+    }
+    else
+    {
+        // Stay on same row
+        faceAtlasInfo.z = lightAtlasInfo.z + faceOffsetX;
+    }
+    
+    // Use the appropriate view-projection matrix for this face
+    mat4 faceViewProj;
+    if(faceIndex == 0) faceViewProj = shadowViewProjection0;
+    else if(faceIndex == 1) faceViewProj = shadowViewProjection1;
+    else if(faceIndex == 2) faceViewProj = shadowViewProjection2;
+    else if(faceIndex == 3) faceViewProj = shadowViewProjection3;
+    else if(faceIndex == 4) faceViewProj = shadowViewProjection4;
+    else faceViewProj = shadowViewProjection5;
+    
+    return GetShadowAttenuationAtlas(faceViewProj, faceAtlasInfo, pos, normal, lightDir, 1.0f, useShadowFiltering);
+}
 
 void main()
 {
@@ -958,7 +1091,15 @@ void main()
     {
         if(lightType == 0)
         {
-            shadowFactor = GetShadowAttenuation(shadowViewProjection, shadowMap, pos, normal, lightDir, 1.0f, 1);
+            // Use atlas-based shadow sampling if instanced shadows are enabled
+            if (useInstancedShadows == 1)
+            {
+                shadowFactor = GetShadowAttenuationAtlas(shadowViewProjection, lightAtlasInfo, pos, normal, lightDir, 1.0f, 1);
+            }
+            else
+            {
+                shadowFactor = GetShadowAttenuation(shadowViewProjection, shadowMap, pos, normal, lightDir, 1.0f, 1);
+            }
 
             float start, end;
 
@@ -1000,7 +1141,14 @@ void main()
                     vec3 shadowVol = vec3(1.0f);
                     if (lightShadowsEnabled == 1)
                     {
-                        shadowVol = vec3(1 - GetShadowAttenuation(shadowViewProjection, shadowMap, rayPos, dire2, dire2, 1.0f, 0));
+                        if (useInstancedShadows == 1)
+                        {
+                            shadowVol = vec3(1 - GetShadowAttenuationAtlas(shadowViewProjection, lightAtlasInfo, rayPos, dire2, dire2, 1.0f, 0));
+                        }
+                        else
+                        {
+                            shadowVol = vec3(1 - GetShadowAttenuation(shadowViewProjection, shadowMap, rayPos, dire2, dire2, 1.0f, 0));
+                        }
                     }
                     volumetrics += abs(vec4(vec3(shadowVol * CalculateAttenuation(spotLightDir, -dire2, lightPosition, rayPos, spotLightCones.xy)), 1.0f));//* CalculateAttenuation(spotLightDir, lightDir, lightPosition, rayPos, spotLightCones.xy)), 1.0f);
                     rayPos += rayStep;
@@ -1029,7 +1177,15 @@ void main()
     }
     else if (lightType == 1)
     {
-        shadowFactor = GetShadowAttenuationPoint(pos, normal, lightDir, 1);
+        // Use atlas-based shadow sampling if instanced shadows are enabled
+        if (useInstancedShadows == 1)
+        {
+            shadowFactor = GetShadowAttenuationPointAtlas(pos, normal, lightDir, 1);
+        }
+        else
+        {
+            shadowFactor = GetShadowAttenuationPoint(pos, normal, lightDir, 1);
+        }
 
         float start, end;
 
@@ -1071,7 +1227,14 @@ void main()
                 vec3 shadowVol = vec3 (1.0f);
                 if(lightShadowsEnabled == 1)
                 {
-                    shadowVol = vec3(1-GetShadowAttenuationPoint(rayPos, -dire, -dire, 0));
+                    if (useInstancedShadows == 1)
+                    {
+                        shadowVol = vec3(1-GetShadowAttenuationPointAtlas(rayPos, -dire, -dire, 0));
+                    }
+                    else
+                    {
+                        shadowVol = vec3(1-GetShadowAttenuationPoint(rayPos, -dire, -dire, 0));
+                    }
                 }
                 volumetrics += vec4(vec3(shadowVol * CalculateAttenuation(spotLightDir, dire, lightPosition, rayPos, spotLightCones.xy)), 1.0f) * rayLength;
                 rayPos += rayStep ;

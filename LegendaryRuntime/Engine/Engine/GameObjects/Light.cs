@@ -152,7 +152,10 @@ private Matrix4 Projection;
 
             if (Type == LightType.Spot)
             {
-                view = Matrix4.LookAt(Transform.Position, Transform.Position + Transform.Forward * 10, Transform.Up);
+                // Position shadow camera at light position, looking toward the center of the light's range
+                // This ensures shadows are centered on what the light actually illuminates
+                Vector3 shadowCameraTarget = Transform.Position + Transform.Forward * (Range * 0.5f);
+                view = Matrix4.LookAt(Transform.Position, shadowCameraTarget, Transform.Up);
             }
             else if (Type == LightType.Projector)
             {
@@ -322,7 +325,7 @@ private Matrix4 Projection;
     }
 
     /// <summary>
-/// Builds a light‑space matrix by enclosing the cascade’s frustum corners
+/// Builds a light‑space matrix by enclosing the cascade's frustum corners
 /// in a bounding sphere, snapping to the texel grid to stabilize shimmering.
 /// </summary>
 private static Matrix4 GetLightViewProjection(
@@ -359,7 +362,7 @@ private static Matrix4 GetLightViewProjection(
     float farZ  = centerLS.Z + radius + zPaddingFar;
 
     // 5) Snap the X/Y center to the texel grid in light‑space
-    //    (we use the sphere’s diameter as the ortho width/height)
+    //    (we use the sphere's diameter as the ortho width/height)
     float worldUnitsPerTexel = (radius * 2.0f) / shadowMapResolution;
     centerLS.X = MathF.Floor(centerLS.X / worldUnitsPerTexel) * worldUnitsPerTexel;
     centerLS.Y = MathF.Floor(centerLS.Y / worldUnitsPerTexel) * worldUnitsPerTexel;

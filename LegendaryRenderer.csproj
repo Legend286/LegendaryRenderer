@@ -226,6 +226,12 @@
       <None Update="LegendaryRuntime\Engine\Engine\Renderer\Shaders\glsl\mesh_icon_pbr.vert">
         <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       </None>
+      <None Update="LegendaryRuntime\Engine\Engine\Renderer\Shaders\glsl\shadowgen_instanced.frag">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="LegendaryRuntime\Engine\Engine\Renderer\Shaders\glsl\shadowgen_instanced.vert">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
     </ItemGroup>
 
 </Project>
