@@ -212,6 +212,42 @@ public class EditorInspector
                     light.EnableVolumetrics = enableVolumetrics;
                 }
                 
+                // Volumetric lighting parameters (only show when volumetrics are enabled)
+                if (light.EnableVolumetrics)
+                {
+                    ImGui.Indent();
+                    ImGui.Text("Volumetric Settings:");
+                    
+                    var volumetricIntensity = light.VolumetricIntensity;
+                    if (ImGui.DragFloat("Volumetric Intensity", ref volumetricIntensity, 0.1f, 0.0f, 5.0f))
+                    {
+                        light.VolumetricIntensity = Math.Clamp(volumetricIntensity, 0.0f, 5.0f);
+                    }
+                    
+                    var volumetricAbsorption = light.VolumetricAbsorption;
+                    if (ImGui.DragFloat("Absorption", ref volumetricAbsorption, 0.01f, 0.0f, 2.0f))
+                    {
+                        light.VolumetricAbsorption = Math.Clamp(volumetricAbsorption, 0.0f, 2.0f);
+                    }
+                    
+                    var volumetricScattering = light.VolumetricScattering;
+                    if (ImGui.DragFloat("Scattering", ref volumetricScattering, 0.01f, 0.0f, 2.0f))
+                    {
+                        light.VolumetricScattering = Math.Clamp(volumetricScattering, 0.0f, 2.0f);
+                    }
+                    
+                    var volumetricAnisotropy = light.VolumetricAnisotropy;
+                    if (ImGui.DragFloat("Anisotropy", ref volumetricAnisotropy, 0.01f, -1.0f, 1.0f))
+                    {
+                        light.VolumetricAnisotropy = Math.Clamp(volumetricAnisotropy, -1.0f, 1.0f);
+                    }
+                    
+                    // Helper text for anisotropy
+                    ImGui.TextDisabled("(-1.0 = back-scatter, 0.0 = isotropic, 1.0 = forward-scatter)");
+                    
+                    ImGui.Unindent();
+                }
+                
                 var enableShadows = light.EnableShadows;
                 var shadowsEnabled = enableShadows ? "Disable" : "Enable";
                 if (ImGui.RadioButton($"{shadowsEnabled} Shadows", enableShadows))

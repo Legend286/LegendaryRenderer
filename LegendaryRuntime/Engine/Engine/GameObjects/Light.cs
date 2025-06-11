@@ -87,6 +87,12 @@ public class Light : GameObject
         set { useProfile = value; }
     }
 
+    // Volumetric lighting properties
+    public float VolumetricIntensity { get; set; } = 1.0f;       // Multiplier for volumetric visibility
+    public float VolumetricAbsorption { get; set; } = 0.1f;     // How much light is absorbed (0.0 = no absorption, 1.0 = full absorption)
+    public float VolumetricScattering { get; set; } = 0.5f;     // Scattering strength (0.0 = no scattering, 2.0+ = very bright)
+    public float VolumetricAnisotropy { get; set; } = 0.3f;     // Scattering direction (-1.0 = back-scatter, 0.0 = isotropic, 1.0 = forward-scatter)
+
     public enum LightType
     {
         Spot = 0, // a standard spot light
@@ -322,7 +328,7 @@ private Matrix4 Projection;
     }
 
     /// <summary>
-/// Builds a light‑space matrix by enclosing the cascade’s frustum corners
+/// Builds a light‑space matrix by enclosing the cascade's frustum corners
 /// in a bounding sphere, snapping to the texel grid to stabilize shimmering.
 /// </summary>
 private static Matrix4 GetLightViewProjection(
@@ -359,7 +365,7 @@ private static Matrix4 GetLightViewProjection(
     float farZ  = centerLS.Z + radius + zPaddingFar;
 
     // 5) Snap the X/Y center to the texel grid in light‑space
-    //    (we use the sphere’s diameter as the ortho width/height)
+    //    (we use the sphere's diameter as the ortho width/height)
     float worldUnitsPerTexel = (radius * 2.0f) / shadowMapResolution;
     centerLS.X = MathF.Floor(centerLS.X / worldUnitsPerTexel) * worldUnitsPerTexel;
     centerLS.Y = MathF.Floor(centerLS.Y / worldUnitsPerTexel) * worldUnitsPerTexel;

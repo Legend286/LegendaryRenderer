@@ -262,6 +262,13 @@ public class ApplicationWindow : GameWindow
             light.LightIESProfile = profile;
             light.EnableShadows = true;
             light.EnableVolumetrics = true;
+            
+            // Set up nice volumetric defaults
+            light.VolumetricIntensity = 1.2f;
+            light.VolumetricAbsorption = 0.05f;
+            light.VolumetricScattering = 0.7f;
+            light.VolumetricAnisotropy = 0.4f;
+            
             lights.Add(light);
         }
 
@@ -275,8 +282,15 @@ public class ApplicationWindow : GameWindow
         l1.EnableShadows = true;
         l1.Type = Light.LightType.Spot;
         l1.LightIESProfile = profile;
-      
-        // light2.Colour = Color.Green;
+        
+        // Set up volumetrics for camera light
+        l1.EnableVolumetrics = true;
+        l1.VolumetricIntensity = 0.8f;
+        l1.VolumetricAbsorption = 0.02f;
+        l1.VolumetricScattering = 0.3f;
+        l1.VolumetricAnisotropy = 0.6f;
+
+        //light2.Colour = Color.Green;
         // light3.Colour = Color.Blue;
         //   light3.Transform.Rotation = Quaternion.FromEulerAngles(MathHelper.DegreesToRadians(-35), 0, 0);
         //  var light4 = new Light(new Vector3(0, 5, 5), "Light QRT");
@@ -383,7 +397,7 @@ public class ApplicationWindow : GameWindow
             }
         } 
         
-        Engine.Engine.Engine.DoSelection();
+        LegendaryRuntime.Engine.Engine.Engine.DoSelection();
         
         // Render ImGui draw data
         imguiController.Render(); // This should be after all ImGui window definitions

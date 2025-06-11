@@ -110,6 +110,12 @@ public static class FullscreenQuad
                 Engine.currentShader.SetShaderInt("lightEnableVolumetrics", light.EnableVolumetrics ? 1 : 0);
                 Engine.currentShader.SetShaderInt("lightShadowsEnabled", light.EnableShadows ? 1 : 0);
                 
+                // Volumetric lighting parameters
+                Engine.currentShader.SetShaderFloat("lightVolumetricIntensity", light.VolumetricIntensity);
+                Engine.currentShader.SetShaderFloat("volumetricAbsorption", light.VolumetricAbsorption);
+                Engine.currentShader.SetShaderFloat("volumetricScattering", light.VolumetricScattering);
+                Engine.currentShader.SetShaderFloat("volumetricAnisotropy", light.VolumetricAnisotropy);
+                
                 Engine.currentShader.SetShaderInt("enableIESProfile", light.UseIESProfile ? 1 : 0);
 
                 if (light.LightIESProfile != null)

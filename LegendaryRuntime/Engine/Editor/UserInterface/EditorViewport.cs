@@ -155,6 +155,13 @@ public class EditorViewport
                         light.Bias = 0.0002f;
                         light.NormalBias = 0.0001f;
                         light.Colour = Color4.FromHsv(new Vector4((((float)cycle++ / 16.0f) % 16.0f, 0.5f, 1.0f, 1.0f)));
+                        
+                        // Set up volumetric defaults for point light
+                        light.EnableVolumetrics = true;
+                        light.VolumetricIntensity = 1.0f;
+                        light.VolumetricAbsorption = 0.1f;
+                        light.VolumetricScattering = 0.5f;
+                        light.VolumetricAnisotropy = 0.0f; // Isotropic for point lights
                     }
                     if (ImGui.MenuItem("Spot Light"))
                     {
@@ -168,6 +175,13 @@ public class EditorViewport
                         light.Bias = 0.00001f;
                         light.NormalBias = 0.0001f;
                         light.Colour = Color4.FromHsv(new Vector4((((float)cycle++ / 16.0f) % 16.0f, 0.5f, 1.0f, 1.0f)));
+                        
+                        // Set up volumetric defaults for spot light  
+                        light.EnableVolumetrics = true;
+                        light.VolumetricIntensity = 1.2f;
+                        light.VolumetricAbsorption = 0.08f;
+                        light.VolumetricScattering = 0.6f;
+                        light.VolumetricAnisotropy = 0.4f; // Forward scattering for spot lights
                     }
                     if (ImGui.MenuItem("Directional Light"))
                     {
@@ -182,6 +196,13 @@ public class EditorViewport
                         light.NormalBias = 0.001f;
                         light.Colour = Color4.LightYellow;
                         light.CascadeCount = 4;
+                        
+                        // Set up volumetric defaults for directional light (sun)
+                        light.EnableVolumetrics = true;
+                        light.VolumetricIntensity = 0.8f;
+                        light.VolumetricAbsorption = 0.02f;
+                        light.VolumetricScattering = 0.3f;
+                        light.VolumetricAnisotropy = 0.7f; // Strong forward scattering for sun rays
                     }
                     ImGui.EndMenu();
                 }
