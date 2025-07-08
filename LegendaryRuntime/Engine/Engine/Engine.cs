@@ -81,10 +81,6 @@ public static class Engine
     public static SSAOSettings SSAOSettings = new SSAOSettings();
 
     public static bool EnableShadows = true;
-    public static bool UseShadowAtlas = true;
-    
-    // Shadow Atlas System
-    public static ShadowAtlas ShadowAtlas { get; private set; }
  
     // counters for statistics :)
     public static int
@@ -120,9 +116,6 @@ public static class Engine
             GenerateShadowMap(ShadowResolution, ShadowResolution);
             GeneratePointShadowMaps(ShadowResolution, ShadowResolution);
             
-            EngineProgress.Report(0.25, "Initialising Shadow Atlas...");
-            ShadowAtlas = new ShadowAtlas();
-            
             EngineProgress.Report(0.3, "Initialising RenderBuffers...");
             RenderBuffers = new RenderBufferHelpers(PixelInternalFormat.Rgba8, PixelInternalFormat.DepthComponent32f, Application.Application.Width, Application.Application.Height, "Main Buffer");
             EngineProgress.Report(0.5, "Initialising SceneSystem...");
@@ -134,7 +127,6 @@ public static class Engine
             EditorInspector = new EditorInspector();
             ContentBrowserWindow = new ContentBrowserWindow();
             ContentBrowserWindow.InitializeDefaultIcons();
-            ShadowAtlasDebugWindow = new ShadowAtlasDebugWindow();
             EngineProgress.Report(1.0f, "Initialising Engine Complete...");
         }
         EditorSceneHierarchyPanel.OnObjectSelected += Go =>
@@ -481,7 +473,6 @@ public static class Engine
     public static EditorSceneHierarchyPanel EditorSceneHierarchyPanel;
     public static EditorInspector EditorInspector;
     public static ContentBrowserWindow ContentBrowserWindow;
-    public static ShadowAtlasDebugWindow ShadowAtlasDebugWindow;
     
     public static void RenderImGui()
     {
@@ -493,7 +484,6 @@ public static class Engine
         EditorSceneHierarchyPanel.Draw();
    
         EditorInspector.Draw();
-        ShadowAtlasDebugWindow.Draw();
         DockspaceController.EndDockspace();
     }
 
@@ -959,27 +949,96 @@ public static class Engine
         return (atlasOffset, atlasScale, tileSizeInPixels);
     }
 
+    private static List<ShadowCasterInstance> shadowCasterInstances = new List<ShadowCasterInstance>();
+    public static void BuildShadowCasterInstances()
+    {
+        shadowCasterInstances.Clear();
+        
+        List<Light> lights = GameObjects.OfType<Light>().ToList();
 
+        int numLights = lights.Count;
+        int lightIndex = 0;
+        
+        foreach (Light light in lights)
+        {
+            bool shouldRender = false;
+
+            if (light.Type == Light.LightType.Point)
+            {
+                SphereBounds bounds = new SphereBounds(light.Transform.Position, light.Range);
+                shouldRender = ActiveCamera.Frustum.ContainsSphere(bounds);
+            }
+            else if (light.Type == Light.LightType.Spot || light.Type == Light.LightType.Projector)
+            {
+                shouldRender = ActiveCamera.Frustum.ContainsFrustum(new Frustum(light.ViewProjectionMatrix));
+            }
+
+            if (light.EnableShadows && shouldRender)
+            {
+                var atlasSettings = CalculateAtlasTile(lightIndex, numLights, ShadowResolution);
+
+                List<RenderableMesh> pruned = CullSceneByPointLight(light);
+                
+                if (light.Type == Light.LightType.Point)
+                {
+                    foreach (RenderableMesh caster in pruned)
+                    {
+                        for (int i = 0; i < 6; i++)
+                        {
+                            if (ShadowCasterIntersectsLight(caster, light.PointLightViewProjections[i]))
+                            {
+                                ShadowCasterInstance instance = new ShadowCasterInstance
+                                {
+                                    ModelMatrix = caster.Transform.GetWorldMatrix(),
+                                    LightViewProjection = light.PointLightViewProjections[i],
+                                    AtlasOffset = atlasSettings.atlasOffset,
+                                    AtlasScale = atlasSettings.atlasScale,
+                                    TileSize = atlasSettings.tileSizeInPixels,
+                                };
+                                
+                                shadowCasterInstances.Add(instance);
+                            }
+                        }
+                    }
+                    lightIndex += 6;
+                }
+                else if (light.Type == Light.LightType.Spot)
+                {
+                    foreach (RenderableMesh caster in pruned)
+                    {
+                        if (ShadowCasterIntersectsLight(caster, light.ViewProjectionMatrix))
+                        {
+                            ShadowCasterInstance instance = new ShadowCasterInstance
+                            {
+                                Mesh = caster.mesh,
+                                ModelMatrix = caster.Transform.GetWorldMatrix(),
+                                LightViewProjection = light.ViewProjectionMatrix,
+                                AtlasOffset = atlasSettings.atlasOffset,
+                                AtlasScale = atlasSettings.atlasScale,
+                                TileSize = atlasSettings.tileSizeInPixels,
+                            };
+                            
+                            shadowCasterInstances.Add(instance);
+                        }
+                    }
+                    lightIndex++;
+                }
+            }
+         
+        }
+        UpdateInstanceBufferOnGPU();
+    }
+
+    public static void UpdateInstanceBufferOnGPU()
+    {
+        
+    }
     
     public static void RenderLights()
     {
         EditorWorldIconManager.ResetCounter();
         
-        if (UseShadowAtlas && EnableShadows)
-        {
-            // Use the new shadow atlas system
-            using (new Profiler("Shadow Atlas Update"))
-            {
-                ShadowAtlas.UpdateAtlas(ActiveCamera);
-            }
-            
-            using (new Profiler("Shadow Atlas Rendering"))
-            {
-                ShadowAtlas.RenderShadowsToAtlas();
-            }
-        }
-        
-        // Render lights with shadows from atlas or traditional method
+        // this is the old light rendering code
         foreach (GameObject go in GameObjects)
         {
             if (go is Light)
@@ -1002,9 +1061,10 @@ public static class Engine
                     shouldRender = light.IsVisible;
                 }
                 
-                // Only render shadows for directional lights or if atlas is disabled
-                if (light.EnableShadows && EnableShadows && (!UseShadowAtlas || light.Type == Light.LightType.Directional))
+                if (light.EnableShadows && EnableShadows)
                 {
+                 //   GL.CullFace(OpenTK.Graphics.OpenGL.CullFaceMode.Front);
+                    
                     if (light.Type == Light.LightType.Spot || light.Type == Light.LightType.Projector)
                     {
                         RenderSpotShadowMap(light, shouldRender);
@@ -1017,10 +1077,11 @@ public static class Engine
                     {
                         RenderCascadedShadowMaps(light, shouldRender);
                     }
+                    
+                  //  GL.CullFace(OpenTK.Graphics.OpenGL.CullFaceMode.Back);
                 }
-                else if (!light.EnableShadows || !EnableShadows)
+                else
                 {
-                    // Clear shadow maps if shadows are disabled
                     BindShadowMap();
                     GL.Viewport(0, 0, SpotShadowWidth, SpotShadowHeight);
                     GL.Clear(ClearBufferMask.DepthBufferBit);
