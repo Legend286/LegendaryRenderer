@@ -271,6 +271,27 @@ public class EditorViewport
                 {
                     Engine.Engine.EnableShadows = !Engine.Engine.EnableShadows;
                 }
+                
+                string AtlasState = Engine.Engine.UseShadowAtlas ? "Disable" : "Enable";
+                if (ImGui.MenuItem($"{AtlasState} Shadow Atlas"))
+                {
+                    if (Engine.Engine.UseShadowAtlas)
+                    {
+                        // Dispose of shadow atlas when disabling
+                        Engine.Engine.ShadowAtlas?.Dispose();
+                        Engine.Engine.ShadowAtlas = null;
+                    }
+                    Engine.Engine.UseShadowAtlas = !Engine.Engine.UseShadowAtlas;
+                }
+                
+                if (ImGui.MenuItem("Show Shadow Atlas Debug"))
+                {
+                    if (Engine.Engine.ShadowAtlasDebugWindow != null)
+                    {
+                        Engine.Engine.ShadowAtlasDebugWindow.IsOpen = true;
+                    }
+                }
+                
                 if (ImGui.MenuItem("Enable Post Processing"))
                 {
                     // your post processing toggle logic

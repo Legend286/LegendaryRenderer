@@ -110,6 +110,9 @@ public static class FullscreenQuad
                 Engine.currentShader.SetShaderInt("lightEnableVolumetrics", light.EnableVolumetrics ? 1 : 0);
                 Engine.currentShader.SetShaderInt("lightShadowsEnabled", light.EnableShadows ? 1 : 0);
                 
+                // Shadow Atlas parameters
+                Engine.currentShader.SetShaderInt("useShadowAtlas", Engine.UseShadowAtlas ? 1 : 0);
+                
                 // Volumetric lighting parameters
                 Engine.currentShader.SetShaderFloat("lightVolumetricIntensity", light.VolumetricIntensity);
                 Engine.currentShader.SetShaderFloat("volumetricAbsorption", light.VolumetricAbsorption);
@@ -129,12 +132,40 @@ public static class FullscreenQuad
                 if (light.Type == Light.LightType.Spot || light.Type == Light.LightType.Projector)
                 {
                     Engine.currentShader.SetShaderMatrix4x4("shadowViewProjection", light.ViewProjectionMatrix);
+                    
+                    // Add atlas transform for spot/projector lights if using atlas
+                    if (Engine.UseShadowAtlas && Engine.ShadowAtlas != null)
+                    {
+                        var atlasEntry = Engine.ShadowAtlas.GetAtlasEntry(light, 0);
+                        if (atlasEntry != null)
+                        {
+                            Engine.currentShader.SetShaderVector4("shadowAtlasTransform", atlasEntry.GetAtlasTransform());
+                        }
+                        else
+                        {
+                            Engine.currentShader.SetShaderVector4("shadowAtlasTransform", Vector4.Zero);
+                        }
+                    }
                 }
                 else if (light.Type == Light.LightType.Point)
                 {
                     for (int i = 0; i < 6; i++)
                     {
                         Engine.currentShader.SetShaderMatrix4x4($"shadowViewProjection{i}", light.PointLightViewProjections[i]);
+                        
+                        // Add atlas transform for each face if using atlas
+                        if (Engine.UseShadowAtlas && Engine.ShadowAtlas != null)
+                        {
+                            var atlasEntry = Engine.ShadowAtlas.GetAtlasEntry(light, i);
+                            if (atlasEntry != null)
+                            {
+                                Engine.currentShader.SetShaderVector4($"shadowAtlasTransform{i}", atlasEntry.GetAtlasTransform());
+                            }
+                            else
+                            {
+                                Engine.currentShader.SetShaderVector4($"shadowAtlasTransform{i}", Vector4.Zero);
+                            }
+                        }
                     }
                 }
                 else if (light.Type == Light.LightType.Directional)

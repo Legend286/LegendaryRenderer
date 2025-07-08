@@ -12,11 +12,74 @@ public class Light : GameObject
     private static int LightCount = -1;
 
     public Color4 Colour { get; set; } = Color4.White;
-    public float Range { get; set; } = 10.0f;
+    
+    private float range = 10.0f;
+    public float Range 
+    { 
+        get => range;
+        set 
+        {
+            if (Math.Abs(range - value) > 0.001f) // Only notify if there's a significant change
+            {
+                lock (viewProjectionLock)
+                {
+                    range = value;
+                    // Invalidate cached view projections for all light types
+                    cachedPointLightViewProjections = null;
+                    cachedViewProjectionMatrix = null;
+                }
+                
+                // Notify shadow atlas about the change with a delay to prevent rapid updates
+                if (Engine.UseShadowAtlas && Engine.ShadowAtlas != null && EnableShadows)
+                {
+                    // Queue the update on the main thread to avoid race conditions
+                    Engine.QueueOnMainThread(() =>
+                    {
+                        try
+                        {
+                            if (Engine.ShadowAtlas != null)
+                            {
+                                Engine.ShadowAtlas.MarkDirty();
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"Error updating shadow atlas for range change on light {Name}: {ex.Message}");
+                        }
+                    });
+                }
+            }
+        }
+    }
     
     public static int GetCount => LightCount;
 
-    public bool EnableShadows { get; set; } = false;
+    private bool enableShadows = false;
+    public bool EnableShadows 
+    { 
+        get => enableShadows;
+        set 
+        {
+            if (enableShadows != value)
+            {
+                enableShadows = value;
+                // Notify shadow atlas about the change
+                if (Engine.UseShadowAtlas && Engine.ShadowAtlas != null)
+                {
+                    if (!enableShadows)
+                    {
+                        // Remove this light from shadow atlas when shadows are disabled
+                        Engine.ShadowAtlas.RemoveLightEntries(this);
+                    }
+                    else
+                    {
+                        // Mark atlas dirty to trigger reallocation when shadows are enabled
+                        Engine.ShadowAtlas.MarkDirty();
+                    }
+                }
+            }
+        }
+    }
 
     public bool EnableVolumetrics { get; set; } = false;
 
@@ -51,15 +114,95 @@ public class Light : GameObject
     }
     public float InnerCone { get; set; } = 75.0f;
 
-    public float OuterCone { get; set; } = 90.0f;
+    private float outerCone = 90.0f;
+    public float OuterCone 
+    { 
+        get => outerCone;
+        set 
+        {
+            if (Math.Abs(outerCone - value) > 0.001f)
+            {
+                lock (viewProjectionLock)
+                {
+                    outerCone = value;
+                    // Invalidate cached view projection for spot lights
+                    cachedViewProjectionMatrix = null;
+                }
+            }
+        }
+    }
 
-    public float ProjectorSize { get; set; } = 5.0f;
+    private float projectorSize = 5.0f;
+    public float ProjectorSize 
+    { 
+        get => projectorSize;
+        set 
+        {
+            if (Math.Abs(projectorSize - value) > 0.001f)
+            {
+                lock (viewProjectionLock)
+                {
+                    projectorSize = value;
+                    // Invalidate cached view projection for projector lights
+                    cachedViewProjectionMatrix = null;
+                }
+            }
+        }
+    }
 
-    public float NearPlane { get; set; } = 0.05f;
+    private float nearPlane = 0.05f;
+    public float NearPlane 
+    { 
+        get => nearPlane;
+        set 
+        {
+            if (Math.Abs(nearPlane - value) > 0.001f)
+            {
+                lock (viewProjectionLock)
+                {
+                    nearPlane = value;
+                    // Invalidate cached view projections for all light types
+                    cachedPointLightViewProjections = null;
+                    cachedViewProjectionMatrix = null;
+                }
+            }
+        }
+    }
 
     public float Bias { get; set; } = 0.0000125f;
     public float NormalBias { get; set; } = 0.0f;
-    public float Intensity { get; set; } = 3.0f;
+    
+    private float intensity = 3.0f;
+    public float Intensity 
+    { 
+        get => intensity;
+        set 
+        {
+            if (Math.Abs(intensity - value) > 0.001f) // Only notify if there's a significant change
+            {
+                intensity = value;
+                // Notify shadow atlas about the change with a delay to prevent rapid updates
+                if (Engine.UseShadowAtlas && Engine.ShadowAtlas != null && EnableShadows)
+                {
+                    // Queue the update on the main thread to avoid race conditions
+                    Engine.QueueOnMainThread(() =>
+                    {
+                        try
+                        {
+                            if (Engine.ShadowAtlas != null)
+                            {
+                                Engine.ShadowAtlas.MarkDirtyForLight(this);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"Error updating shadow atlas for intensity change on light {Name}: {ex.Message}");
+                        }
+                    });
+                }
+            }
+        }
+    }
 
     private IESProfile? lightProfile;
     private bool useProfile;
@@ -119,19 +262,70 @@ public class Light : GameObject
     } 
 private Matrix4 Projection;
 
+    private Matrix4? cachedViewProjectionMatrix = null;
+    private float lastCachedOuterCone = -1f;
+    private float lastCachedProjectorSize = -1f;
+    private Vector3 lastCachedSpotPosition = Vector3.Zero;
+    private Quaternion lastCachedSpotRotation = Quaternion.Identity;
+    
     public Matrix4 ViewProjectionMatrix
     {
         get
         {
-            return GetLightViewProjection();
+            lock (viewProjectionLock)
+            {
+                // Check if we need to recalculate for spot/projector lights
+                if (Type == LightType.Spot || Type == LightType.Projector)
+                {
+                    if (cachedViewProjectionMatrix == null ||
+                        Math.Abs(lastCachedRange - Range) > 0.001f ||
+                        Math.Abs(lastCachedOuterCone - OuterCone) > 0.001f ||
+                        Math.Abs(lastCachedProjectorSize - ProjectorSize) > 0.001f ||
+                        Vector3.Distance(lastCachedSpotPosition, Transform?.Position ?? Vector3.Zero) > 0.001f ||
+                        !QuaternionsAreEqual(lastCachedSpotRotation, Transform?.Rotation ?? Quaternion.Identity))
+                    {
+                        cachedViewProjectionMatrix = GetLightViewProjection();
+                        lastCachedRange = Range;
+                        lastCachedOuterCone = OuterCone;
+                        lastCachedProjectorSize = ProjectorSize;
+                        lastCachedSpotPosition = Transform?.Position ?? Vector3.Zero;
+                        lastCachedSpotRotation = Transform?.Rotation ?? Quaternion.Identity;
+                    }
+                    
+                    return cachedViewProjectionMatrix.Value;
+                }
+                else
+                {
+                    // For other light types, calculate directly
+                    return GetLightViewProjection();
+                }
+            }
         }
     }
 
+    private Matrix4[]? cachedPointLightViewProjections = null;
+    private float lastCachedRange = -1f;
+    private Vector3 lastCachedPosition = Vector3.Zero;
+    private readonly object viewProjectionLock = new object();
+    
     public Matrix4[] PointLightViewProjections
     {
         get
         {
-            return GetPointLightViewProjections();
+            lock (viewProjectionLock)
+            {
+                // Check if we need to recalculate
+                if (cachedPointLightViewProjections == null || 
+                    Math.Abs(lastCachedRange - Range) > 0.001f ||
+                    Vector3.Distance(lastCachedPosition, Transform?.Position ?? Vector3.Zero) > 0.001f)
+                {
+                    cachedPointLightViewProjections = GetPointLightViewProjections();
+                    lastCachedRange = Range;
+                    lastCachedPosition = Transform?.Position ?? Vector3.Zero;
+                }
+                
+                return cachedPointLightViewProjections;
+            }
         }
     }
 
@@ -147,67 +341,293 @@ private Matrix4 Projection;
         var col = new Color4(rnd.Next(60, 255), rnd.Next(60, 255), rnd.Next(60, 255), rnd.Next(0, 255));
         Colour = col;
     }
+    
+    public override void Update(float deltaTime)
+    {
+        // Check if transform changed and invalidate cache if needed
+        if (Transform != null)
+        {
+            Vector3 currentPosition = Transform.Position;
+            Quaternion currentRotation = Transform.Rotation;
+            
+            if (Type == LightType.Point)
+            {
+                if (Vector3.Distance(lastCachedPosition, currentPosition) > 0.001f)
+                {
+                    lock (viewProjectionLock)
+                    {
+                        cachedPointLightViewProjections = null;
+                    }
+                }
+            }
+            else if (Type == LightType.Spot || Type == LightType.Projector)
+            {
+                if (Vector3.Distance(lastCachedSpotPosition, currentPosition) > 0.001f ||
+                    !QuaternionsAreEqual(lastCachedSpotRotation, currentRotation))
+                {
+                    lock (viewProjectionLock)
+                    {
+                        cachedViewProjectionMatrix = null;
+                    }
+                }
+            }
+        }
+        
+        base.Update(deltaTime);
+    }
 
     private Matrix4 GetLightViewProjection()
     {
-        if (EnableShadows)
+        try
         {
-            OuterCone = Math.Clamp(OuterCone, 1, 179);
-            InnerCone = Math.Clamp(InnerCone, 1, OuterCone);
-            Matrix4 view = Matrix4.Identity;
+            if (EnableShadows)
+            {
+                // Validate transform
+                if (Transform == null)
+                {
+                    Console.WriteLine($"Warning: Light {Name} has null transform");
+                    return Matrix4.Identity;
+                }
+                
+                // Validate parameters
+                float currentRange = Range;
+                float currentNearPlane = NearPlane;
+                float currentOuterCone = OuterCone;
+                float currentProjectorSize = ProjectorSize;
+                
+                if (currentRange <= 0 || float.IsNaN(currentRange) || float.IsInfinity(currentRange))
+                {
+                    Console.WriteLine($"Warning: Light {Name} has invalid range: {currentRange}");
+                    return Matrix4.Identity;
+                }
+                
+                if (currentNearPlane <= 0 || float.IsNaN(currentNearPlane) || float.IsInfinity(currentNearPlane))
+                {
+                    Console.WriteLine($"Warning: Light {Name} has invalid near plane: {currentNearPlane}");
+                    return Matrix4.Identity;
+                }
+                
+                Vector3 position = Transform.Position;
+                if (float.IsNaN(position.X) || float.IsNaN(position.Y) || float.IsNaN(position.Z) ||
+                    float.IsInfinity(position.X) || float.IsInfinity(position.Y) || float.IsInfinity(position.Z))
+                {
+                    Console.WriteLine($"Warning: Light {Name} has invalid position: {position}");
+                    return Matrix4.Identity;
+                }
+                
+                currentOuterCone = Math.Clamp(currentOuterCone, 1, 179);
+                InnerCone = Math.Clamp(InnerCone, 1, currentOuterCone);
+                Matrix4 view = Matrix4.Identity;
 
-            if (Type == LightType.Spot)
-            {
-                view = Matrix4.LookAt(Transform.Position, Transform.Position + Transform.Forward * 10, Transform.Up);
-            }
-            else if (Type == LightType.Projector)
-            {
-                view = Matrix4.LookAt(Transform.Position - Transform.Forward * 100, Transform.Position + Transform.Forward * 10, Transform.Up);
-            }
-            Matrix4 projection = Matrix4.Identity;
+                if (Type == LightType.Spot)
+                {
+                    Vector3 forward = Transform.Forward;
+                    Vector3 up = Transform.Up;
+                    
+                    // Validate transform vectors
+                    if (float.IsNaN(forward.Length) || forward.Length < 0.001f)
+                    {
+                        forward = Vector3.UnitZ;
+                    }
+                    if (float.IsNaN(up.Length) || up.Length < 0.001f)
+                    {
+                        up = Vector3.UnitY;
+                    }
+                    
+                    view = Matrix4.LookAt(position, position + forward * 10, up);
+                }
+                else if (Type == LightType.Projector)
+                {
+                    Vector3 forward = Transform.Forward;
+                    Vector3 up = Transform.Up;
+                    
+                    // Validate transform vectors
+                    if (float.IsNaN(forward.Length) || forward.Length < 0.001f)
+                    {
+                        forward = Vector3.UnitZ;
+                    }
+                    if (float.IsNaN(up.Length) || up.Length < 0.001f)
+                    {
+                        up = Vector3.UnitY;
+                    }
+                    
+                    view = Matrix4.LookAt(position - forward * 100, position + forward * 10, up);
+                }
+                
+                Matrix4 projection = Matrix4.Identity;
 
-            if (Type == LightType.Spot)
-            {
-                projection = Matrix4.CreatePerspectiveFieldOfView(MathHelper.DegreesToRadians(OuterCone), 1, NearPlane, Range);
+                if (Type == LightType.Spot)
+                {
+                    // Ensure near plane is less than range
+                    if (currentNearPlane >= currentRange)
+                    {
+                        currentNearPlane = currentRange * 0.01f;
+                    }
+                    
+                    projection = Matrix4.CreatePerspectiveFieldOfView(MathHelper.DegreesToRadians(currentOuterCone), 1, currentNearPlane, currentRange);
+                }
+                else if(Type == LightType.Projector)
+                {
+                    if (currentProjectorSize <= 0 || float.IsNaN(currentProjectorSize) || float.IsInfinity(currentProjectorSize))
+                    {
+                        currentProjectorSize = 5.0f;
+                    }
+                    
+                    projection = Matrix4.CreateOrthographic(currentProjectorSize, currentProjectorSize, 0.1f, currentRange);
+                }
+                
+                var result = view * projection;
+                
+                // Validate the resulting matrix
+                if (!IsValidMatrix(result))
+                {
+                    Console.WriteLine($"Warning: Invalid view projection matrix for light {Name}");
+                    return Matrix4.Identity;
+                }
+                
+                return result;
             }
-            else if(Type == LightType.Projector)
+            else
             {
-                projection = Matrix4.CreateOrthographic(ProjectorSize, ProjectorSize, 0.1f, Range);
+                return Matrix4.Identity;
             }
-            return view * projection;
         }
-        else
+        catch (Exception ex)
         {
+            Console.WriteLine($"Error creating view projection for light {Name}: {ex.Message}");
             return Matrix4.Identity;
         }
     }
     
     private Matrix4[] GetPointLightViewProjections()
     {
-        Vector3[] Ups = new Vector3[]
+        try
         {
-            Vector3.UnitY, Vector3.UnitY, Vector3.UnitX, Vector3.UnitX, Vector3.UnitY, Vector3.UnitY
-        };
-        Vector3[] Dirs = new Vector3[]
+            // Check if transform is valid
+            if (Transform == null)
+            {
+                Console.WriteLine($"Warning: Light {Name} has null transform");
+                return CreateIdentityMatrixArray();
+            }
+            
+            // Validate parameters before proceeding
+            float currentRange = Range;
+            float currentNearPlane = NearPlane;
+            
+            if (currentRange <= 0 || float.IsNaN(currentRange) || float.IsInfinity(currentRange))
+            {
+                Console.WriteLine($"Warning: Light {Name} has invalid range: {currentRange}");
+                return CreateIdentityMatrixArray();
+            }
+            
+            if (currentNearPlane <= 0 || float.IsNaN(currentNearPlane) || float.IsInfinity(currentNearPlane))
+            {
+                Console.WriteLine($"Warning: Light {Name} has invalid near plane: {currentNearPlane}");
+                return CreateIdentityMatrixArray();
+            }
+            
+            Vector3 position = Transform.Position;
+            if (float.IsNaN(position.X) || float.IsNaN(position.Y) || float.IsNaN(position.Z) ||
+                float.IsInfinity(position.X) || float.IsInfinity(position.Y) || float.IsInfinity(position.Z))
+            {
+                Console.WriteLine($"Warning: Light {Name} has invalid position: {position}");
+                return CreateIdentityMatrixArray();
+            }
+            
+            Vector3[] Ups = new Vector3[]
+            {
+                Vector3.UnitY, Vector3.UnitY, Vector3.UnitX, Vector3.UnitX, Vector3.UnitY, Vector3.UnitY
+            };
+            Vector3[] Dirs = new Vector3[]
+            {
+                Vector3.UnitX, -Vector3.UnitX, Vector3.UnitY, -Vector3.UnitY, Vector3.UnitZ, -Vector3.UnitZ,
+            };
+            
+            Matrix4 view = Matrix4.Identity;
+            Matrix4 projection;
+            
+            List<Matrix4> viewProjections = new List<Matrix4>();
+            
+            // Validate parameters
+            float nearPlane = Math.Max(currentNearPlane, 0.01f); // Ensure near plane is valid
+            float range = Math.Max(currentRange, 0.1f); // Ensure range is valid
+            
+            // Ensure near plane is less than range
+            if (nearPlane >= range)
+            {
+                nearPlane = range * 0.01f; // Set near plane to 1% of range
+            }
+            
+            projection = Matrix4.CreatePerspectiveFieldOfView(MathHelper.DegreesToRadians(90), 1, nearPlane, range);
+            
+            for (int i = 0; i < 6; i++)
+            {
+                try
+                {
+                    view = Matrix4.LookAt(position, position + Dirs[i], Ups[i]);
+                    var result = view * projection;
+                    
+                    // Validate the resulting matrix
+                    if (IsValidMatrix(result))
+                    {
+                        viewProjections.Add(result);
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Warning: Invalid matrix for face {i} of light {Name}");
+                        viewProjections.Add(Matrix4.Identity);
+                    }
+                }
+                catch (Exception innerEx)
+                {
+                    Console.WriteLine($"Error creating view projection for face {i} of light {Name}: {innerEx.Message}");
+                    viewProjections.Add(Matrix4.Identity);
+                }
+            }
+
+            return viewProjections.ToArray();
+        }
+        catch (Exception ex)
         {
-            Vector3.UnitX, -Vector3.UnitX, Vector3.UnitY, -Vector3.UnitY, Vector3.UnitZ, -Vector3.UnitZ,
-        };
-        
-        Matrix4 view = Matrix4.Identity;
-        Matrix4 projection;
-        
-        List<Matrix4> viewProjections = new List<Matrix4>();
-        
-        projection = Matrix4.CreatePerspectiveFieldOfView(MathHelper.DegreesToRadians(90), 1, NearPlane, Range);
+            Console.WriteLine($"Error creating point light view projections for {Name}: {ex.Message}");
+            // Return array of identity matrices as fallback
+            return CreateIdentityMatrixArray();
+        }
+    }
+    
+    private Matrix4[] CreateIdentityMatrixArray()
+    {
+        var identityArray = new Matrix4[6];
         for (int i = 0; i < 6; i++)
         {
-            view = Matrix4.LookAt(Transform.Position, Transform.Position + Dirs[i], Ups[i]);
-            var result = view * projection;
-            
-            viewProjections.Add(result);
+            identityArray[i] = Matrix4.Identity;
         }
-
-        return viewProjections.ToArray();
+        return identityArray;
+    }
+    
+    private bool IsValidMatrix(Matrix4 matrix)
+    {
+        // Check if any component is NaN or Infinity
+        for (int row = 0; row < 4; row++)
+        {
+            for (int col = 0; col < 4; col++)
+            {
+                float value = matrix[row, col];
+                if (float.IsNaN(value) || float.IsInfinity(value))
+                {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+    
+    private bool QuaternionsAreEqual(Quaternion q1, Quaternion q2, float threshold = 0.001f)
+    {
+        // Calculate the dot product manually
+        float dot = q1.X * q2.X + q1.Y * q2.Y + q1.Z * q2.Z + q1.W * q2.W;
+        // Use absolute value since quaternions q and -q represent the same rotation
+        return Math.Abs(Math.Abs(dot) - 1.0f) < threshold;
     }
 
     private int noiseTex = -1;
@@ -258,6 +678,11 @@ private Matrix4 Projection;
 
         if (Type == LightType.Spot || Type == LightType.Projector)
         {
+            // Use shadow atlas if enabled and available, otherwise fall back to traditional shadow maps
+            if (Engine.UseShadowAtlas && Engine.ShadowAtlas != null)
+            {
+                tex[3] = Engine.ShadowAtlas.AtlasTexture;
+            }
             FullscreenQuad.RenderQuad("DeferredLight", tex, new[] { "screenTexture", "screenDepth", "screenNormal", "shadowMap", "ssaoNoise", "cubemap", "lightCookieTexture" }, Transform, this);
         }
         else if (Type == LightType.Point || Type == LightType.Directional)
@@ -266,12 +691,30 @@ private Matrix4 Projection;
             texs[0] = textures[0];
             texs[1] = textures[1];
             texs[2] = textures[2];
-            texs[3] = PointShadowMapTextures[0];
-            texs[4] = PointShadowMapTextures[1];
-            texs[5] = PointShadowMapTextures[2];
-            texs[6] = PointShadowMapTextures[3];
-            texs[7] = PointShadowMapTextures[4];
-            texs[8] = PointShadowMapTextures[5];
+            
+            // Use shadow atlas for point lights if enabled, otherwise use traditional cube maps
+            if (Type == LightType.Point && Engine.UseShadowAtlas && Engine.ShadowAtlas != null)
+            {
+                // For atlas-based point lights, bind the atlas texture to all 6 slots
+                int atlasTexture = Engine.ShadowAtlas.AtlasTexture;
+                texs[3] = atlasTexture;
+                texs[4] = atlasTexture;
+                texs[5] = atlasTexture;
+                texs[6] = atlasTexture;
+                texs[7] = atlasTexture;
+                texs[8] = atlasTexture;
+            }
+            else
+            {
+                // Traditional point light shadow maps
+                texs[3] = PointShadowMapTextures[0];
+                texs[4] = PointShadowMapTextures[1];
+                texs[5] = PointShadowMapTextures[2];
+                texs[6] = PointShadowMapTextures[3];
+                texs[7] = PointShadowMapTextures[4];
+                texs[8] = PointShadowMapTextures[5];
+            }
+            
             texs[9] = Environment.EnvmapID;
             FullscreenQuad.RenderQuad("DeferredLight", texs, new[] { "screenTexture", "screenDepth", "screenNormal", "shadowMap0", "shadowMap1", "shadowMap2", "shadowMap3", "shadowMap4", "shadowMap5", "cubemap" }, Transform, this);
 

@@ -81,6 +81,10 @@ public static class Engine
     public static SSAOSettings SSAOSettings = new SSAOSettings();
 
     public static bool EnableShadows = true;
+    
+    // Shadow Atlas System
+    public static ShadowAtlas? ShadowAtlas { get; set; }
+    public static bool UseShadowAtlas = true;
  
     // counters for statistics :)
     public static int
@@ -116,6 +120,10 @@ public static class Engine
             GenerateShadowMap(ShadowResolution, ShadowResolution);
             GeneratePointShadowMaps(ShadowResolution, ShadowResolution);
             
+            EngineProgress.Report(0.25, "Initialising Shadow Atlas...");
+            // Initialize shadow atlas later when needed to avoid OpenGL context issues
+            ShadowAtlas = null;
+            
             EngineProgress.Report(0.3, "Initialising RenderBuffers...");
             RenderBuffers = new RenderBufferHelpers(PixelInternalFormat.Rgba8, PixelInternalFormat.DepthComponent32f, Application.Application.Width, Application.Application.Height, "Main Buffer");
             EngineProgress.Report(0.5, "Initialising SceneSystem...");
@@ -127,6 +135,7 @@ public static class Engine
             EditorInspector = new EditorInspector();
             ContentBrowserWindow = new ContentBrowserWindow();
             ContentBrowserWindow.InitializeDefaultIcons();
+            ShadowAtlasDebugWindow = new ShadowAtlasDebugWindow();
             EngineProgress.Report(1.0f, "Initialising Engine Complete...");
         }
         EditorSceneHierarchyPanel.OnObjectSelected += Go =>
@@ -188,17 +197,37 @@ public static class Engine
 
     public static void AddGameObject(GameObject gameObject)
     {
-        if (gameObject is Camera camera)
+        if (gameObject == null)
         {
-            ActiveCamera = camera;
+            Console.WriteLine("Warning: Attempted to add null GameObject");
+            return;
         }
-        LoadedScenes[0].RootNode.Children.Add(gameObject);
-        GameObjects.Add(gameObject);
-        GameObjectToGUIDMap.Add(ConvertValueToGuid(GuidToUIntArray(gameObject.GUID)), gameObject);
         
-        if (gameObject is RenderableMesh)
+        try
         {
-            RenderableMeshes.Add(gameObject as RenderableMesh);
+            if (gameObject is Camera camera)
+            {
+                ActiveCamera = camera;
+            }
+            
+            LoadedScenes[0].RootNode.Children.Add(gameObject);
+            GameObjects.Add(gameObject);
+            GameObjectToGUIDMap.Add(ConvertValueToGuid(GuidToUIntArray(gameObject.GUID)), gameObject);
+            
+            if (gameObject is RenderableMesh)
+            {
+                RenderableMeshes.Add(gameObject as RenderableMesh);
+            }
+            
+            // If it's a light, mark the shadow atlas as dirty to trigger reallocation
+            if (gameObject is Light && UseShadowAtlas && ShadowAtlas != null)
+            {
+                ShadowAtlas.MarkDirty();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error adding GameObject {gameObject.Name}: {ex.Message}");
         }
     }
     public static List<RenderableMesh> CullRenderables(Matrix4 viewProjectionMatrix, bool shouldRender, List<RenderableMesh>? preCulledRenderables = null)
@@ -242,12 +271,27 @@ public static class Engine
 
     public static void RemoveGameObject(GameObject gameObject)
     {
-        GameObjects.Remove(gameObject);
-        LoadedScenes[0].RootNode.Children.Remove(gameObject);
-
-        if (gameObject is RenderableMesh)
+        if (gameObject == null) return;
+        
+        try
         {
-            RenderableMeshes.Remove(gameObject as RenderableMesh);
+            GameObjects.Remove(gameObject);
+            LoadedScenes[0].RootNode.Children.Remove(gameObject);
+
+            if (gameObject is RenderableMesh)
+            {
+                RenderableMeshes.Remove(gameObject as RenderableMesh);
+            }
+            
+            // If it's a light, clean up shadow atlas entries
+            if (gameObject is Light light && UseShadowAtlas && ShadowAtlas != null)
+            {
+                ShadowAtlas.RemoveLightEntries(light);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error removing GameObject {gameObject.Name}: {ex.Message}");
         }
     }
 
@@ -473,6 +517,7 @@ public static class Engine
     public static EditorSceneHierarchyPanel EditorSceneHierarchyPanel;
     public static EditorInspector EditorInspector;
     public static ContentBrowserWindow ContentBrowserWindow;
+    public static ShadowAtlasDebugWindow ShadowAtlasDebugWindow;
     
     public static void RenderImGui()
     {
@@ -484,6 +529,7 @@ public static class Engine
         EditorSceneHierarchyPanel.Draw();
    
         EditorInspector.Draw();
+        ShadowAtlasDebugWindow.Draw();
         DockspaceController.EndDockspace();
     }
 
@@ -1038,7 +1084,30 @@ public static class Engine
     {
         EditorWorldIconManager.ResetCounter();
         
-        // this is the old light rendering code
+        // Update shadow atlas if enabled
+        if (UseShadowAtlas && EnableShadows)
+        {
+            // Initialize shadow atlas if it doesn't exist
+            if (ShadowAtlas == null)
+            {
+                ShadowAtlas = new ShadowAtlas();
+            }
+            
+            if (ActiveCamera != null)
+            {
+                using (new Profiler("Shadow Atlas Update"))
+                {
+                    ShadowAtlas.UpdateAtlas(ActiveCamera);
+                }
+                
+                using (new Profiler("Shadow Atlas Rendering"))
+                {
+                    ShadowAtlas.RenderShadowsToAtlas();
+                }
+            }
+        }
+        
+        // Render lights
         foreach (GameObject go in GameObjects)
         {
             if (go is Light)
@@ -1063,22 +1132,29 @@ public static class Engine
                 
                 if (light.EnableShadows && EnableShadows)
                 {
-                 //   GL.CullFace(OpenTK.Graphics.OpenGL.CullFaceMode.Front);
-                    
-                    if (light.Type == Light.LightType.Spot || light.Type == Light.LightType.Projector)
+                    // Use shadow atlas for point, spot, and projector lights if enabled
+                    if (UseShadowAtlas && (light.Type == Light.LightType.Point || 
+                                          light.Type == Light.LightType.Spot || 
+                                          light.Type == Light.LightType.Projector))
                     {
-                        RenderSpotShadowMap(light, shouldRender);
+                        // Shadow atlas handles rendering, no need for individual shadow map rendering
                     }
-                    else if (light.Type == Light.LightType.Point)
+                    else
                     {
-                        RenderPointShadowMaps(light, shouldRender);
+                        // Fall back to traditional shadow mapping
+                        if (light.Type == Light.LightType.Spot || light.Type == Light.LightType.Projector)
+                        {
+                            RenderSpotShadowMap(light, shouldRender);
+                        }
+                        else if (light.Type == Light.LightType.Point)
+                        {
+                            RenderPointShadowMaps(light, shouldRender);
+                        }
+                        else if (light.Type == Light.LightType.Directional)
+                        {
+                            RenderCascadedShadowMaps(light, shouldRender);
+                        }
                     }
-                    else if (light.Type == Light.LightType.Directional)
-                    {
-                        RenderCascadedShadowMaps(light, shouldRender);
-                    }
-                    
-                  //  GL.CullFace(OpenTK.Graphics.OpenGL.CullFaceMode.Back);
                 }
                 else
                 {

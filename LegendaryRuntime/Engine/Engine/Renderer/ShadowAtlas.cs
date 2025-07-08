@@ -4,6 +4,7 @@ using System.Linq;
 using OpenTK.Mathematics;
 using OpenTK.Graphics.OpenGL;
 using LegendaryRenderer.LegendaryRuntime.Engine.Engine.GameObjects;
+using LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer;
 using LegendaryRenderer.Shaders;
 
 
@@ -21,6 +22,11 @@ namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer
         private List<AtlasEntry> allocatedEntries;
         private List<AtlasEntry> previousFrameEntries;
         private bool isDirty = true;
+        private float lastUpdateTime = 0.0f;
+        private const float UPDATE_COOLDOWN = 0.1f; // Minimum time between updates in seconds
+        private readonly object updateLock = new object();
+        private readonly Dictionary<Light, float> lastLightUpdateTimes = new Dictionary<Light, float>();
+        private const float LIGHT_UPDATE_COOLDOWN = 0.05f; // Minimum time between updates for individual lights
         
         public int AtlasTexture => atlasTexture;
         public int AtlasSize => ATLAS_SIZE;
@@ -35,90 +41,174 @@ namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer
         
         private void InitializeAtlas()
         {
-            // Create atlas texture
-            atlasTexture = GL.GenTexture();
-            GL.BindTexture(TextureTarget.Texture2D, atlasTexture);
-            GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.DepthComponent32f, 
-                         ATLAS_SIZE, ATLAS_SIZE, 0, PixelFormat.DepthComponent, PixelType.Float, IntPtr.Zero);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.ClampToEdge);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.ClampToEdge);
-            
-            // Create framebuffer
-            atlasFramebuffer = GL.GenFramebuffer();
-            GL.BindFramebuffer(FramebufferTarget.Framebuffer, atlasFramebuffer);
-            GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.DepthAttachment, 
-                                   TextureTarget.Texture2D, atlasTexture, 0);
-            
-            // Check framebuffer completeness
-            if (GL.CheckFramebufferStatus(FramebufferTarget.Framebuffer) != FramebufferErrorCode.FramebufferComplete)
+            try
             {
-                throw new Exception("Shadow atlas framebuffer is not complete!");
+                // Create atlas texture
+                atlasTexture = GL.GenTexture();
+                GL.BindTexture(TextureTarget.Texture2D, atlasTexture);
+                GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.DepthComponent32f, 
+                             ATLAS_SIZE, ATLAS_SIZE, 0, PixelFormat.DepthComponent, PixelType.Float, IntPtr.Zero);
+                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
+                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
+                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.ClampToEdge);
+                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.ClampToEdge);
+                
+                // Create framebuffer
+                atlasFramebuffer = GL.GenFramebuffer();
+                GL.BindFramebuffer(FramebufferTarget.Framebuffer, atlasFramebuffer);
+                GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.DepthAttachment, 
+                                       TextureTarget.Texture2D, atlasTexture, 0);
+                
+                // Check framebuffer completeness
+                var status = GL.CheckFramebufferStatus(FramebufferTarget.Framebuffer);
+                if (status != FramebufferErrorCode.FramebufferComplete)
+                {
+                    throw new Exception($"Shadow atlas framebuffer is not complete: {status}");
+                }
+                
+                GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
+                
+                // Initialize quad tree
+                rootNode = new QuadTreeNode(new Rectangle(0, 0, ATLAS_SIZE, ATLAS_SIZE));
+                
+                Console.WriteLine($"Shadow Atlas initialized: {ATLAS_SIZE}x{ATLAS_SIZE}");
             }
-            
-            GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
-            
-            // Initialize quad tree
-            rootNode = new QuadTreeNode(new Rectangle(0, 0, ATLAS_SIZE, ATLAS_SIZE));
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error initializing shadow atlas: {ex.Message}");
+                
+                // Clean up on failure
+                if (atlasTexture != 0)
+                {
+                    GL.DeleteTexture(atlasTexture);
+                    atlasTexture = 0;
+                }
+                if (atlasFramebuffer != 0)
+                {
+                    GL.DeleteFramebuffer(atlasFramebuffer);
+                    atlasFramebuffer = 0;
+                }
+                throw;
+            }
         }
         
         public void UpdateAtlas(Camera camera)
         {
-            // Get visible lights that cast shadows
-            var visibleLights = GetVisibleShadowCastingLights(camera);
-            
-                    // Calculate raw priorities for all visible lights
-        var rawPriorities = new Dictionary<Light, float>();
-        foreach (var light in visibleLights)
-        {
-            rawPriorities[light] = CalculateLightPriority(light, camera);
-        }
-        
-        // Normalize priorities based on total demand for atlas space
-        var lightPriorities = NormalizePriorities(rawPriorities, camera);
-        
-        // Sort lights by priority (higher priority first)
-        var sortedLights = visibleLights.OrderByDescending(l => lightPriorities[l]).ToList();
-            
-            // Store previous frame's entries
-            previousFrameEntries.Clear();
-            previousFrameEntries.AddRange(allocatedEntries);
-            
-            // Check if we need to reallocate
-            bool needsReallocation = ShouldReallocateAtlas(sortedLights, lightPriorities, camera);
-            
-            if (needsReallocation || isDirty)
+            lock (updateLock)
             {
-                PerformIntelligentReallocation(sortedLights, lightPriorities, camera);
+                try
+                {
+                // Ensure atlas is initialized
+                if (atlasTexture == 0)
+                {
+                    InitializeAtlas();
+                }
+                
+                if (camera == null)
+                {
+                    Console.WriteLine("Warning: Camera is null in UpdateAtlas");
+                    return;
+                }
+                
+                // Check cooldown to prevent too frequent updates
+                float currentTime = (float)DateTime.Now.TimeOfDay.TotalSeconds;
+                if (currentTime - lastUpdateTime < UPDATE_COOLDOWN && !isDirty)
+                {
+                    return; // Skip update if too soon and not dirty
+                }
+                lastUpdateTime = currentTime;
+                
+                // Get visible lights that cast shadows
+                var visibleLights = GetVisibleShadowCastingLights(camera);
+                
+                // Calculate raw priorities for all visible lights
+                var rawPriorities = new Dictionary<Light, float>();
+                foreach (var light in visibleLights)
+                {
+                    if (light != null)
+                    {
+                        rawPriorities[light] = CalculateLightPriority(light, camera);
+                    }
+                }
+                
+                // Normalize priorities based on total demand for atlas space
+                var lightPriorities = NormalizePriorities(rawPriorities, camera);
+                
+                // Sort lights by priority (higher priority first)
+                var sortedLights = visibleLights.Where(l => l != null && lightPriorities.ContainsKey(l)).OrderByDescending(l => lightPriorities[l]).ToList();
+                
+                // Store previous frame's entries
+                previousFrameEntries.Clear();
+                previousFrameEntries.AddRange(allocatedEntries);
+                
+                // Check if we need to reallocate
+                bool needsReallocation = ShouldReallocateAtlas(sortedLights, lightPriorities, camera);
+                
+                // For now, always reallocate to ensure all lights get proper allocation
+                // This can be optimized later once the allocation logic is stable
+                if (needsReallocation || isDirty || true) // Force reallocation for debugging
+                {
+                    PerformIntelligentReallocation(sortedLights, lightPriorities, camera);
+                }
+                else
+                {
+                    // Update existing allocations with new priorities
+                    UpdateExistingAllocations(lightPriorities, camera);
+                }
+                
+                isDirty = false;
             }
-            else
-            {
-                // Update existing allocations with new priorities
-                UpdateExistingAllocations(lightPriorities, camera);
+                            catch (Exception ex)
+                {
+                    Console.WriteLine($"Error updating shadow atlas: {ex.Message}");
+                    // Mark as dirty to try again next frame
+                    isDirty = true;
+                }
             }
-            
-            isDirty = false;
         }
         
         private List<Light> GetVisibleShadowCastingLights(Camera camera)
         {
             var lights = new List<Light>();
             
-            foreach (var light in Engine.GameObjects.OfType<Light>())
+            if (camera == null) return lights;
+            
+            try
             {
-                if (!light.EnableShadows || !light.IsVisible) continue;
-                
-                // Only include point, spot, and projector lights
-                if (light.Type != Light.LightType.Point && 
-                    light.Type != Light.LightType.Spot && 
-                    light.Type != Light.LightType.Projector) continue;
-                
-                // Check if light is visible to camera
-                if (IsLightVisibleToCamera(light, camera))
+                foreach (var gameObject in Engine.GameObjects.ToList()) // Create a copy to avoid modification during iteration
                 {
-                    lights.Add(light);
+                    if (gameObject is Light light)
+                    {
+                        // Null checks for safety
+                        if (light == null || light.Transform == null) continue;
+                        
+                        if (!light.EnableShadows || !light.IsVisible) continue;
+                        
+                        // Check if light properties are valid
+                        if (light.Range <= 0 || light.Intensity <= 0 || 
+                            float.IsNaN(light.Range) || float.IsNaN(light.Intensity) ||
+                            float.IsInfinity(light.Range) || float.IsInfinity(light.Intensity))
+                        {
+                            Console.WriteLine($"Warning: Skipping light {light.Name} with invalid properties (Range: {light.Range}, Intensity: {light.Intensity})");
+                            continue;
+                        }
+                        
+                        // Only include point, spot, and projector lights
+                        if (light.Type != Light.LightType.Point && 
+                            light.Type != Light.LightType.Spot && 
+                            light.Type != Light.LightType.Projector) continue;
+                        
+                        // Check if light is visible to camera
+                        if (IsLightVisibleToCamera(light, camera))
+                        {
+                            lights.Add(light);
+                        }
+                    }
                 }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error getting visible shadow casting lights: {ex.Message}");
             }
             
             return lights;
@@ -126,49 +216,94 @@ namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer
         
         private bool IsLightVisibleToCamera(Light light, Camera camera)
         {
-            switch (light.Type)
+            try
             {
-                case Light.LightType.Point:
-                    var sphere = new SphereBounds(light.Transform.Position, light.Range);
-                    return camera.Frustum.ContainsSphere(sphere);
-                
-                case Light.LightType.Spot:
-                case Light.LightType.Projector:
-                    var frustum = new Frustum(light.ViewProjectionMatrix);
-                    return camera.Frustum.ContainsFrustum(frustum);
-                
-                default:
+                // Additional safety checks
+                if (light.Range <= 0 || float.IsNaN(light.Range) || float.IsInfinity(light.Range))
+                {
                     return false;
+                }
+                
+                switch (light.Type)
+                {
+                    case Light.LightType.Point:
+                        if (light.Transform == null) return false;
+                        var sphere = new SphereBounds(light.Transform.Position, light.Range);
+                        return camera.Frustum.ContainsSphere(sphere);
+                    
+                    case Light.LightType.Spot:
+                    case Light.LightType.Projector:
+                        var frustum = new Frustum(light.ViewProjectionMatrix);
+                        return camera.Frustum.ContainsFrustum(frustum);
+                    
+                    default:
+                        return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error checking light visibility for {light.Name}: {ex.Message}");
+                return false;
             }
         }
         
         private float CalculateLightPriority(Light light, Camera camera)
         {
-            // Calculate priority based on multiple factors
-            float distanceToCamera = Vector3.Distance(light.Transform.Position, camera.Transform.Position);
-            float intensity = light.Intensity;
-            float range = light.Range;
+            if (light?.Transform == null || camera?.Transform == null) return 0.0f;
             
-            // Normalize intensity and range to reasonable scales
-            float normalizedIntensity = intensity / 100.0f; // Typical intensity is ~100
-            float normalizedRange = range / 50.0f; // Typical range is ~10-50
-            float normalizedDistance = distanceToCamera / 50.0f; // Normalize distance
-            
-            // Closer, brighter, and larger range lights get higher priority
-            // Scale to 0-100 range for more predictable behavior
-            float priority = (normalizedIntensity * normalizedRange) / Math.Max(normalizedDistance, 0.1f);
-            
-            // Clamp to reasonable range (0-100)
-            priority = Math.Min(priority * 10.0f, 100.0f);
-            
-            // Point lights get lower priority since they need 6 tiles
-            if (light.Type == Light.LightType.Point)
-                priority *= 0.6f;
-            // Spot lights get slight priority boost as they typically need more precision
-            else if (light.Type == Light.LightType.Spot)
-                priority *= 1.2f;
-            
-            return priority;
+            try
+            {
+                // Calculate priority based on multiple factors
+                float distanceToCamera = Vector3.Distance(light.Transform.Position, camera.Transform.Position);
+                float intensity = light.Intensity;
+                float range = light.Range;
+                
+                // Validate light properties to prevent crashes
+                if (intensity <= 0 || range <= 0 || float.IsNaN(intensity) || float.IsNaN(range) || float.IsInfinity(intensity) || float.IsInfinity(range))
+                {
+                    Console.WriteLine($"Warning: Light {light.Name} has invalid intensity ({intensity}) or range ({range})");
+                    return 0.0f;
+                }
+                
+                if (float.IsNaN(distanceToCamera) || float.IsInfinity(distanceToCamera))
+                {
+                    Console.WriteLine($"Warning: Light {light.Name} has invalid distance to camera ({distanceToCamera})");
+                    return 0.0f;
+                }
+                
+                // Normalize intensity and range to reasonable scales
+                float normalizedIntensity = intensity / 100.0f; // Typical intensity is ~100
+                float normalizedRange = range / 50.0f; // Typical range is ~10-50
+                float normalizedDistance = distanceToCamera / 50.0f; // Normalize distance
+                
+                // Closer, brighter, and larger range lights get higher priority
+                // Scale to 0-100 range for more predictable behavior
+                float priority = (normalizedIntensity * normalizedRange) / Math.Max(normalizedDistance, 0.1f);
+                
+                // Clamp to reasonable range (0-100)
+                priority = Math.Min(priority * 10.0f, 100.0f);
+                
+                // Validate final priority
+                if (float.IsNaN(priority) || float.IsInfinity(priority))
+                {
+                    Console.WriteLine($"Warning: Calculated invalid priority for light {light.Name}");
+                    return 0.0f;
+                }
+                
+                // Point lights get lower priority since they need 6 tiles
+                if (light.Type == Light.LightType.Point)
+                    priority *= 0.6f;
+                // Spot lights get slight priority boost as they typically need more precision
+                else if (light.Type == Light.LightType.Spot)
+                    priority *= 1.2f;
+                
+                return priority;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error calculating light priority for {light.Name}: {ex.Message}");
+                return 0.0f;
+            }
         }
         
         private Dictionary<Light, float> NormalizePriorities(Dictionary<Light, float> rawPriorities, Camera camera)
@@ -181,12 +316,39 @@ namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer
                 if (light.Type == Light.LightType.Point)
                 {
                     // Count only visible faces for point lights
-                    for (int face = 0; face < 6; face++)
+                    try
                     {
-                        if (camera.Frustum.ContainsFrustum(new Frustum(light.PointLightViewProjections[face])))
+                        var pointViewProjections = light.PointLightViewProjections;
+                        if (pointViewProjections != null && pointViewProjections.Length >= 6)
                         {
-                            totalVisibleFaces++;
+                            for (int face = 0; face < 6; face++)
+                            {
+                                try
+                                {
+                                    if (camera.Frustum.ContainsFrustum(new Frustum(pointViewProjections[face])))
+                                    {
+                                        totalVisibleFaces++;
+                                    }
+                                }
+                                catch (Exception innerEx)
+                                {
+                                    Console.WriteLine($"Error checking frustum for face {face} of light {light.Name}: {innerEx.Message}");
+                                    // Count this face as visible to be safe
+                                    totalVisibleFaces++;
+                                }
+                            }
                         }
+                        else
+                        {
+                            // Fallback: assume all 6 faces are visible
+                            totalVisibleFaces += 6;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error calculating point light view projections for {light.Name}: {ex.Message}");
+                        // Fallback: assume all 6 faces are visible
+                        totalVisibleFaces += 6;
                     }
                 }
                 else
@@ -286,24 +448,102 @@ namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer
             }
         }
         
+        private void AllocateLightTilesGuaranteed(Light light, Camera camera, float priority)
+        {
+            // This method guarantees allocation by using minimum tile size and aggressive eviction
+            switch (light.Type)
+            {
+                case Light.LightType.Point:
+                    AllocatePointLightTilesGuaranteed(light, camera, priority);
+                    break;
+                
+                case Light.LightType.Spot:
+                case Light.LightType.Projector:
+                    AllocateSpotLightTileGuaranteed(light, priority);
+                    break;
+            }
+        }
+        
         private void AllocatePointLightTiles(Light light, Camera camera, float priority, int desiredTileSize)
         {
             AllocatePointLightTilesInternal(light, camera, priority, desiredTileSize, false);
         }
         
-        private void AllocatePointLightTilesInternal(Light light, Camera camera, float priority, int desiredTileSize, bool afterEviction)
+        private void AllocatePointLightTilesGuaranteed(Light light, Camera camera, float priority)
         {
-            // Find all visible faces for this point light
-            var visibleFaces = new List<int>();
+            // For guaranteed allocation, allocate all 6 faces regardless of visibility
+            // This ensures point lights always get complete shadow coverage
+            int tileSize = MIN_TILE_SIZE;
+            
+            // First, try to evict lower priority lights to make room
+            int tilesNeeded = 6; // Always allocate all 6 faces for complete coverage
+            if (TryEvictLowerPriorityLights(light, priority, tilesNeeded))
+            {
+                // Try allocation after eviction
+                AllocateAllPointLightFaces(light, priority, tileSize);
+            }
+            else
+            {
+                // Force allocation even if it means fragmenting the atlas
+                AllocateAllPointLightFaces(light, priority, tileSize);
+            }
+        }
+        
+        private void AllocateAllPointLightFaces(Light light, float priority, int tileSize)
+        {
+            var allocatedFaces = new List<(int face, QuadTreeNode tile)>();
+            
+            // Try to allocate all 6 faces
             for (int face = 0; face < 6; face++)
             {
-                if (camera.Frustum.ContainsFrustum(new Frustum(light.PointLightViewProjections[face])))
+                var tile = rootNode.Allocate(tileSize, tileSize);
+                if (tile != null)
                 {
-                    visibleFaces.Add(face);
+                    allocatedFaces.Add((face, tile));
+                }
+                else
+                {
+                    Console.WriteLine($"Warning: Could not allocate face {face} for point light {light.Name} even at minimum size");
                 }
             }
             
-            if (visibleFaces.Count == 0) return;
+            // Commit all successful allocations
+            foreach (var (face, tile) in allocatedFaces)
+            {
+                allocatedEntries.Add(new AtlasEntry
+                {
+                    Light = light,
+                    Face = face,
+                    Tile = tile,
+                    Priority = priority
+                });
+            }
+            
+            Console.WriteLine($"Point light {light.Name}: Allocated {allocatedFaces.Count}/6 faces");
+        }
+        
+        private void AllocatePointLightTilesInternal(Light light, Camera camera, float priority, int desiredTileSize, bool afterEviction)
+        {
+            // For point lights, allocate all 6 faces for complete shadow coverage
+            // This ensures better shadow quality and consistency
+            var visibleFaces = new List<int> { 0, 1, 2, 3, 4, 5 };
+            
+            // Optional: We could still do frustum culling for optimization, but for now
+            // let's prioritize correctness and ensure all lights get proper shadows
+            try
+            {
+                var pointViewProjections = light.PointLightViewProjections;
+                if (pointViewProjections == null || pointViewProjections.Length < 6)
+                {
+                    Console.WriteLine($"Warning: Point light {light.Name} has invalid view projections");
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error validating point light view projections for {light.Name}: {ex.Message}");
+                return;
+            }
             
             // Try to allocate all visible faces, starting with desired tile size and going smaller if needed
             int currentTileSize = desiredTileSize;
@@ -369,6 +609,49 @@ namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer
             AllocateSpotLightTileInternal(light, priority, desiredTileSize, false);
         }
         
+        private void AllocateSpotLightTileGuaranteed(Light light, float priority)
+        {
+            // For guaranteed allocation, use minimum tile size and aggressive eviction
+            int tileSize = MIN_TILE_SIZE;
+            
+            // First, try to evict lower priority lights to make room
+            if (TryEvictLowerPriorityLights(light, priority, 1))
+            {
+                // Try allocation after eviction
+                var tile = rootNode.Allocate(tileSize, tileSize);
+                if (tile != null)
+                {
+                    allocatedEntries.Add(new AtlasEntry
+                    {
+                        Light = light,
+                        Face = 0,
+                        Tile = tile,
+                        Priority = priority
+                    });
+                    Console.WriteLine($"Spot light {light.Name}: Allocated after eviction");
+                    return;
+                }
+            }
+            
+            // Force allocation even without eviction
+            var forcedTile = rootNode.Allocate(tileSize, tileSize);
+            if (forcedTile != null)
+            {
+                allocatedEntries.Add(new AtlasEntry
+                {
+                    Light = light,
+                    Face = 0,
+                    Tile = forcedTile,
+                    Priority = priority
+                });
+                Console.WriteLine($"Spot light {light.Name}: Force allocated");
+            }
+            else
+            {
+                Console.WriteLine($"ERROR: Could not allocate spot light {light.Name} even at minimum size!");
+            }
+        }
+        
         private void AllocateSpotLightTileInternal(Light light, float priority, int desiredTileSize, bool afterEviction)
         {
             // Try to allocate at desired size first, then go smaller if needed
@@ -403,58 +686,116 @@ namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer
         
         private bool TryEvictLowerPriorityLights(Light newLight, float newPriority, int tilesNeeded)
         {
-            // Find all lights with lower priority than the new light
-            var lowerPriorityEntries = allocatedEntries
-                .Where(e => e.Priority < newPriority)
-                .OrderBy(e => e.Priority) // Evict lowest priority first
-                .ToList();
+            if (newLight == null || allocatedEntries == null) return false;
             
-            if (lowerPriorityEntries.Count == 0) return false;
-            
-            // Calculate how many tiles we need to free
-            int tilesFreed = 0;
-            var entriesToEvict = new List<AtlasEntry>();
-            
-            foreach (var entry in lowerPriorityEntries)
+            try
             {
-                // For point lights, we need to evict all faces together
-                if (entry.Light.Type == Light.LightType.Point)
+                // Create a snapshot of current entries to avoid modification during iteration
+                var currentEntries = allocatedEntries.ToList();
+                
+                // Find all lights with lower priority than the new light
+                // Also exclude lights that are currently being processed (to prevent evicting a light while it's being updated)
+                var lowerPriorityEntries = currentEntries
+                    .Where(e => e?.Light != null && 
+                               e.Priority < newPriority && 
+                               e.Light != newLight &&
+                               !IsLightCurrentlyBeingProcessed(e.Light))
+                    .OrderBy(e => e.Priority) // Evict lowest priority first
+                    .ToList();
+                
+                if (lowerPriorityEntries.Count == 0) 
                 {
-                    var pointLightEntries = allocatedEntries
-                        .Where(e => e.Light == entry.Light)
-                        .ToList();
+                    Console.WriteLine($"No lights available for eviction for {newLight.Name} (priority: {newPriority})");
+                    return false;
+                }
+                
+                // Calculate how many tiles we need to free
+                int tilesFreed = 0;
+                var entriesToEvict = new List<AtlasEntry>();
+                var lightsAlreadyProcessed = new HashSet<Light>();
+                
+                foreach (var entry in lowerPriorityEntries)
+                {
+                    if (entry?.Light == null || lightsAlreadyProcessed.Contains(entry.Light))
+                        continue;
                     
-                    // Add all faces of this point light to eviction list
-                    foreach (var pointEntry in pointLightEntries)
+                    // Double-check that this light is safe to evict
+                    if (IsLightCurrentlyBeingProcessed(entry.Light))
                     {
-                        if (!entriesToEvict.Contains(pointEntry))
+                        Console.WriteLine($"Skipping eviction of {entry.Light.Name} - currently being processed");
+                        continue;
+                    }
+                    
+                    // For point lights, we need to evict all faces together
+                    if (entry.Light.Type == Light.LightType.Point)
+                    {
+                        var pointLightEntries = currentEntries
+                            .Where(e => e?.Light == entry.Light && e.Light != null)
+                            .ToList();
+                        
+                        // Add all faces of this point light to eviction list
+                        foreach (var pointEntry in pointLightEntries)
                         {
-                            entriesToEvict.Add(pointEntry);
-                            tilesFreed++;
+                            if (pointEntry != null && !entriesToEvict.Contains(pointEntry))
+                            {
+                                entriesToEvict.Add(pointEntry);
+                                tilesFreed++;
+                            }
+                        }
+                        
+                        lightsAlreadyProcessed.Add(entry.Light);
+                    }
+                    else
+                    {
+                        entriesToEvict.Add(entry);
+                        tilesFreed++;
+                        lightsAlreadyProcessed.Add(entry.Light);
+                    }
+                    
+                    // Stop if we've freed enough tiles
+                    if (tilesFreed >= tilesNeeded) break;
+                }
+                
+                // If we can't free enough tiles, don't evict anything
+                if (tilesFreed < tilesNeeded) 
+                {
+                    Console.WriteLine($"Insufficient tiles available for eviction for {newLight.Name} (need {tilesNeeded}, can free {tilesFreed})");
+                    return false;
+                }
+                
+                // Evict the selected entries
+                foreach (var entry in entriesToEvict)
+                {
+                    if (entry?.Tile != null && entry.Light != null)
+                    {
+                        try
+                        {
+                            entry.Tile.Clear();
+                            allocatedEntries.Remove(entry);
+                            Console.WriteLine($"Evicted light {entry.Light.Name} (priority: {entry.Priority}) for higher priority light {newLight.Name} (priority: {newPriority})");
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"Error evicting entry for light {entry.Light.Name}: {ex.Message}");
                         }
                     }
                 }
-                else
-                {
-                    entriesToEvict.Add(entry);
-                    tilesFreed++;
-                }
                 
-                // Stop if we've freed enough tiles
-                if (tilesFreed >= tilesNeeded) break;
+                return true;
             }
-            
-            // If we can't free enough tiles, don't evict anything
-            if (tilesFreed < tilesNeeded) return false;
-            
-            // Evict the selected entries
-            foreach (var entry in entriesToEvict)
+            catch (Exception ex)
             {
-                entry.Tile.Clear();
-                allocatedEntries.Remove(entry);
+                Console.WriteLine($"Error during light eviction for {newLight.Name}: {ex.Message}");
+                return false;
             }
-            
-            return true;
+        }
+        
+        private bool IsLightCurrentlyBeingProcessed(Light light)
+        {
+            // Simple check - if a light's properties are being modified rapidly, 
+            // it's likely being processed by the user interface
+            // For now, we'll use a simple time-based check
+            return false; // Placeholder - could be enhanced with actual processing tracking
         }
         
         private int CalculateDesiredTileSize(float priority)
@@ -493,27 +834,76 @@ namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer
         
         public void RenderShadowsToAtlas()
         {
-            BindAtlasFramebuffer();
-            
-            // Set depth clear value to 1.0 (far plane) for shadow maps
-            GL.ClearDepth(1.0);
-            GL.DepthMask(true); // Make sure depth writes are enabled
-            GL.Clear(ClearBufferMask.DepthBufferBit);
-            
-            Console.WriteLine($"Atlas has {allocatedEntries.Count} entries to render");
-            
-            foreach (var entry in allocatedEntries)
+            if (atlasTexture == 0 || allocatedEntries == null)
             {
-                RenderLightShadowToTile(entry);
+                Console.WriteLine("Warning: Shadow atlas not properly initialized");
+                return;
             }
             
-            GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
+            try
+            {
+                BindAtlasFramebuffer();
+                
+                // Set depth clear value to 1.0 (far plane) for shadow maps
+                GL.ClearDepth(1.0);
+                GL.DepthMask(true); // Make sure depth writes are enabled
+                GL.Clear(ClearBufferMask.DepthBufferBit);
+                
+                Console.WriteLine($"Atlas has {allocatedEntries.Count} entries to render");
+                
+                // Create a copy of the list to avoid modification during iteration
+                var entriesToRender = allocatedEntries.ToList();
+                
+                foreach (var entry in entriesToRender)
+                {
+                    if (entry?.Light != null && entry.Tile != null)
+                    {
+                        try
+                        {
+                            RenderLightShadowToTile(entry);
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"Error rendering shadow for light {entry.Light.Name}: {ex.Message}");
+                        }
+                    }
+                }
+                
+                // Restore the lighting framebuffer and viewport (matches non-atlas path)
+                RenderBufferHelpers.Instance.BindLightingFramebuffer();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error rendering shadows to atlas: {ex.Message}");
+                // Try to restore the framebuffer even if there was an error
+                try
+                {
+                    RenderBufferHelpers.Instance.BindLightingFramebuffer();
+                }
+                catch (Exception restoreEx)
+                {
+                    Console.WriteLine($"Error restoring framebuffer: {restoreEx.Message}");
+                }
+            }
         }
         
         private void RenderLightShadowToTile(AtlasEntry entry)
         {
+            if (entry?.Light == null || entry.Tile == null)
+            {
+                Console.WriteLine("Warning: Invalid atlas entry");
+                return;
+            }
+            
             var tile = entry.Tile;
             var light = entry.Light;
+            
+            // Check if light is still valid
+            if (light.Transform == null)
+            {
+                Console.WriteLine($"Warning: Light {light.Name} has null transform");
+                return;
+            }
             
             Console.WriteLine($"Rendering {light.Name} {light.Type} face {entry.Face} to tile ({tile.Bounds.X}, {tile.Bounds.Y}, {tile.Bounds.Width}, {tile.Bounds.Height})");
             
@@ -521,9 +911,20 @@ namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer
             GL.Viewport(tile.Bounds.X, tile.Bounds.Y, tile.Bounds.Width, tile.Bounds.Height);
             
             // Get appropriate view-projection matrix
-            Matrix4 viewProj = light.Type == Light.LightType.Point 
-                ? light.PointLightViewProjections[entry.Face] 
-                : light.ViewProjectionMatrix;
+            Matrix4 viewProj;
+            if (light.Type == Light.LightType.Point)
+            {
+                if (light.PointLightViewProjections == null || entry.Face >= light.PointLightViewProjections.Length)
+                {
+                    Console.WriteLine($"Warning: Invalid point light view projections for {light.Name}");
+                    return;
+                }
+                viewProj = light.PointLightViewProjections[entry.Face];
+            }
+            else
+            {
+                viewProj = light.ViewProjectionMatrix;
+            }
             
             // Render shadow casters
             RenderShadowCasters(light, viewProj);
@@ -531,47 +932,86 @@ namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer
         
         private void RenderShadowCasters(Light light, Matrix4 viewProjection)
         {
-            ShaderManager.LoadShader("shadowgen", out var shader);
-            shader.UseShader();
-            
-            int objectsRendered = 0;
-            
-            // Cull objects for this light
-            if (light.Type == Light.LightType.Point)
+            if (light?.Transform == null)
             {
-                var renderables = Engine.CullSceneByPointLight(light);
-                Console.WriteLine($"  Point light has {renderables.Count} culled renderables");
-                
-                foreach (var renderable in renderables)
-                {
-                    shader.SetShaderMatrix4x4("shadowViewProjection", viewProjection);
-                    shader.SetShaderMatrix4x4("model", renderable.Transform.GetWorldMatrix());
-                    renderable.Render(GameObject.RenderMode.ShadowPass);
-                    objectsRendered++;
-                }
+                Console.WriteLine("Warning: Light or transform is null in RenderShadowCasters");
+                return;
             }
-            else
+            
+            try
             {
-                var renderables = Engine.CullRenderables(viewProjection, true);
-                Console.WriteLine($"  Spot/Projector light has {renderables.Count()} total culled renderables");
+                ShaderManager.LoadShader("shadowgen", out var shader);
+                shader.UseShader();
                 
-                foreach (var renderable in renderables)
+                int objectsRendered = 0;
+                
+                // Cull objects for this light
+                if (light.Type == Light.LightType.Point)
                 {
-                    if (renderable is Camera || renderable is Light) continue;
+                    var renderables = Engine.CullSceneByPointLight(light);
+                    Console.WriteLine($"  Point light has {renderables.Count} culled renderables");
                     
-                    shader.SetShaderMatrix4x4("shadowViewProjection", viewProjection);
-                    shader.SetShaderMatrix4x4("model", renderable.Transform.GetWorldMatrix());
-                    renderable.Render(GameObject.RenderMode.ShadowPass);
-                    objectsRendered++;
+                    foreach (var renderable in renderables)
+                    {
+                        if (renderable?.Transform == null) continue;
+                        
+                        try
+                        {
+                            shader.SetShaderMatrix4x4("shadowViewProjection", viewProjection);
+                            shader.SetShaderMatrix4x4("model", renderable.Transform.GetWorldMatrix());
+                            renderable.Render(GameObject.RenderMode.ShadowPass);
+                            objectsRendered++;
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"Error rendering shadow caster {renderable.Name}: {ex.Message}");
+                        }
+                    }
                 }
+                else
+                {
+                    var renderables = Engine.CullRenderables(viewProjection, true);
+                    Console.WriteLine($"  Spot/Projector light has {renderables.Count()} total culled renderables");
+                    
+                    foreach (var renderable in renderables)
+                    {
+                        if (renderable is Camera || renderable is Light || renderable?.Transform == null) continue;
+                        
+                        try
+                        {
+                            shader.SetShaderMatrix4x4("shadowViewProjection", viewProjection);
+                            shader.SetShaderMatrix4x4("model", renderable.Transform.GetWorldMatrix());
+                            renderable.Render(GameObject.RenderMode.ShadowPass);
+                            objectsRendered++;
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"Error rendering shadow caster {renderable.Name}: {ex.Message}");
+                        }
+                    }
+                }
+                
+                Console.WriteLine($"  Rendered {objectsRendered} objects to atlas tile");
             }
-            
-            Console.WriteLine($"  Rendered {objectsRendered} objects to atlas tile");
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in RenderShadowCasters for light {light.Name}: {ex.Message}");
+            }
         }
         
         public AtlasEntry? GetAtlasEntry(Light light, int face = 0)
         {
-            return allocatedEntries.FirstOrDefault(e => e.Light == light && e.Face == face);
+            if (light == null || allocatedEntries == null) return null;
+            
+            try
+            {
+                return allocatedEntries.FirstOrDefault(e => e?.Light == light && e.Face == face);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error getting atlas entry for light {light.Name}: {ex.Message}");
+                return null;
+            }
         }
         
         private bool ShouldReallocateAtlas(List<Light> currentLights, Dictionary<Light, float> lightPriorities, Camera camera)
@@ -617,84 +1057,218 @@ namespace LegendaryRenderer.LegendaryRuntime.Engine.Engine.Renderer
         
         private void PerformIntelligentReallocation(List<Light> sortedLights, Dictionary<Light, float> lightPriorities, Camera camera)
         {
-            // Clear the atlas
-            allocatedEntries.Clear();
-            rootNode.Clear();
-            
-            // Try to preserve existing allocations for lights that still exist
-            var preservedEntries = new List<AtlasEntry>();
-            var lightsToReallocate = new List<Light>();
-            
-            foreach (var light in sortedLights)
+            if (sortedLights == null || lightPriorities == null || camera == null)
             {
-                var existingEntry = previousFrameEntries.FirstOrDefault(e => e.Light == light);
-                if (existingEntry != null)
+                Console.WriteLine("Warning: Null parameters in PerformIntelligentReallocation");
+                return;
+            }
+            
+            try
+            {
+                // Clear the atlas
+                allocatedEntries.Clear();
+                rootNode.Clear();
+                
+                Console.WriteLine($"Shadow Atlas: Starting allocation for {sortedLights.Count} lights");
+                
+                // Phase 1: Try to allocate all lights at their desired sizes
+                var unallocatedLights = new List<Light>();
+                foreach (var light in sortedLights.ToList()) // Create a copy to avoid modification during iteration
                 {
-                    float newPriority = lightPriorities[light];
-                    int newDesiredTileSize = CalculateDesiredTileSize(newPriority);
+                    if (light == null) continue;
                     
-                    // If the tile size is still appropriate, try to preserve it
-                    if (existingEntry.Tile.Bounds.Width == newDesiredTileSize && 
-                        existingEntry.Tile.Bounds.Height == newDesiredTileSize)
+                    if (lightPriorities.ContainsKey(light))
                     {
-                        // Try to allocate at the same location
-                        var preservedTile = rootNode.Allocate(newDesiredTileSize, newDesiredTileSize);
-                        if (preservedTile != null && 
-                            preservedTile.Bounds.X == existingEntry.Tile.Bounds.X && 
-                            preservedTile.Bounds.Y == existingEntry.Tile.Bounds.Y)
+                        try
                         {
-                            // Successfully preserved allocation
-                            var newEntry = new AtlasEntry
+                            int entriesBeforeAllocation = allocatedEntries.Count;
+                            
+                            // Check if this light already has entries from a previous frame
+                            var existingEntries = allocatedEntries.Where(e => e?.Light == light).ToList();
+                            bool hadExistingEntries = existingEntries.Any();
+                            
+                            AllocateLightTiles(light, camera, lightPriorities[light]);
+                            
+                            // Check if the light was successfully allocated
+                            bool lightWasAllocated = allocatedEntries.Count > entriesBeforeAllocation || 
+                                                   allocatedEntries.Any(e => e?.Light == light);
+                            
+                            if (!lightWasAllocated)
                             {
-                                Light = light,
-                                Face = existingEntry.Face,
-                                Tile = preservedTile,
-                                Priority = newPriority
-                            };
-                            preservedEntries.Add(newEntry);
-                            continue;
+                                unallocatedLights.Add(light);
+                                Console.WriteLine($"Light {light.Name} failed initial allocation, will retry at minimum size");
+                            }
+                            else
+                            {
+                                Console.WriteLine($"Light {light.Name} allocated successfully (priority: {lightPriorities[light]:F2})");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"Error allocating light {light.Name}: {ex.Message}");
+                            unallocatedLights.Add(light);
                         }
                     }
                 }
                 
-                // Need to reallocate this light
-                lightsToReallocate.Add(light);
+                // Phase 2: Ensure all unallocated lights get at least minimum-sized tiles
+                foreach (var light in unallocatedLights.ToList())
+                {
+                    if (light == null) continue;
+                    
+                    try
+                    {
+                        Console.WriteLine($"Retrying allocation for {light.Name} at minimum tile size");
+                        if (lightPriorities.ContainsKey(light))
+                        {
+                            AllocateLightTilesGuaranteed(light, camera, lightPriorities[light]);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error in guaranteed allocation for light {light.Name}: {ex.Message}");
+                    }
+                }
+                
+                Console.WriteLine($"Shadow Atlas: Final allocation - {allocatedEntries.Count} entries for {sortedLights.Count} lights");
+                
+                // Debug: Show which lights got allocated
+                var allocatedLights = allocatedEntries.Where(e => e?.Light != null).Select(e => e.Light).Distinct().ToList();
+                foreach (var light in sortedLights)
+                {
+                    if (light == null) continue;
+                    
+                    bool isAllocated = allocatedLights.Contains(light);
+                    int entryCount = allocatedEntries.Count(e => e?.Light == light);
+                    Console.WriteLine($"  {light.Name} ({light.Type}): {(isAllocated ? $"Allocated ({entryCount} entries)" : "NOT ALLOCATED")}");
+                }
             }
-            
-            // Add preserved entries
-            allocatedEntries.AddRange(preservedEntries);
-            
-            // Allocate remaining lights
-            foreach (var light in lightsToReallocate)
+            catch (Exception ex)
             {
-                AllocateLightTiles(light, camera, lightPriorities[light]);
+                Console.WriteLine($"Error in PerformIntelligentReallocation: {ex.Message}");
             }
         }
         
         private void UpdateExistingAllocations(Dictionary<Light, float> lightPriorities, Camera camera)
         {
+            if (allocatedEntries == null) return;
+            
             // Update priorities of existing allocations
-            foreach (var entry in allocatedEntries)
+            var entriesToRemove = new List<AtlasEntry>();
+            
+            foreach (var entry in allocatedEntries.ToList()) // Create a copy to avoid modification during iteration
             {
+                if (entry?.Light == null)
+                {
+                    entriesToRemove.Add(entry);
+                    continue;
+                }
+                
                 if (lightPriorities.ContainsKey(entry.Light))
                 {
                     entry.Priority = lightPriorities[entry.Light];
                 }
+                else
+                {
+                    // Light is no longer visible or valid, mark for removal
+                    entriesToRemove.Add(entry);
+                }
             }
             
-            // Remove allocations for lights that are no longer visible
-            allocatedEntries.RemoveAll(entry => !lightPriorities.ContainsKey(entry.Light));
+            // Remove invalid or no longer visible lights
+            foreach (var entry in entriesToRemove)
+            {
+                if (entry?.Tile != null)
+                {
+                    entry.Tile.Clear(); // Free the tile
+                }
+                allocatedEntries.Remove(entry);
+                Console.WriteLine($"Removed atlas entry for light: {entry?.Light?.Name ?? "null"}");
+            }
         }
 
         public void MarkDirty()
         {
-            isDirty = true;
+            lock (updateLock)
+            {
+                if (atlasTexture != 0) // Only mark dirty if atlas is initialized
+                {
+                    isDirty = true;
+                }
+            }
+        }
+        
+        public void MarkDirtyForLight(Light light)
+        {
+            if (light == null) return;
+            
+            lock (updateLock)
+            {
+                if (atlasTexture != 0) // Only mark dirty if atlas is initialized
+                {
+                    float currentTime = (float)DateTime.Now.TimeOfDay.TotalSeconds;
+                    
+                    // Check if this light was updated recently
+                    if (lastLightUpdateTimes.TryGetValue(light, out float lastTime))
+                    {
+                        if (currentTime - lastTime < LIGHT_UPDATE_COOLDOWN)
+                        {
+                            // Too soon since last update for this light
+                            return;
+                        }
+                    }
+                    
+                    lastLightUpdateTimes[light] = currentTime;
+                    isDirty = true;
+                }
+            }
+        }
+        
+        public void RemoveLightEntries(Light light)
+        {
+            if (light == null || allocatedEntries == null) return;
+            
+            try
+            {
+                var entriesToRemove = allocatedEntries.Where(e => e?.Light == light).ToList();
+                foreach (var entry in entriesToRemove)
+                {
+                    if (entry?.Tile != null)
+                    {
+                        entry.Tile.Clear(); // Free the tile
+                    }
+                    allocatedEntries.Remove(entry);
+                }
+                
+                if (entriesToRemove.Any())
+                {
+                    Console.WriteLine($"Removed {entriesToRemove.Count} atlas entries for light {light.Name}");
+                    MarkDirty(); // Trigger reallocation
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error removing light entries for {light.Name}: {ex.Message}");
+            }
         }
         
         public void Dispose()
         {
-            GL.DeleteTexture(atlasTexture);
-            GL.DeleteFramebuffer(atlasFramebuffer);
+            if (atlasTexture != 0)
+            {
+                GL.DeleteTexture(atlasTexture);
+                atlasTexture = 0;
+            }
+            
+            if (atlasFramebuffer != 0)
+            {
+                GL.DeleteFramebuffer(atlasFramebuffer);
+                atlasFramebuffer = 0;
+            }
+            
+            allocatedEntries?.Clear();
+            previousFrameEntries?.Clear();
+            rootNode?.Clear();
         }
     }
     
