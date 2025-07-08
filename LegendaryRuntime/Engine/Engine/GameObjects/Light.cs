@@ -39,7 +39,7 @@ public class Light : GameObject
                         {
                             if (Engine.ShadowAtlas != null)
                             {
-                                Engine.ShadowAtlas.MarkDirty();
+                                Engine.ShadowAtlas.MarkDirtyForLight(this);
                             }
                         }
                         catch (Exception ex)
